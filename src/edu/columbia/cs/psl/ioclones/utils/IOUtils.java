@@ -9,9 +9,11 @@ import java.util.Set;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-public class LoadUtils {
+import com.thoughtworks.xstream.XStream;
+
+public class IOUtils {
 	
-	private static Logger logger = LogManager.getLogger(LoadUtils.class);
+	private static Logger logger = LogManager.getLogger(IOUtils.class);
 	
 	public static Set<String> blackPrefix() {
 		Set<String> ret = new HashSet<String>();
@@ -33,5 +35,12 @@ public class LoadUtils {
 		
 		return ret;
 	}
-
+	
+	public static Object newObject(Object obj) {
+		XStream xstream = new XStream();
+		String objString = xstream.toXML(obj);
+		//System.out.println("objString: " + objString);
+		Object newObj = xstream.fromXML(objString);
+		return newObj;
+	}
 }

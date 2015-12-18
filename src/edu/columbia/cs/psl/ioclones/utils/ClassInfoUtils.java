@@ -10,7 +10,7 @@ public class ClassInfoUtils {
 	
 	public static final String DELIM = "-";
 	
-	private static final Set<String> BLACK_PREFIX = LoadUtils.blackPrefix();
+	private static final Set<String> BLACK_PREFIX = IOUtils.blackPrefix();
 	
 	public static String cleanType(String typeString) {
 		//return typeString.replace("/", ClassUtils.RE_SLASH).replace(";", "");

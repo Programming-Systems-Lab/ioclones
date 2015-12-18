@@ -14,7 +14,7 @@ import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.util.CheckClassAdapter;
 
 import edu.columbia.cs.psl.ioclones.utils.ClassInfoUtils;
-import edu.columbia.cs.psl.ioclones.utils.LoadUtils;
+import edu.columbia.cs.psl.ioclones.utils.IOUtils;
 
 public class IOCloneTransformer implements ClassFileTransformer {
 	

@@ -2,8 +2,11 @@ package edu.columbia.cs.psl.ioclones.pojo;
 
 import java.util.List;
 import java.util.ArrayList;
+import java.util.LinkedList;
 
 import edu.columbia.cs.psl.ioclones.utils.GlobalInfoRecorder;
+import edu.columbia.cs.psl.ioclones.utils.IOUtils;
+import example.MyObject;
 
 public class IORecord {
 	
@@ -11,7 +14,7 @@ public class IORecord {
 	
 	private int id;
 	
-	List<Object> inputs = new ArrayList<Object>();
+	LinkedList<Object> inputs = new LinkedList<Object>();
 	
 	List<Object> outputs = new ArrayList<Object>();
 	
@@ -29,13 +32,45 @@ public class IORecord {
 		return this.id;
 	}
 	
-	public void registerInput(Object i) {
-		System.out.println("Register: " + i);
-		this.inputs.add(i);
+	public void registerInput(Object i, boolean ser) {
+		if (i == null) {
+			return ;
+		}
+		
+		Object insert = null;
+		if (ser) {
+			insert = IOUtils.newObject(i);
+		} else {
+			insert = i;
+		}
+		System.out.println("Register in: " + insert);
+		this.inputs.add(insert);
 	}
 	
-	public void registerOutput(Object o) {
-		this.outputs.add(o);
+	public void registerAndReplace(Object o, boolean ser, int removeNum) {
+		this.removeObjs(removeNum);
+		this.registerInput(o, ser);
+	}
+	
+	public void removeObjs(int removeNum) {
+		for (int i = 0; i < removeNum; i++) {
+			this.inputs.removeLast();
+		}
+	}
+	
+	public void registerOutput(Object o, boolean ser) {
+		if (o == null) {
+			return ;
+		}
+				
+		Object insert = null;
+		if (ser) {
+			insert = IOUtils.newObject(o);
+		} else {
+			insert = o;
+		}
+		System.out.println("Register out: " + insert);
+		this.outputs.add(insert);
 	}
 	
 	public List<Object> getInputs() {
@@ -49,23 +84,30 @@ public class IORecord {
 	public static void main(String[] args) {
 		IORecord io = new IORecord("a.b.c.method()");
 		int i = 5;
-		io.registerInput(i);
+		io.registerInput(i, false);
 		double d = 8;
-		io.registerInput(d);
+		io.registerInput(d, false);
 		char c = 'c';
-		io.registerInput(c);
+		io.registerInput(c, false);
 		short s = 3;
-		io.registerInput(s);
-		io.registerInput(0);
-		io.registerInput(-1);
+		io.registerInput(s, false);
+		io.registerInput(0, false);
+		io.registerInput(-1, false);
 		long l = 8;
-		io.registerInput(8l);
+		io.registerInput(8l, false);
 		float f = 3.0f;
-		io.registerInput(2.0f);
-		io.registerInput(32767);
+		io.registerInput(2.0f, false);
+		io.registerInput(32767, false);
+		io.registerInput(32768, false);
 		
 		byte b = (byte)'1';
-		io.registerInput(b);
+		io.registerInput(b, false);
+		
+		MyObject mo = new MyObject("test", 123);
+		io.registerInput(mo, true);
+		
+		boolean bl = false;
+		io.registerInput(bl, false);
 	}
 
 }
