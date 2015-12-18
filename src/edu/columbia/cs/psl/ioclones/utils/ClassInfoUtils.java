@@ -1,5 +1,7 @@
 package edu.columbia.cs.psl.ioclones.utils;
 
+import java.util.Set;
+
 import org.objectweb.asm.Type;
 
 public class ClassInfoUtils {
@@ -7,6 +9,8 @@ public class ClassInfoUtils {
 	public static final String RE_SLASH = ".";
 	
 	public static final String DELIM = "-";
+	
+	private static final Set<String> BLACK_PREFIX = LoadUtils.blackPrefix();
 	
 	public static String cleanType(String typeString) {
 		//return typeString.replace("/", ClassUtils.RE_SLASH).replace(";", "");
@@ -62,6 +66,16 @@ public class ClassInfoUtils {
 	
 	public static boolean checkAccess(int access, int mask) {
 		return ((access & mask) != 0);
+	}
+	
+	public static boolean shouldInstrument(String className) {
+		for (String b: BLACK_PREFIX) {
+			if (className.startsWith(b)) {
+				return false;
+			}
+		}
+		
+		return true;
 	}
 
 }
