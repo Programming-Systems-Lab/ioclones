@@ -47,6 +47,29 @@ public class IORecord {
 		this.inputs.add(insert);
 	}
 	
+	public void registerArrLoad(Object i, boolean ser) {
+		int ptr = this.inputs.size() - 1;
+		while (true) {
+			Object onInput = this.inputs.get(ptr);
+			this.inputs.remove(ptr--);
+			if (onInput.getClass().isArray()) {
+				break ;
+			}
+		}
+		
+		if (i == null) {
+			return ;
+		}
+		
+		Object insert = null;
+		if (ser) {
+			insert = IOUtils.newObject(i);
+		} else {
+			insert = i;
+		}
+		this.inputs.add(insert);
+	}
+	
 	public void registerAndReplace(Object o, boolean ser, int removeNum) {
 		this.removeObjs(removeNum);
 		this.registerInput(o, ser);

@@ -120,12 +120,10 @@ public class IOMethodObserver extends MethodVisitor {
 				this.mv.visitInsn(Opcodes.ICONST_0);
 			}
 			
-			//Remove array ref and arr index
-			this.mv.visitInsn(Opcodes.ICONST_2);
 			this.mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, 
 					Type.getInternalName(IORecord.class), 
-					"registerAndReplace", 
-					"(Ljava/lang/Object;ZI)V", 
+					"registerArrLoad", 
+					"(Ljava/lang/Object;Z)V", 
 					false);
 		} else if (BytecodeUtils.arrStore(opcode)) {
 			boolean ser = this.handleArr(opcode);
@@ -142,15 +140,7 @@ public class IOMethodObserver extends MethodVisitor {
 					"registerOutput", 
 					"(Ljava/lang/Object;Z)V", 
 					false);
-			
-			//Remove array ref, arr index, and val
-			this.mv.visitInsn(Opcodes.ICONST_3);
-			this.mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, 
-					Type.getInternalName(IORecord.class), 
-					"removeObjs", 
-					"(I)V", 
-					false);
-			
+						
 			this.mv.visitInsn(opcode);
 		} else if (BytecodeUtils.xreturn(opcode)) {
 			this.mv.visitVarInsn(Opcodes.ALOAD, this.recordId);
@@ -198,19 +188,7 @@ public class IOMethodObserver extends MethodVisitor {
 		if (BytecodeUtils.xload(opcode)) {
 			this.mv.visitVarInsn(opcode, var);
 			
-			boolean ser = false;
-			if (opcode == Opcodes.ILOAD) {
-				this.handlePrimitive(Integer.class);
-			} else if (opcode == Opcodes.FLOAD) {
-				this.handlePrimitive(Float.class);
-			} else if (opcode == Opcodes.LLOAD) {
-				this.handlePrimitive(Long.class);
-			} else if (opcode == Opcodes.DLOAD) {
-				this.handlePrimitive(Double.class);
-			} else if (opcode == Opcodes.ALOAD) {
-				this.mv.visitInsn(Opcodes.DUP);
-				ser = true;
-			}
+			boolean ser = this.handleLoadStore(opcode);
 			
 			this.mv.visitVarInsn(Opcodes.ALOAD, this.recordId);
 			this.mv.visitInsn(Opcodes.SWAP);
@@ -225,7 +203,24 @@ public class IOMethodObserver extends MethodVisitor {
 					"(Ljava/lang/Object;Z)V", 
 					false);
 		} else if (BytecodeUtils.xstore(opcode)) {
+			boolean ser = this.handleLoadStore(opcode);
 			
+			this.mv.visitVarInsn(Opcodes.ALOAD, this.recordId);
+			this.mv.visitInsn(Opcodes.SWAP);
+			if (ser) {
+				this.visitInsn(Opcodes.ICONST_1);
+			} else {
+				this.visitInsn(Opcodes.ICONST_0);
+			}
+			this.mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, 
+					Type.getInternalName(IORecord.class), 
+					"registerOutput", 
+					"(Ljava/lang/Object;Z)V", 
+					false);
+			
+			this.mv.visitVarInsn(opcode, var);
+		} else {
+			this.mv.visitVarInsn(opcode, var);
 		}
 	}
 	
@@ -259,10 +254,28 @@ public class IOMethodObserver extends MethodVisitor {
 						"(Ljava/lang/Object;ZI)V", 
 						false);
 			}
+		} else if (opcode == Opcodes.PUTFIELD || opcode == Opcodes.PUTSTATIC) {
+			Type fieldType = Type.getType(desc);
+			boolean ser = this.handleSort(fieldType);
+			
+			this.mv.visitVarInsn(Opcodes.ALOAD, this.recordId);
+			this.mv.visitInsn(Opcodes.SWAP);
+			if (ser) {
+				this.mv.visitInsn(Opcodes.ICONST_1);
+			} else {
+				this.mv.visitInsn(Opcodes.ICONST_0);
+			}
+			
+			//Think about putfield? What's the IO here?
+			this.mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, 
+					Type.getInternalName(IORecord.class), 
+					"registerOutput", 
+					"(Ljava/lang/Object;Z)V", 
+					false);
 		}
 	}
 	
-	@Override
+	/*@Override
 	public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
 		this.mv.visitMethodInsn(opcode, owner, name, desc, itf);
 		
@@ -287,6 +300,7 @@ public class IOMethodObserver extends MethodVisitor {
 					"(I)V", 
 					false);
 		} else {
+			//Static method is a problem here...
 			this.handleSort(ret);
 			
 			boolean ser = this.handleSort(ret);
@@ -305,7 +319,7 @@ public class IOMethodObserver extends MethodVisitor {
 					"(Ljava/lang/Object;ZI)V", 
 					false);
 		}
-	}
+	}*/
 	
 	private void convertToInst(int num) {
 		if (num == 1) {
