@@ -16,7 +16,7 @@ public class IOCloneTransformer implements ClassFileTransformer {
 	
 	private static final Logger logger = LogManager.getLogger(IOCloneTransformer.class);
 		
-	private static boolean DEBUG = true;
+	private static boolean DEBUG = false;
 	
 	@Override
 	public byte[] transform(ClassLoader loader, 

@@ -1,5 +1,6 @@
 package edu.columbia.cs.psl.ioclones.driver;
 
+import java.io.File;
 import java.lang.reflect.Method;
 
 import org.apache.logging.log4j.LogManager;
@@ -10,6 +11,8 @@ import edu.columbia.cs.psl.ioclones.utils.GlobalInfoRecorder;
 public class IODriver {
 	
 	private static final Logger logger = LogManager.getLogger(IODriver.class);
+	
+	private static final String iorepoDir = "./iorepo";
 	
 	public static void main(String args[]) {
 		for (int i = 0; i < args.length; i++) {
@@ -29,8 +32,13 @@ public class IODriver {
 			mainMethod.setAccessible(true);
 			mainMethod.invoke(null, (Object)newArgs);
 			
+			File iorepo = new File(iorepoDir);
+			if (!iorepo.exists()) {
+				iorepo.mkdir();
+			}
+			
 			logger.info("Reporting IOs");
-			GlobalInfoRecorder.showIOs();
+			GlobalInfoRecorder.reportIOs(iorepo.getCanonicalPath());
 		} catch (Exception ex) {
 			
 		}
