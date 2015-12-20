@@ -1,16 +1,23 @@
 package edu.columbia.cs.psl.ioclones.utils;
 
+import java.io.File;
 import java.util.Set;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.objectweb.asm.Type;
 
 public class ClassInfoUtils {
+	
+	private static final Logger logger = LogManager.getLogger(ClassInfoUtils.class);
 	
 	public static final String RE_SLASH = ".";
 	
 	public static final String DELIM = "-";
 	
 	private static final Set<String> BLACK_PREFIX = IOUtils.blackPrefix();
+	
+	private static final File libDir = new File("./lib");
 	
 	public static String cleanType(String typeString) {
 		//return typeString.replace("/", ClassUtils.RE_SLASH).replace(";", "");
@@ -76,6 +83,23 @@ public class ClassInfoUtils {
 		}
 		
 		return true;
+	}
+	
+	public static boolean checkProtectionDomain(String domainPath) {
+		File domainFile = new File(domainPath);
+		try {
+			String checkDir = domainFile.getParentFile().getCanonicalPath();
+			String libDirPath = libDir.getCanonicalPath();
+			if (libDirPath.equals(checkDir)) {
+				return false;
+			} else {
+				return true;
+			}
+		} catch (Exception ex) {
+			logger.error("Error: ", ex);
+		}
+		
+		return false;
 	}
 
 }

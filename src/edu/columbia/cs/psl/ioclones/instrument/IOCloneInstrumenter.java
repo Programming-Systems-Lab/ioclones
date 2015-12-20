@@ -11,9 +11,29 @@ public class IOCloneInstrumenter extends ClassVisitor {
 	
 	private String className;
 	
-	public IOCloneInstrumenter(ClassVisitor cv, String className) {
+	private String superName;
+	
+	private String[] interfaces;
+	
+	public IOCloneInstrumenter(ClassVisitor cv) {
 		super(Opcodes.ASM5, cv);
-		this.className = className;
+	}
+	
+	@Override
+	public void visit(int version, 
+			int access, 
+			String className, 
+			String signature, 
+			String superName, 
+			String[] interfaces) {
+		this.cv.visit(version, access, className, signature, superName, interfaces);
+		
+		this.className = ClassInfoUtils.cleanType(className);
+		this.superName = ClassInfoUtils.cleanType(superName);
+		this.interfaces = new String[interfaces.length];
+		for (int i = 0; i < interfaces.length; i++) {
+			this.interfaces[i] = ClassInfoUtils.cleanType(interfaces[i]);
+		}
 	}
 	
 	@Override
@@ -30,6 +50,7 @@ public class IOCloneInstrumenter extends ClassVisitor {
 		} else {
 			IOMethodObserver iom = new IOMethodObserver(mv, 
 					this.className, 
+					this.superName, 
 					name, 
 					desc, 
 					signature, 

@@ -18,3 +18,4 @@ org.junit
 org.apache.logging.log4j
 org.slf4j
 edu.columbia.cs.psl.ioclones
+com.thoughtworks

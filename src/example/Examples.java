@@ -9,6 +9,7 @@ public class Examples {
 	
 	public static void main(String[] args) {
 		System.out.println(add(3, 5.0));
+		System.out.println(System.getProperty("java.class.path"));
 	}
 
 }

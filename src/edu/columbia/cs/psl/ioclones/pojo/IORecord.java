@@ -14,14 +14,16 @@ public class IORecord {
 	
 	private int id;
 	
-	LinkedList<Object> inputs = new LinkedList<Object>();
+	private LinkedList<Object> inputs = new LinkedList<Object>();
 	
-	List<Object> outputs = new ArrayList<Object>();
+	private List<Object> outputs = new ArrayList<Object>();
+	
+	private transient Object dataLock = new Object();
 	
 	public IORecord(String methodKey) {
 		this.methodKey = methodKey;
 		this.id = GlobalInfoRecorder.getMethodIndex();
-		System.out.println("Instantiate io record: " + this.methodKey + " " + this.id);
+		//System.out.println("Instantiate io record: " + this.methodKey + " " + this.id);
 	}
 	
 	public String getMethodKey() {
@@ -43,65 +45,51 @@ public class IORecord {
 		} else {
 			insert = i;
 		}
-		System.out.println("Register in: " + insert);
-		this.inputs.add(insert);
-	}
-	
-	public void registerArrLoad(Object i, boolean ser) {
-		int ptr = this.inputs.size() - 1;
-		while (true) {
-			Object onInput = this.inputs.get(ptr);
-			this.inputs.remove(ptr--);
-			if (onInput.getClass().isArray()) {
-				break ;
-			}
-		}
 		
-		if (i == null) {
-			return ;
+		//System.out.println("Register in: " + insert);
+		synchronized(dataLock) {
+			this.inputs.add(insert);
 		}
-		
-		Object insert = null;
-		if (ser) {
-			insert = IOUtils.newObject(i);
-		} else {
-			insert = i;
-		}
-		this.inputs.add(insert);
 	}
-	
+		
 	public void registerAndReplace(Object o, boolean ser, int removeNum) {
-		this.removeObjs(removeNum);
-		this.registerInput(o, ser);
+		synchronized(dataLock) {
+			this.removeObjs(removeNum);
+			this.registerInput(o, ser);
+		}
 	}
 	
 	public void removeObjs(int removeNum) {
-		for (int i = 0; i < removeNum; i++) {
-			this.inputs.removeLast();
+		synchronized(dataLock) {
+			for (int i = 0; i < removeNum; i++) {
+				this.inputs.removeLast();
+			}
 		}
 	}
 	
-	public void registerOutput(Object o, boolean ser) {
-		if (o == null) {
-			return ;
+	public void pullOutput() {
+		synchronized(dataLock) {
+			Object lastInput = this.inputs.removeLast();
+			this.outputs.add(lastInput);
 		}
-				
-		Object insert = null;
-		if (ser) {
-			insert = IOUtils.newObject(o);
-		} else {
-			insert = o;
-		}
-		System.out.println("Register out: " + insert);
-		this.outputs.add(insert);
 	}
-	
+		
 	public List<Object> getInputs() {
 		return this.inputs;
 	}
 	
 	public List<Object> getOutputs() {
 		return this.outputs;
+	}
+	
+	@Override
+	public String toString() {
+		StringBuilder sb = new StringBuilder();
+		sb.append("Method: " + this.methodKey + "\n");
+		sb.append("ID: " + this.id + "\n");
+		sb.append("Inputs: " + this.inputs + "\n");
+		sb.append("Outputs: " + this.outputs + "\n");
+		return sb.toString();
 	}
 	
 	public static void main(String[] args) {
