@@ -1,5 +1,8 @@
 package example;
 
+import java.util.List;
+import java.util.ArrayList;
+
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 
@@ -56,6 +59,10 @@ public class MyObject {
 		byte test = by;
 		short s = 2;
 		char ch = 'c';
+		
+		List list = new ArrayList();
+		list.add(null);
+		System.out.println(null == null);
 	}
 
 }

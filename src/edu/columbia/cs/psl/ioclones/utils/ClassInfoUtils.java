@@ -63,6 +63,12 @@ public class ClassInfoUtils {
 		return ret;
 	}
 	
+	public static String parsePkgName(String className) {
+		int lastDot = className.lastIndexOf(".");
+		String pkgName = className.substring(0, lastDot);
+		return pkgName;
+	}
+	
 	public static String parseType(Type t) {
 		if (t.getSort() == Type.OBJECT) {
 			return t.getInternalName();

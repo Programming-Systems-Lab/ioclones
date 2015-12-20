@@ -104,10 +104,12 @@ public class IOMethodObserver extends MethodVisitor {
 		}
 		
 		if (BytecodeUtils.xload(opcode) || BytecodeUtils.arrLoad(opcode)) {
-			//For xloads, record and insert th val into inputs
+			//For xloads, record and insert the val into inputs
 			this.mv.visitInsn(opcode);
 			
-			if ((opcode >= Opcodes.ICONST_M1 && opcode <= Opcodes.ICONST_5) 
+			if (opcode == Opcodes.ACONST_NULL) {
+				this.mv.visitInsn(Opcodes.DUP);
+			} else if ((opcode >= Opcodes.ICONST_M1 && opcode <= Opcodes.ICONST_5) 
 					|| opcode == Opcodes.BIPUSH 
 					|| opcode == Opcodes.SIPUSH) {
 				this.handlePrimitive(Integer.class);

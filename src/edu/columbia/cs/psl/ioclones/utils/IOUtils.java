@@ -7,9 +7,14 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.lang.reflect.Array;
+import java.net.Socket;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import org.apache.logging.log4j.LogManager;
@@ -25,8 +30,13 @@ public class IOUtils {
 	
 	private static Logger logger = LogManager.getLogger(IOUtils.class);
 	
+	private static final Set<Class> blackObjects = new HashSet<Class>();
+	
+	private static Object boLock = new Object();
+		
 	public static <T> void writeJson(T obj, TypeToken typeToken, String fileName) {
 		GsonBuilder gb = new GsonBuilder();
+		gb.setPrettyPrinting();
 		Gson gson = gb.enableComplexMapKeySerialization().create();
 		String toWrite = gson.toJson(obj, typeToken.getType());
 		
@@ -82,23 +92,192 @@ public class IOUtils {
 	}
 	
 	public static Object newObject(Object obj) {
-		XStream xstream = new XStream();
-		String objString = xstream.toXML(obj);
-		//System.out.println("objString: " + objString);
-		Object newObj = xstream.fromXML(objString);
-		return newObj;
+		try {
+			XStream xstream = new XStream();
+			String objString = xstream.toXML(obj);
+			//System.out.println("objString: " + objString);
+			Object newObj = xstream.fromXML(objString);
+			return newObj;
+		} catch (Exception ex) {
+			logger.error("Fail to create new obj: ", ex);
+		}
+		
+		return null;
+	}
+	
+	public static String fromObj2XML(Object obj) {
+		try {
+			XStream xstream = new XStream();
+			String objString = xstream.toXML(obj);
+			return objString;
+		} catch (Exception ex) {
+			logger.error("Fail to convert obj to xml: " + obj.getClass());
+		}
+		
+		return null;
+	}
+	
+	public static Object fromXML2Obj(File f) {
+		try {
+			XStream xstream = new XStream();
+			Object obj = xstream.fromXML(f);
+			return obj;
+		} catch (Exception ex) {
+			logger.error("Fail to convert file to obj: " + f.getAbsolutePath());
+			logger.error("Trace", ex);
+		}
+		
+		return null;
+	}
+	
+	public static Object fromXML2Obj(String xmlString) {
+		try {
+			XStream xstream = new XStream();
+			Object obj = xstream.fromXML(xmlString);
+			return obj;
+		} catch (Exception ex) {
+			logger.error("Fail to convert xml string to obj: " + xmlString);
+		}
+		return null;
+	}
+	
+	public static void writeFile(String contents, File f) {
+		try {
+			BufferedWriter bw = new BufferedWriter(new FileWriter(f));
+			bw.write(contents);
+			bw.close();
+		} catch (Exception ex) {
+			logger.error("Fail to write file: ", ex);
+		}
 	}
 	
 	public static void cleanNonSerializables(Collection c) {
-		//Need a better way to decide which objs we don't want
+		//Need a better way to filter objs, now follow xstream's documents
 		Iterator it = c.iterator();
 		while (it.hasNext()) {
 			Object o = it.next();
-			if (OutputStream.class.isAssignableFrom(o.getClass()) 
-					|| InputStream.class.isAssignableFrom(o.getClass())) {
+			
+			Class objClass = o.getClass();
+			if (shouldRemove(o)) {
 				it.remove();
-				logger.info("Remove stream obj: " + o);
+				logger.info("Remove obj: " + o);
 			}
+			
+			/*if (blackObjects.contains(o.getClass())) {
+			it.remove();
+		} else if (!attemptSerialization(o)) {
+			blackObjects.add(o.getClass());
+			logger.info("Remove non-serializable obj: " + o);
+			
+			it.remove();
+		}*/
+		}
+	}
+	
+	private static boolean shouldRemove(Object o) {
+		if (o == null) {
+			return false;
+		}
+		
+		Class objClass = o.getClass();
+		if (OutputStream.class.isAssignableFrom(objClass) 
+				|| InputStream.class.isAssignableFrom(objClass) 
+				|| ClassLoader.class.isAssignableFrom(objClass) 
+				|| Socket.class.isAssignableFrom(objClass)) {
+			return true;
+		}
+		
+		if (o.getClass().isArray()) {
+			int length = Array.getLength(o);
+			if (length == 0) {
+				logger.info("Remove empty array: " + o);
+				return true;
+			}
+			
+			//Assume all objects in array are the same
+			Object first = null;
+			int counter = 0;
+			while (counter < length) {
+				first = Array.get(o, counter++);
+				if (first != null) {
+					break ;
+				}
+			}
+			return shouldRemove(first);
+		} else if (Collection.class.isAssignableFrom(objClass)) {
+			Collection tmp = (Collection)o;
+			
+			Iterator tmpIt = tmp.iterator();
+			Object first = null;
+			while (tmpIt.hasNext()) {
+				first = tmpIt.next();
+				if (first != null) {
+					break ;
+				}
+			}
+			return shouldRemove(first);
+		} else if (Map.class.isAssignableFrom(objClass)) {
+			Map map = (Map)o;
+			
+			Iterator<Entry> tmpIt = map.entrySet().iterator();
+			Object firstKey = null;
+			Object firstVal = null;
+			boolean[] get = {false, false};
+			while (tmpIt.hasNext()) {
+				Entry e = tmpIt.next();
+				if (!get[0]) {
+					if (e.getKey() != null) {
+						get[0] = true;
+						firstKey = e.getKey();
+					}
+				}
+				
+				if (!get[1]) {
+					if (e.getValue() != null) {
+						get[1] = true;
+						firstVal = e.getValue();
+					}
+				}
+				
+				if (get[0] && get[1]) {
+					break ;
+				}
+			}
+			
+			return shouldRemove(firstKey) || shouldRemove(firstVal);
+		} else {
+			return false;
+		}
+	}
+	
+	private static boolean attemptSerialization(Object obj) {
+		synchronized(boLock) {
+			try {
+				System.out.println("Check class: " + obj.getClass());
+				String fileName = "ser/" + obj.getClass() + ".xml";
+				File toWrite = new File(fileName);
+				BufferedWriter bw = new BufferedWriter(new FileWriter(toWrite));
+				String xmlString = fromObj2XML(obj);
+				bw.write(xmlString);
+				bw.close();
+				
+				File toRead = new File(fileName);
+				Object deser = fromXML2Obj(toRead);
+				if (deser == null) {
+					//toWrite.delete();
+					System.out.println(obj.getClass() + " fails");
+					return false;
+				} else {
+					//toWrite.delete();
+					System.out.println(obj.getClass() + " passes");
+					System.out.println(obj);
+					return true;
+				}
+			} catch (Exception ex) {
+				logger.error("Error: ", ex);
+			}
+			
+			return false;
 		}
 	}
 }

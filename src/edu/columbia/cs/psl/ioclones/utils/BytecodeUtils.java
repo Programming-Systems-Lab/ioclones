@@ -38,7 +38,7 @@ public class BytecodeUtils {
 	private static final Set<Integer> toD = new HashSet<Integer>();
 	
 	static {
-		for (int i = Opcodes.ICONST_M1; i <= 45; i++) {
+		for (int i = Opcodes.ACONST_NULL; i <= 45; i++) {
 			XLOADS.add(i);
 		}
 		

@@ -47,10 +47,15 @@ public class GlobalInfoRecorder {
 				logger.info("Methods: " + mKey);
 				logger.info("# of records: " + ios.size());
 				
-				String methodDirString = baseDir + "/" + mKey;
-				File methodDir = new File(methodDirString);
-				if (!methodDir.exists()) {
-					methodDir.mkdir();
+				String[] parsed = mKey.split("-");
+				String className = parsed[0];
+				String methodName = parsed[1];
+				String desc = parsed[2];
+				
+				String classDirString = baseDir + "/" + className;
+				File classDir = new File(classDirString);
+				if (!classDir.exists()) {
+					classDir.mkdir();
 				}
 				
 				ios.forEach(io->{
@@ -58,14 +63,18 @@ public class GlobalInfoRecorder {
 					
 					IOUtils.cleanNonSerializables(io.getInputs());
 					IOUtils.cleanNonSerializables(io.getOutputs());
-					String filePath = methodDirString + "/" + io.getId() + ".json";
+					/*String filePath = methodDirString + "/" + io.getId() + ".json";
 					TypeToken<IORecord> ioToken = new TypeToken<IORecord>(){};
 					try {
 						IOUtils.writeJson(io, ioToken, filePath);
 					} catch (Exception ex) {
 						logger.error("Fail to write: " + filePath);
-					}				
+					}*/
 					
+					String filePath = classDir.getAbsolutePath() + "/" + methodName + "-" + io.getId() + ".xml";
+					File file = new File(filePath);
+					String xmlString = IOUtils.fromObj2XML(io);
+					IOUtils.writeFile(xmlString, file);
 				});
 			});
 		}

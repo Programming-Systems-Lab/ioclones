@@ -34,9 +34,9 @@ public class IORecord {
 		return this.id;
 	}
 	
-	public void registerInput(Object i, boolean ser) {
+	public void registerInput(Object i, boolean ser) {		
 		if (i == null) {
-			return ;
+			ser = false;
 		}
 		
 		Object insert = null;
