@@ -1,5 +1,6 @@
 package example;
 
+import java.util.List;
 import java.io.BufferedWriter;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -7,6 +8,7 @@ import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.ObjectOutputStream;
 import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -16,11 +18,13 @@ public class SerializationTest {
 	
 	public static void main(String[] args) {
 		//Object test = Object.class;
-		Map test = new HashMap();
-		test.put(null, 5);
+		//Map test = new HashMap();
+		//test.put(null, 5);
 		//Object test = null;
 		//Object[] test = {"1"};
 		MyObject mo = new MyObject(5);
+		List test = new ArrayList();
+		test.add(mo);
 		try {
 			//ObjectOutputStream oos = new ObjectOutputStream(new ByteArrayOutputStream());
 			//oos.writeObject(mo);

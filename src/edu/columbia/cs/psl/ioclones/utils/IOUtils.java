@@ -10,6 +10,7 @@ import java.io.OutputStream;
 import java.lang.reflect.Array;
 import java.net.Socket;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -25,6 +26,8 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import com.google.gson.stream.JsonReader;
 import com.thoughtworks.xstream.XStream;
+
+import edu.columbia.cs.psl.ioclones.pojo.IORecord;
 
 public class IOUtils {
 	
@@ -189,10 +192,6 @@ public class IOUtils {
 		
 		if (o.getClass().isArray()) {
 			int length = Array.getLength(o);
-			if (length == 0) {
-				logger.info("Remove empty array: " + o);
-				return true;
-			}
 			
 			//Assume all objects in array are the same
 			Object first = null;
@@ -278,6 +277,32 @@ public class IOUtils {
 			}
 			
 			return false;
+		}
+	}
+	
+	public static void collectIORecords(File dir, List<IORecord> recorder) {
+		if (!dir.exists()) {
+			logger.error("Non-exisiting directory: " + dir.getAbsolutePath());
+			return ;
+		}
+		
+		for (File f: dir.listFiles()) {
+			if (f.getName().startsWith(".")) {
+				continue ;
+			}
+			
+			if (f.isDirectory()) {
+				collectIORecords(f, recorder);
+			} else {
+				if (!f.getName().endsWith("xml")) {
+					logger.error("Invalid profile: " + f.getAbsolutePath());
+				} else {
+					IORecord record = (IORecord)fromXML2Obj(f);
+					if (record != null) {
+						recorder.add(record);
+					}
+				}
+			}
 		}
 	}
 }

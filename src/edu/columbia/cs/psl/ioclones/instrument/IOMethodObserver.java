@@ -239,6 +239,8 @@ public class IOMethodObserver extends MethodVisitor {
 					false);
 			
 			this.mv.visitInsn(opcode);
+		} else {
+			this.mv.visitInsn(opcode);
 		}
 	}
 	
@@ -369,6 +371,11 @@ public class IOMethodObserver extends MethodVisitor {
 				logger.info("Capture init: " + owner + " " + name + " " + desc);
 			}*/
 			
+			return ;
+		}
+		
+		//Should we record new object?
+		if (opcode == Opcodes.INVOKESPECIAL && name.equals("<init>")) {
 			return ;
 		}
 		

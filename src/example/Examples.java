@@ -2,14 +2,29 @@ package example;
 
 public class Examples {
 	
+	public static double moAdd(MyObject mo1, MyObject mo2) {
+		double ret = mo1.age + mo2.age;
+		return ret;
+	}
+	
+	public static double add(int i, int j) {
+		double ret = i + j;
+		return ret;
+	}
+	
 	public static double add(int i, double d) {
 		double ret = i + d;
 		return ret;
 	}
 	
 	public static void main(String[] args) {
-		System.out.println(add(3, 5.0));
-		System.out.println(System.getProperty("java.class.path"));
+		//System.out.println(add(3, 5.0));
+		//System.out.println(System.getProperty("java.class.path"));
+		add(3, 5.0);
+		add(3, 5);
+		MyObject mo1 = new MyObject(3);
+		MyObject mo2 = new MyObject(5);
+		moAdd(mo1, mo2);
 	}
 
 }

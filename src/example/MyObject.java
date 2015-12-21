@@ -31,7 +31,7 @@ public class MyObject {
 	}
 	
 	public static void main(String[] args) {
-		String tmp = MyObject.staticString;
+		//String tmp = MyObject.staticString;
 		
 		boolean b = false;
 		int i = 0;
