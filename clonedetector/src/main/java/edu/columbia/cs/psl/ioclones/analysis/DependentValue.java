@@ -1,34 +1,58 @@
-package edu.columbia.cs.psl.clones.analysis;
+package edu.columbia.cs.psl.ioclones.analysis;
 
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedList;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.analysis.BasicValue;
 
 public class DependentValue extends BasicValue {
+	
 	public static final BasicValue NULL_VALUE = new BasicValue(Type.getType("Lnull;"));
 
-	public boolean flowsToOutput;
-	public HashSet<DependentValue> deps;
-	public AbstractInsnNode src;
-
-	static int idCounter;
+	private boolean flowsToOutput;
 	
-	int id;
+	private HashSet<DependentValue> deps;
 	
-	public void addDep(DependentValue d) {
-		if (d != null && deps == null)
-			deps = new HashSet<DependentValue>();
-			deps.add(d);
-	}
-
+	//public AbstractInsnNode src;
+	
+	private List<AbstractInsnNode> srcs;
+	
+	private static int idCounter;
+	
+	public int id;
+		
 	public DependentValue(Type type) {
 		super(type);
 		this.id = ++idCounter;
+	}
+	
+	public void addDep(DependentValue d) {
+		if (d != null && this.deps == null)
+			this.deps = new HashSet<DependentValue>();
+		
+		this.deps.add(d);
+	}
+	
+	public HashSet<DependentValue> getDeps() {
+		return this.deps;
+	}
+	
+	public void addSrc(AbstractInsnNode src) {
+		if (this.srcs == null)
+			this.srcs = new ArrayList<AbstractInsnNode>();
+		
+		this.srcs.add(src);
+	}
+	
+	public List<AbstractInsnNode> getSrcs() {
+		return this.srcs;
 	}
 
 	@Override
@@ -36,7 +60,9 @@ public class DependentValue extends BasicValue {
 		if (this == NULL_VALUE)
 			return "N";
 		else
-			return (flowsToOutput ? "T" : "F") + formatDesc() +"#"+id +(deps == null ? "()" : "("+deps+")");
+			return (this.flowsToOutput ? "T" : "F") 
+					+ formatDesc() + 
+					"#" + this.id + (this.deps == null ? "()" : "("+this.deps+")");
 	}
 
 	private String formatDesc() {
@@ -55,11 +81,14 @@ public class DependentValue extends BasicValue {
 
 	public Collection<DependentValue> tag() {
 		LinkedList<DependentValue> ret = new LinkedList<DependentValue>();
-		if (!flowsToOutput) {
-			flowsToOutput = true;
+		System.out.println("Current vale: " + this);
+		System.out.println("Src instruction: " + this.srcs);
+		System.out.println("Deps: " + this.deps);
+		if (!this.flowsToOutput) {
+			this.flowsToOutput = true;
 			ret.add(this);
-			if (deps != null)
-				for (DependentValue v : deps) {
+			if (this.deps != null)
+				for (DependentValue v : this.deps) {
 					if (!v.flowsToOutput)
 						ret.addAll(v.tag());
 				}
@@ -72,7 +101,14 @@ public class DependentValue extends BasicValue {
 		final int prime = 31;
 		int result = super.hashCode();
 		result = prime * result + (flowsToOutput ? 1231 : 1237);
-		result = prime * result + ((src == null) ? 0 : src.hashCode());
+		if (this.srcs == null) {
+			result = prime * result + 0;
+		} else {
+			for (AbstractInsnNode src: this.srcs) {
+				result = prime * result + ((src == null) ? 0 : src.hashCode());
+			}
+		}
+		//result = prime * result + ((src == null) ? 0 : src.hashCode());
 		return result;
 	}
 

@@ -1,0 +1,124 @@
+package edu.columbia.cs.psl.ioclones;
+
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.Type;
+import org.objectweb.asm.tree.AbstractInsnNode;
+import org.objectweb.asm.tree.LdcInsnNode;
+import org.objectweb.asm.tree.MethodNode;
+import org.objectweb.asm.tree.analysis.Analyzer;
+import org.objectweb.asm.tree.analysis.AnalyzerException;
+import org.objectweb.asm.tree.analysis.Frame;
+
+import edu.columbia.cs.psl.ioclones.analysis.DependentValue;
+import edu.columbia.cs.psl.ioclones.analysis.DependentValueInterpreter;
+
+public class DependencyAnalyzer extends MethodVisitor {
+	public DependencyAnalyzer(final String className, 
+			int access, 
+			final String name, 
+			final String desc, 
+			String signature, 
+			String[] exceptions, 
+			final MethodVisitor cmv) {
+		
+		super(Opcodes.ASM5, 
+				new MethodNode(Opcodes.ASM5, access, name, desc, signature, exceptions) {
+			
+			
+			@Override
+			public void visitEnd() {
+				DependentValueInterpreter dvi = new DependentValueInterpreter();
+				Analyzer a = new Analyzer(dvi);
+				try {
+					Frame[] fr = a.analyze(className, this);
+					
+					Set<Integer> params = dvi.getParams();
+					System.out.println("Input param number: " + params.size());
+					params.forEach(param->{
+						System.out.println(param);
+					});
+					
+					LinkedList<DependentValue> inputs = new LinkedList<DependentValue>();
+					AbstractInsnNode insn = this.instructions.getFirst();
+					int i = 0;
+					while(insn != null) {
+						Frame fn = fr[i];
+						if(fn != null) {							
+							//does this insn create output?
+							switch(insn.getOpcode()) {
+								case Opcodes.IRETURN:
+								case Opcodes.LRETURN:
+								case Opcodes.FRETURN:
+								case Opcodes.DRETURN:
+								case Opcodes.ARETURN:
+								case Opcodes.PUTSTATIC:
+								case Opcodes.PUTFIELD:
+									//What are we returning?
+									DependentValue retVal = (DependentValue)fn.getStack(fn.getStackSize() - 1);
+									Collection<DependentValue> toOutput = retVal.tag();
+									inputs.addAll(toOutput);
+									System.out.println("Output instruction: " + insn);
+									System.out.println("Dependent val: " + toOutput);
+									break;
+							}
+						}
+						i++;
+						insn = insn.getNext();
+					}
+
+					//print debug info
+					insn = this.instructions.getFirst();
+					i = 0;
+					while(insn != null) {
+						Frame fn = fr[i];
+						if(fn != null) {
+							String stack = "Stack: ";
+							for(int j = 0; j < fn.getStackSize(); j++) {
+								stack += fn.getStack(j)+ " ";
+							}
+								
+							String locals = "Locals ";
+							for(int j = 0; j < fn.getLocals(); j++) {
+								locals += fn.getLocal(j) + " ";
+							}
+
+							this.instructions.insertBefore(insn, new LdcInsnNode(stack));
+							this.instructions.insertBefore(insn, new LdcInsnNode(locals));
+						}
+						i++;
+						insn = insn.getNext();
+					}
+						
+					System.out.println("Input number: " + inputs.size());
+					for(DependentValue v : inputs) {
+						System.out.println("Input: " + v);
+						if (v.getSrcs() != null) {
+							v.getSrcs().forEach(src->{
+								System.out.println("Input instruction: " + src);
+								this.instructions.insert(src, new LdcInsnNode("Input val: " + v.toString()));
+							});
+							
+						}
+						/*if(v.src != null) {
+							System.out.println("Input instruction: " + v.src);
+							this.instructions.insert(v.src, new LdcInsnNode("Input val: " + v.toString()));
+						}*/
+					}
+				} catch (AnalyzerException e) {
+					e.printStackTrace();
+				}
+				super.visitEnd();
+				this.accept(cmv);
+			}
+		});
+	}
+
+}

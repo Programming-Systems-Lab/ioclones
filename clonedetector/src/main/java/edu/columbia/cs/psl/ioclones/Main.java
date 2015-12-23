@@ -1,4 +1,4 @@
-package edu.columbia.cs.psl.clones;
+package edu.columbia.cs.psl.ioclones;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -35,15 +35,18 @@ public class Main {
 				}
 			}
 		};
-		cr1.accept(new ClassVisitor(Opcodes.ASM4, cw1) {
+		
+		cr1.accept(new ClassVisitor(Opcodes.ASM5, cw1) {
 			@Override
 			public MethodVisitor visitMethod(int access, String name, String desc, String signature, String[] exceptions) {
 				// TODO Auto-generated method stub
 				return new JSRInlinerAdapter(super.visitMethod(access, name, desc, signature, exceptions), access, name, desc, signature, exceptions);
 			}
 		}, ClassReader.EXPAND_FRAMES);
+		
 		final ClassReader cr = new ClassReader(cw1.toByteArray());
 		TraceClassVisitor tcv = new TraceClassVisitor(null,new Textifier(),pw);
+		//ClassWriter tcv = new ClassWriter(cr, ClassWriter.COMPUTE_MAXS);
 		ClassVisitor cv = new ClassVisitor(Opcodes.ASM5, tcv) {
 			String className;
 
@@ -58,7 +61,7 @@ public class Main {
 				// TODO Auto-generated method stub
 				MethodVisitor mv = super.visitMethod(access, name, desc, signature, exceptions);
 				
-				mv =new DependencyAnalyzer(className, access, name, desc, signature, exceptions, mv);
+				mv = new DependencyAnalyzer(className, access, name, desc, signature, exceptions, mv);
 				return mv;
 			}
 		};
