@@ -19,6 +19,7 @@ import org.objectweb.asm.tree.analysis.Frame;
 
 import edu.columbia.cs.psl.ioclones.analysis.DependentValue;
 import edu.columbia.cs.psl.ioclones.analysis.DependentValueInterpreter;
+import edu.columbia.cs.psl.ioclones.utils.ClassInfoUtils;
 
 public class DependencyAnalyzer extends MethodVisitor {
 	public DependencyAnalyzer(final String className, 
@@ -39,13 +40,8 @@ public class DependencyAnalyzer extends MethodVisitor {
 				Analyzer a = new Analyzer(dvi);
 				try {
 					Frame[] fr = a.analyze(className, this);
-					
-					Set<Integer> params = dvi.getParams();
-					System.out.println("Input param number: " + params.size());
-					params.forEach(param->{
-						System.out.println(param);
-					});
-					
+															
+					//1st round, collect vals relevant to outputs
 					LinkedList<DependentValue> inputs = new LinkedList<DependentValue>();
 					AbstractInsnNode insn = this.instructions.getFirst();
 					int i = 0;
@@ -54,25 +50,42 @@ public class DependencyAnalyzer extends MethodVisitor {
 						if(fn != null) {							
 							//does this insn create output?
 							switch(insn.getOpcode()) {
+								//The outputs are values exit after the method ends
+								//Include return value and values written to input objs
 								case Opcodes.IRETURN:
 								case Opcodes.LRETURN:
 								case Opcodes.FRETURN:
 								case Opcodes.DRETURN:
 								case Opcodes.ARETURN:
 								case Opcodes.PUTSTATIC:
-								case Opcodes.PUTFIELD:
 									//What are we returning?
 									DependentValue retVal = (DependentValue)fn.getStack(fn.getStackSize() - 1);
 									Collection<DependentValue> toOutput = retVal.tag();
 									inputs.addAll(toOutput);
 									System.out.println("Output instruction: " + insn);
 									System.out.println("Dependent val: " + toOutput);
-									break;
+									break;									
 							}
 						}
 						i++;
 						insn = insn.getNext();
 					}
+					
+					Map<Integer, DependentValue> params = dvi.getParams();
+					System.out.println("Input param number: " + params.size());
+					params.forEach((id, val)->{
+						if (val.getDeps() != null && val.getDeps().size() > 0) {
+							//This means that the input is an object that has been written
+							System.out.println("Dirty input val: " + val);
+							System.out.println("Src inst: " + val.getSrcs());
+							val.getDeps().forEach(d->{
+								System.out.println("Written to input: " + d);
+								Collection<DependentValue> toOutput = val.tag();
+								inputs.addAll(toOutput);
+								System.out.println("Dependent val: " + toOutput);
+							});
+						}
+					});
 
 					//print debug info
 					insn = this.instructions.getFirst();

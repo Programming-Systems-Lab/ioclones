@@ -20,6 +20,8 @@ import org.objectweb.asm.tree.analysis.AnalyzerException;
 import org.objectweb.asm.tree.analysis.BasicInterpreter;
 import org.objectweb.asm.tree.analysis.BasicValue;
 
+import edu.columbia.cs.psl.ioclones.utils.ClassInfoUtils;
+
 
 public class DependentValueInterpreter extends BasicInterpreter {
 	
@@ -27,10 +29,10 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	
 	private boolean init = false;
 		
-	//private Set<DependentValue> params = new HashSet<DependentValue>();
-	private Set<Integer> params = new HashSet<Integer>();
+	//private Set<Integer> params = new HashSet<Integer>();
+	private Map<Integer, DependentValue> params = new HashMap<Integer, DependentValue>();
 	
-	public Set<Integer> getParams() {
+	public Map<Integer, DependentValue> getParams() {
 		return this.params;
 	}
 		
@@ -44,7 +46,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 		DependentValue dv = new DependentValue(type);
 		
 		if (!this.init) {
-			this.params.add(dv.id);
+			this.params.put(dv.id, dv);
 		}
 		
 		return dv;
@@ -135,7 +137,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 			case Opcodes.ALOAD:
 				//For capturing xloads that might be input
 				DependentValue dv = (DependentValue) value;
-				if (this.params.contains(dv.id)) {
+				if (this.params.containsKey(dv.id)) {
 					System.out.println("Input load: " + insn + " " + dv);
 					dv.addSrc(insn);
 				}
@@ -154,6 +156,10 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				ret = (DependentValue) super.unaryOperation(insn, value);
 				//ret.src = insn;
 				ret.addSrc(insn);
+				
+				DependentValue owner = (DependentValue)value;
+				ret.owner = owner;
+				
 				System.out.println("Getfield: " + insn + " " + ret);
 				return ret;
 			default:
@@ -247,7 +253,16 @@ public class DependentValueInterpreter extends BasicInterpreter {
 			case IF_ICMPLE:
 			case IF_ACMPEQ:
 			case IF_ACMPNE:
+				return null;
 			case PUTFIELD:
+				if (value2 == BasicValue.UNINITIALIZED_VALUE) {
+					return null;
+				}
+				
+				DependentValue objRef = (DependentValue) value1;
+				DependentValue written = (DependentValue) value2;
+				ClassInfoUtils.propagateDepToOwners(objRef, written);
+				
 				return null;
 			default:
 				throw new Error("Internal error.");

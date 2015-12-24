@@ -18,6 +18,8 @@ public class DependentValue extends BasicValue {
 
 	private boolean flowsToOutput;
 	
+	public transient DependentValue owner;
+	
 	private HashSet<DependentValue> deps;
 	
 	//public AbstractInsnNode src;
@@ -81,9 +83,9 @@ public class DependentValue extends BasicValue {
 
 	public Collection<DependentValue> tag() {
 		LinkedList<DependentValue> ret = new LinkedList<DependentValue>();
-		System.out.println("Current vale: " + this);
-		System.out.println("Src instruction: " + this.srcs);
-		System.out.println("Deps: " + this.deps);
+		//System.out.println("Current vale: " + this);
+		//System.out.println("Src instruction: " + this.srcs);
+		//System.out.println("Deps: " + this.deps);
 		if (!this.flowsToOutput) {
 			this.flowsToOutput = true;
 			ret.add(this);
@@ -102,7 +104,7 @@ public class DependentValue extends BasicValue {
 		int result = super.hashCode();
 		result = prime * result + (flowsToOutput ? 1231 : 1237);
 		if (this.srcs == null) {
-			result = prime * result + 0;
+			result = prime * result;
 		} else {
 			for (AbstractInsnNode src: this.srcs) {
 				result = prime * result + ((src == null) ? 0 : src.hashCode());

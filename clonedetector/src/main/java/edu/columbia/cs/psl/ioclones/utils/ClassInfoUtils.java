@@ -7,6 +7,8 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.objectweb.asm.Type;
 
+import edu.columbia.cs.psl.ioclones.analysis.DependentValue;
+
 public class ClassInfoUtils {
 	
 	private static final Logger logger = LogManager.getLogger(ClassInfoUtils.class);
@@ -106,6 +108,25 @@ public class ClassInfoUtils {
 		}
 		
 		return false;
+	}
+	
+	public static boolean checkOwnerInParams(Set<Integer> params, DependentValue dv) {
+		DependentValue ptr = dv;
+		while (ptr != null) {
+			if (params.contains(dv.id)) {
+				return true;
+			}
+			
+			ptr = dv.owner;
+		}
+		return false;
+	}
+	
+	public static void propagateDepToOwners(DependentValue owner, DependentValue written) {
+		owner.addDep(written);
+		if (owner.owner != null) {
+			propagateDepToOwners(owner.owner, written);
+		}
 	}
 
 }

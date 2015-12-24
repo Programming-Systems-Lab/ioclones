@@ -2,6 +2,17 @@ package example;
 
 public class Examples {
 	
+	public static int[] array() {
+		int i = 5;
+		int[] ret = new int[3];
+		ret[2] = i;
+		return ret;
+	}
+	
+	public static int[] array2() {
+		return new int[]{1, 2, 3};
+	}
+	
 	public static double moAdd(MyObject mo1, MyObject mo2) {
 		double ret = mo1.age + mo2.age;
 		return ret;
