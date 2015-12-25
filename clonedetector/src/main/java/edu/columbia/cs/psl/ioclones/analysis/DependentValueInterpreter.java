@@ -172,11 +172,21 @@ public class DependentValueInterpreter extends BasicInterpreter {
 		this.init = true;
 		
 		DependentValue ret = null;
+		DependentValue arrRef = null;
+		DependentValue idx = null;
 		switch (insn.getOpcode()) {
 			case IALOAD:
 			case BALOAD:
 			case CALOAD:
 			case SALOAD:
+				arrRef = (DependentValue) value1;
+				idx = (DependentValue) value2;
+				ret = new DependentValue(Type.INT_TYPE);
+				ret.owner = arrRef;
+				ret.addSrc(insn);
+				System.out.println("Ref: " + arrRef + " " + arrRef.getDeps()) ;
+				System.out.println("Ret: " + ret + " " + ret.getDeps());
+				return ret;
 			case IADD:
 			case ISUB:
 			case IMUL:
@@ -189,10 +199,21 @@ public class DependentValueInterpreter extends BasicInterpreter {
 			case IOR:
 			case IXOR:
 				ret = new DependentValue(Type.INT_TYPE);
-				ret.addDep((DependentValue) value1);
-				ret.addDep((DependentValue) value2);
+				DependentValue dep1 = (DependentValue) value1;
+				DependentValue dep2 = (DependentValue) value2;
+				ret.addDep(dep1);
+				ret.addDep(dep2);
+				System.out.println("Add: " + ret.id);
+				System.out.println("Dep1: " + dep1.id);
+				System.out.println("Dep2: " + dep2.id);
 				return ret;
 			case FALOAD:
+				arrRef = (DependentValue) value1;
+				idx = (DependentValue) value2;
+				ret = new DependentValue(Type.FLOAT_TYPE);
+				ret.owner = arrRef;
+				ret.addSrc(insn);
+				return ret;
 			case FADD:
 			case FSUB:
 			case FMUL:
@@ -203,6 +224,12 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				ret.addDep((DependentValue) value2);
 				return ret;
 			case LALOAD:
+				arrRef = (DependentValue) value1;
+				idx = (DependentValue) value2;
+				ret = new DependentValue(Type.LONG_TYPE);
+				ret.owner = arrRef;
+				ret.addSrc(insn);
+				return ret;
 			case LADD:
 			case LSUB:
 			case LMUL:
@@ -219,6 +246,12 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				ret.addDep((DependentValue) value2);
 				return ret;
 			case DALOAD:
+				arrRef = (DependentValue) value1;
+				idx = (DependentValue) value2;
+				ret = new DependentValue(Type.LONG_TYPE);
+				ret.owner = arrRef;
+				ret.addSrc(insn);
+				return ret;
 			case DADD:
 			case DSUB:
 			case DMUL:
@@ -230,9 +263,11 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				//return BasicValue.DOUBLE_VALUE;
 				return ret;
 			case AALOAD:
+				arrRef = (DependentValue) value1;
+				idx = (DependentValue) value2;
 				ret = new DependentValue(BasicValue.REFERENCE_VALUE.getType());
-				ret.addDep((DependentValue) value1);
-				ret.addDep((DependentValue) value2);
+				ret.owner = arrRef;
+				ret.addSrc(insn);
 				//return BasicValue.REFERENCE_VALUE;
 				return ret;
 			case LCMP:
@@ -275,6 +310,16 @@ public class DependentValueInterpreter extends BasicInterpreter {
 			BasicValue val2, 
 			BasicValue val3) throws AnalyzerException {
 		this.init = true;
+		
+		DependentValue objRef = (DependentValue)val1;
+		//Don't record the idx for array, too detailed
+		//DependentValue idx = (DependentValue)val2;
+		DependentValue val = (DependentValue)val3;
+		
+		objRef.addDep(val);
+		ClassInfoUtils.propagateDepToOwners(objRef, val);
+		val.owner = objRef;
+		
 		return super.ternaryOperation(insn, val1, val2, val3);
 	}
 	
@@ -282,6 +327,20 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	public BasicValue naryOperation(AbstractInsnNode insn,
             List values) throws AnalyzerException {
 		this.init = true;
+		
+		int opcode = insn.getOpcode();
+		DependentValue ret = (DependentValue)super.naryOperation(insn, values);
+		List<DependentValue> dvs = (List<DependentValue>)values;
+		switch(opcode) {
+			case Opcodes.INVOKESTATIC:
+			case Opcodes.INVOKEVIRTUAL:
+			case Opcodes.INVOKEINTERFACE:
+			case Opcodes.INVOKEDYNAMIC:
+				dvs.forEach(dv->{
+					ret.addDep(dv);
+				});
+		}
+		
 		return super.naryOperation(insn, values);
 	}
 	

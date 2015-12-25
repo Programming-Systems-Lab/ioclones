@@ -4,6 +4,7 @@ package edu.columbia.cs.psl.ioclones.analysis;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -59,12 +60,16 @@ public class DependentValue extends BasicValue {
 
 	@Override
 	public String toString() {
-		if (this == NULL_VALUE)
+		if (this == NULL_VALUE) {
 			return "N";
-		else
+		} else {
+			/*return (this.flowsToOutput ? "T" : "F") 
+					+ formatDesc() + 
+					"#" + this.id + (this.deps == null ? "()" : "("+this.deps+")");*/
 			return (this.flowsToOutput ? "T" : "F") 
 					+ formatDesc() + 
-					"#" + this.id + (this.deps == null ? "()" : "("+this.deps+")");
+					"#" + this.id;
+		}
 	}
 
 	private String formatDesc() {
@@ -86,15 +91,23 @@ public class DependentValue extends BasicValue {
 		//System.out.println("Current vale: " + this);
 		//System.out.println("Src instruction: " + this.srcs);
 		//System.out.println("Deps: " + this.deps);
+		System.out.println("Tagging: " + this.id);
 		if (!this.flowsToOutput) {
 			this.flowsToOutput = true;
 			ret.add(this);
-			if (this.deps != null)
+			if (this.deps != null) {
 				for (DependentValue v : this.deps) {
-					if (!v.flowsToOutput)
+					if (!v.flowsToOutput) {
 						ret.addAll(v.tag());
+					}
 				}
+			}
 		}
+		System.out.println("Deps");
+		ret.forEach(r->{
+			System.out.println(r.id);
+		});
+		System.out.println("End tag: " + this.id);
 		return ret;
 	}
 

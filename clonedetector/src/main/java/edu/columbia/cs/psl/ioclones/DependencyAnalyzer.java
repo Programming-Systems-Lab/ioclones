@@ -62,7 +62,7 @@ public class DependencyAnalyzer extends MethodVisitor {
 									DependentValue retVal = (DependentValue)fn.getStack(fn.getStackSize() - 1);
 									Collection<DependentValue> toOutput = retVal.tag();
 									inputs.addAll(toOutput);
-									System.out.println("Output instruction: " + insn);
+									System.out.println("Output instruction: " + insn );
 									System.out.println("Dependent val: " + toOutput);
 									break;									
 							}
@@ -76,13 +76,15 @@ public class DependencyAnalyzer extends MethodVisitor {
 					params.forEach((id, val)->{
 						if (val.getDeps() != null && val.getDeps().size() > 0) {
 							//This means that the input is an object that has been written
-							System.out.println("Dirty input val: " + val);
-							System.out.println("Src inst: " + val.getSrcs());
+							System.out.println("Dirty input val: " + val.id);
+							System.out.println("Src inst: ");
+							val.getSrcs().forEach(src->System.out.println(src));
 							val.getDeps().forEach(d->{
 								System.out.println("Written to input: " + d);
 								Collection<DependentValue> toOutput = val.tag();
 								inputs.addAll(toOutput);
-								System.out.println("Dependent val: " + toOutput);
+								System.out.println("Dependent val: ");
+								toOutput.forEach(to->System.out.println(to));
 							});
 						}
 					});
@@ -98,13 +100,13 @@ public class DependencyAnalyzer extends MethodVisitor {
 								stack += fn.getStack(j)+ " ";
 							}
 								
-							String locals = "Locals ";
+							/*String locals = "Locals ";
 							for(int j = 0; j < fn.getLocals(); j++) {
 								locals += fn.getLocal(j) + " ";
-							}
+							}*/
 
 							this.instructions.insertBefore(insn, new LdcInsnNode(stack));
-							this.instructions.insertBefore(insn, new LdcInsnNode(locals));
+							//this.instructions.insertBefore(insn, new LdcInsnNode(locals));
 						}
 						i++;
 						insn = insn.getNext();
@@ -116,7 +118,7 @@ public class DependencyAnalyzer extends MethodVisitor {
 						if (v.getSrcs() != null) {
 							v.getSrcs().forEach(src->{
 								System.out.println("Input instruction: " + src);
-								this.instructions.insert(src, new LdcInsnNode("Input val: " + v.toString()));
+								this.instructions.insert(src, new LdcInsnNode("Input val: " + v));
 							});
 							
 						}
