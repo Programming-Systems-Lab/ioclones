@@ -91,7 +91,6 @@ public class DependentValue extends BasicValue {
 		//System.out.println("Current vale: " + this);
 		//System.out.println("Src instruction: " + this.srcs);
 		//System.out.println("Deps: " + this.deps);
-		System.out.println("Tagging: " + this.id);
 		if (!this.flowsToOutput) {
 			this.flowsToOutput = true;
 			ret.add(this);
@@ -103,11 +102,6 @@ public class DependentValue extends BasicValue {
 				}
 			}
 		}
-		System.out.println("Deps");
-		ret.forEach(r->{
-			System.out.println(r.id);
-		});
-		System.out.println("End tag: " + this.id);
 		return ret;
 	}
 

@@ -1,11 +1,8 @@
 package edu.columbia.cs.psl.ioclones.analysis;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -86,13 +83,17 @@ public class DependentValueInterpreter extends BasicInterpreter {
 			case LDC:
 				Object cst = ((LdcInsnNode) insn).cst;
 				if (cst instanceof Integer) {
-					return BasicValue.INT_VALUE;
+					//return BasicValue.INT_VALUE;
+					return newValue(Type.INT_TYPE);
 				} else if (cst instanceof Float) {
-					return BasicValue.FLOAT_VALUE;
+					//return BasicValue.FLOAT_VALUE;
+					return newValue(Type.FLOAT_TYPE);
 				} else if (cst instanceof Long) {
-					return BasicValue.LONG_VALUE;
+					//return BasicValue.LONG_VALUE;
+					return newValue(Type.LONG_TYPE);
 				} else if (cst instanceof Double) {
-					return BasicValue.DOUBLE_VALUE;
+					//return BasicValue.DOUBLE_VALUE;
+					return newValue(Type.DOUBLE_TYPE);
 				} else if (cst instanceof String) {
 					return newValue(Type.getObjectType("java/lang/String"));
 				} else if (cst instanceof Type) {
@@ -129,6 +130,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	public BasicValue copyOperation(AbstractInsnNode insn, BasicValue value) throws AnalyzerException {
 		this.init = true;
 		
+		DependentValue dv = (DependentValue) value;
 		switch(insn.getOpcode()) {
 			case Opcodes.ILOAD:
 			case Opcodes.LLOAD:
@@ -136,13 +138,15 @@ public class DependentValueInterpreter extends BasicInterpreter {
 			case Opcodes.DLOAD:
 			case Opcodes.ALOAD:
 				//For capturing xloads that might be input
-				DependentValue dv = (DependentValue) value;
 				if (this.params.containsKey(dv.id)) {
 					System.out.println("Input load: " + insn + " " + dv);
 					dv.addSrc(insn);
+				} else {
+					System.out.println("Check load: " + insn + " " + dv);
 				}
 			default:
-				return super.copyOperation(insn, value);
+				//return super.copyOperation(insn, value);
+				return super.copyOperation(insn, dv);
 		}
 	}
 
@@ -150,8 +154,58 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	public BasicValue unaryOperation(AbstractInsnNode insn, BasicValue value) throws AnalyzerException {
 		this.init= true;
 		
+		DependentValue oriVal = null;
 		DependentValue ret = null;
 		switch (insn.getOpcode()) {
+			case IINC:
+				if (!(value instanceof DependentValue)) {
+					logger.error("Suspicious val for IINC: " + insn + " " + value);
+				}
+				//The value here should be dependent value
+				return value;
+			case INEG:
+				return value;
+	        case L2I:
+	        case F2I:
+	        case D2I:
+	        case I2B:
+	        case I2C:
+	        case I2S:
+	        case ARRAYLENGTH:
+	            //return BasicValue.INT_VALUE;
+	        	oriVal = (DependentValue) value;
+	            ret = (DependentValue) newValue(Type.INT_TYPE);
+	            ret.addDep(oriVal);
+	            return ret;
+	        case FNEG:
+	        	return value;
+	        case I2F:
+	        case L2F:
+	        case D2F:
+	        	//return BasicValue.FLOAT_VALUE;
+	        	oriVal = (DependentValue) value;
+	        	ret = (DependentValue) newValue(Type.FLOAT_TYPE);
+	            ret.addDep(oriVal);
+	            return ret;
+	        case LNEG:
+	        case I2L:
+	        case F2L:
+	        case D2L:
+	            //return BasicValue.LONG_VALUE;
+	        	oriVal = (DependentValue) value;
+	        	ret = (DependentValue) newValue(Type.LONG_TYPE);
+	        	ret.addDep(oriVal);
+	        	return ret;
+	        case DNEG:
+	        	return value;
+	        case I2D:
+	        case L2D:
+	        case F2D:
+	            //return BasicValue.DOUBLE_VALUE;
+	            oriVal = (DependentValue) value;
+	            ret = (DependentValue) newValue(Type.DOUBLE_TYPE);
+	            ret.addDep(oriVal);
+	            return ret;
 			case Opcodes.GETFIELD:
 				ret = (DependentValue) super.unaryOperation(insn, value);
 				//ret.src = insn;
@@ -184,8 +238,6 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				ret = new DependentValue(Type.INT_TYPE);
 				ret.owner = arrRef;
 				ret.addSrc(insn);
-				System.out.println("Ref: " + arrRef + " " + arrRef.getDeps()) ;
-				System.out.println("Ret: " + ret + " " + ret.getDeps());
 				return ret;
 			case IADD:
 			case ISUB:
@@ -203,9 +255,6 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				DependentValue dep2 = (DependentValue) value2;
 				ret.addDep(dep1);
 				ret.addDep(dep2);
-				System.out.println("Add: " + ret.id);
-				System.out.println("Dep1: " + dep1.id);
-				System.out.println("Dep2: " + dep2.id);
 				return ret;
 			case FALOAD:
 				arrRef = (DependentValue) value1;
@@ -248,7 +297,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 			case DALOAD:
 				arrRef = (DependentValue) value1;
 				idx = (DependentValue) value2;
-				ret = new DependentValue(Type.LONG_TYPE);
+				ret = new DependentValue(Type.DOUBLE_TYPE);
 				ret.owner = arrRef;
 				ret.addSrc(insn);
 				return ret;
@@ -354,8 +403,8 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	
 	@Override
 	public BasicValue merge(BasicValue v, BasicValue w) {
-		//System.out.println("V: " + v);
-		//System.out.println("W: " + w);
+		System.out.println("V: " + v);
+		System.out.println("W: " + w);
 		if (v == BasicValue.UNINITIALIZED_VALUE 
 				&& w == BasicValue.UNINITIALIZED_VALUE) {
 			return v;
@@ -404,10 +453,12 @@ public class DependentValueInterpreter extends BasicInterpreter {
 			return v;
 		}
 		
+		System.out.println("Touch merging objects");
 		if(v.getType().getDescriptor().equals("Ljava/lang/Object;"))
 			return v;
 		
 		BasicValue r = new DependentValue(Type.getType(Object.class));
+		System.out.println();
 		return r;
 	}
 }
