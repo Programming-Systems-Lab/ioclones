@@ -16,6 +16,8 @@ public class MyObject {
 	
 	public int age;
 	
+	public MyObject[] friends;
+	
 	public MyObject(String name, int age) {
 		this.name = name;
 		this.age = age;

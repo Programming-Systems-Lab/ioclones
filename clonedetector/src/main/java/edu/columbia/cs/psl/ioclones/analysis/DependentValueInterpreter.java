@@ -12,6 +12,8 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.FieldInsnNode;
 import org.objectweb.asm.tree.LdcInsnNode;
+import org.objectweb.asm.tree.MethodInsnNode;
+import org.objectweb.asm.tree.MultiANewArrayInsnNode;
 import org.objectweb.asm.tree.TypeInsnNode;
 import org.objectweb.asm.tree.analysis.AnalyzerException;
 import org.objectweb.asm.tree.analysis.BasicInterpreter;
@@ -25,9 +27,13 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	private static Logger logger = LogManager.getLogger(DependentValueInterpreter.class);
 	
 	private boolean init = false;
+	
+	private boolean objDep = false;
 		
 	//private Set<Integer> params = new HashSet<Integer>();
 	private Map<Integer, DependentValue> params = new HashMap<Integer, DependentValue>();
+	
+	private Map<Integer, DependentValue> convertMap = new HashMap<Integer, DependentValue>();
 	
 	public Map<Integer, DependentValue> getParams() {
 		return this.params;
@@ -119,7 +125,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				//return newValue(Type.getType(((FieldInsnNode) insn).desc));
 				return ret;
 			case NEW:
-				return newValue(Type.getObjectType(((TypeInsnNode) insn).desc));
+				return (DependentValue) newValue(Type.getObjectType(((TypeInsnNode) insn).desc));
 			default:
 				logger.error("Invalid new operation: " + insn);
 				throw new Error("Internal error.");
@@ -174,8 +180,14 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	        case ARRAYLENGTH:
 	            //return BasicValue.INT_VALUE;
 	        	oriVal = (DependentValue) value;
+	        	if (this.convertMap.containsKey(oriVal.id)) {
+	        		return this.convertMap.get(oriVal.id);
+	        	}
+	        	
 	            ret = (DependentValue) newValue(Type.INT_TYPE);
-	            ret.addDep(oriVal);
+	            //ret.addDep(oriVal);
+	            ret.owner = oriVal;
+	            this.convertMap.put(oriVal.id, ret);
 	            return ret;
 	        case FNEG:
 	        	return value;
@@ -184,8 +196,13 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	        case D2F:
 	        	//return BasicValue.FLOAT_VALUE;
 	        	oriVal = (DependentValue) value;
+	        	if (this.convertMap.containsKey(oriVal.id)) {
+	        		return this.convertMap.get(oriVal.id);
+	        	}
+	        	
 	        	ret = (DependentValue) newValue(Type.FLOAT_TYPE);
 	            ret.addDep(oriVal);
+	            this.convertMap.put(oriVal.id, ret);
 	            return ret;
 	        case LNEG:
 	        case I2L:
@@ -193,8 +210,13 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	        case D2L:
 	            //return BasicValue.LONG_VALUE;
 	        	oriVal = (DependentValue) value;
+	        	if (this.convertMap.containsKey(oriVal.id)) {
+	        		return this.convertMap.get(oriVal.id);
+	        	}
+	        	
 	        	ret = (DependentValue) newValue(Type.LONG_TYPE);
 	        	ret.addDep(oriVal);
+	        	this.convertMap.put(oriVal.id, ret);
 	        	return ret;
 	        case DNEG:
 	        	return value;
@@ -203,18 +225,33 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	        case F2D:
 	            //return BasicValue.DOUBLE_VALUE;
 	            oriVal = (DependentValue) value;
+	            if (this.convertMap.containsKey(oriVal.id)) {
+	            	return this.convertMap.get(oriVal.id);
+	            }
+	            
 	            ret = (DependentValue) newValue(Type.DOUBLE_TYPE);
 	            ret.addDep(oriVal);
+	            this.convertMap.put(oriVal.id, ret);
 	            return ret;
-			case Opcodes.GETFIELD:
+			case GETFIELD:
 				ret = (DependentValue) super.unaryOperation(insn, value);
 				//ret.src = insn;
 				ret.addSrc(insn);
 				
 				DependentValue owner = (DependentValue)value;
 				ret.owner = owner;
+				if (this.objDep) {
+					ret.addDep(owner);
+				}
 				
 				System.out.println("Getfield: " + insn + " " + ret);
+				return ret;
+			case NEWARRAY:
+			case ANEWARRAY:
+				DependentValue size = (DependentValue) value;
+				ret = (DependentValue) super.unaryOperation(insn, size);
+				ret.addDep(size);
+				ret.addSrc(insn);
 				return ret;
 			default:
 				return super.unaryOperation(insn, value);
@@ -237,6 +274,10 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				idx = (DependentValue) value2;
 				ret = new DependentValue(Type.INT_TYPE);
 				ret.owner = arrRef;
+				ret.addDep(idx);
+				if (this.objDep) {
+					ret.addDep(arrRef);
+				}
 				ret.addSrc(insn);
 				return ret;
 			case IADD:
@@ -261,6 +302,10 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				idx = (DependentValue) value2;
 				ret = new DependentValue(Type.FLOAT_TYPE);
 				ret.owner = arrRef;
+				ret.addDep(idx);
+				if (this.objDep) {
+					ret.addDep(arrRef);
+				}
 				ret.addSrc(insn);
 				return ret;
 			case FADD:
@@ -277,6 +322,10 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				idx = (DependentValue) value2;
 				ret = new DependentValue(Type.LONG_TYPE);
 				ret.owner = arrRef;
+				ret.addDep(idx);
+				if (this.objDep) {
+					ret.addDep(arrRef);
+				}
 				ret.addSrc(insn);
 				return ret;
 			case LADD:
@@ -299,6 +348,10 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				idx = (DependentValue) value2;
 				ret = new DependentValue(Type.DOUBLE_TYPE);
 				ret.owner = arrRef;
+				ret.addDep(idx);
+				if (this.objDep) {
+					ret.addDep(arrRef);
+				}
 				ret.addSrc(insn);
 				return ret;
 			case DADD:
@@ -316,6 +369,10 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				idx = (DependentValue) value2;
 				ret = new DependentValue(BasicValue.REFERENCE_VALUE.getType());
 				ret.owner = arrRef;
+				ret.addDep(idx);
+				if (this.objDep) {
+					ret.addDep(arrRef);
+				}
 				ret.addSrc(insn);
 				//return BasicValue.REFERENCE_VALUE;
 				return ret;
@@ -377,20 +434,52 @@ public class DependentValueInterpreter extends BasicInterpreter {
             List values) throws AnalyzerException {
 		this.init = true;
 		
-		int opcode = insn.getOpcode();
-		DependentValue ret = (DependentValue)super.naryOperation(insn, values);
-		List<DependentValue> dvs = (List<DependentValue>)values;
-		switch(opcode) {
-			case Opcodes.INVOKESTATIC:
-			case Opcodes.INVOKEVIRTUAL:
-			case Opcodes.INVOKEINTERFACE:
-			case Opcodes.INVOKEDYNAMIC:
+		List<DependentValue> dvs = (List<DependentValue>) values;
+		switch(insn.getOpcode()) {
+			case INVOKESTATIC:
+			case INVOKESPECIAL:
+			case INVOKEVIRTUAL:
+			case INVOKEINTERFACE:
+			case INVOKEDYNAMIC:
+				MethodInsnNode methodInst = (MethodInsnNode) insn;
+				Type retType = Type.getReturnType(methodInst.desc);
+				
+				DependentValue ret = null;
+				if (insn.getOpcode() == INVOKESPECIAL && methodInst.name.equals("<init>")) {
+					//Move NEW's return val to invokespecial
+					ret = dvs.remove(0);
+					ret.addSrc(insn);
+					for (DependentValue dv: dvs) {
+						ret.addDep(dv);
+					}
+				} else {
+					ret = (DependentValue) newValue(retType);
+				}
+				
+				if (ret == null || dvs == null || dvs.size() == 0) {
+					return ret; 
+				}
+				
+				if (this.objDep || insn.getOpcode() == INVOKESTATIC) {
+					for (DependentValue dv: dvs) {
+						ret.addDep(dv);
+					}
+				} else {
+					for (int i = 1; i < dvs.size(); i++) {
+						ret.addDep(dvs.get(i));
+					}
+				}
+				return ret;
+			case MULTIANEWARRAY:
+				DependentValue mulArr = (DependentValue) newValue(Type.getType(((MultiANewArrayInsnNode) insn).desc));
 				dvs.forEach(dv->{
-					ret.addDep(dv);
+					mulArr.addDep(dv);
 				});
+				mulArr.addSrc(insn);
+				return mulArr;
+			default:
+				return super.naryOperation(insn, values);
 		}
-		
-		return super.naryOperation(insn, values);
 	}
 	
 	@Override

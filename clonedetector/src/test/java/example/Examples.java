@@ -18,8 +18,8 @@ public class Examples {
 		return ret;
 	}
 	
-	public static double add(int i, int j) {
-		double ret = i + j;
+	public static int add(int i, int j) {
+		int ret = i + j;
 		return ret;
 	}
 	

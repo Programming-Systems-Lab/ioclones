@@ -72,16 +72,16 @@ public class DependencyAnalyzer extends MethodVisitor {
 					}
 					
 					Map<Integer, DependentValue> params = dvi.getParams();
-					System.out.println("Input param number: " + params.size());
+					System.out.println("Input param: " + params);
 					params.forEach((id, val)->{
 						if (val.getDeps() != null && val.getDeps().size() > 0) {
 							//This means that the input is an object that has been written
-							System.out.println("Dirty input val: " + val.id);
-							System.out.println("Src inst: ");
-							val.getSrcs().forEach(src->System.out.println(src));
+							System.out.println("Dirty input val: " + val);
+							/*System.out.println("Src inst: ");
+							val.getSrcs().forEach(src->System.out.println(src));*/
 							val.getDeps().forEach(d->{
-								System.out.println("Written to input: " + d);
-								Collection<DependentValue> toOutput = val.tag();
+								System.out.println("Written to input (output): " + d + " " + d.getSrcs());
+								Collection<DependentValue> toOutput = d.tag();
 								inputs.addAll(toOutput);
 								System.out.println("Dependent val: ");
 								toOutput.forEach(to->System.out.println(to));
@@ -100,19 +100,19 @@ public class DependencyAnalyzer extends MethodVisitor {
 								stack += fn.getStack(j)+ " ";
 							}
 								
-							/*String locals = "Locals ";
+							String locals = "Locals ";
 							for(int j = 0; j < fn.getLocals(); j++) {
 								locals += fn.getLocal(j) + " ";
-							}*/
+							}
 
 							this.instructions.insertBefore(insn, new LdcInsnNode(stack));
-							//this.instructions.insertBefore(insn, new LdcInsnNode(locals));
+							this.instructions.insertBefore(insn, new LdcInsnNode(locals));
 						}
 						i++;
 						insn = insn.getNext();
 					}
 						
-					System.out.println("Input number: " + inputs.size());
+					System.out.println("Relevant input number: " + inputs.size());
 					for(DependentValue v : inputs) {
 						System.out.println("Input: " + v);
 						if (v.getSrcs() != null) {
