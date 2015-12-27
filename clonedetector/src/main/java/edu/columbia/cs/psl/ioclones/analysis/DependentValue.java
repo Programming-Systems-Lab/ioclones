@@ -86,7 +86,7 @@ public class DependentValue extends BasicValue {
 		}
 	}
 
-	public Collection<DependentValue> tag() {
+	public LinkedList<DependentValue> tag() {
 		LinkedList<DependentValue> ret = new LinkedList<DependentValue>();
 		//System.out.println("Current vale: " + this);
 		//System.out.println("Src instruction: " + this.srcs);

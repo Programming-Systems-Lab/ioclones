@@ -125,7 +125,9 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				//return newValue(Type.getType(((FieldInsnNode) insn).desc));
 				return ret;
 			case NEW:
-				return (DependentValue) newValue(Type.getObjectType(((TypeInsnNode) insn).desc));
+				DependentValue newRet = (DependentValue) newValue(Type.getObjectType(((TypeInsnNode) insn).desc));
+				newRet.addSrc(insn);
+				return newRet;
 			default:
 				logger.error("Invalid new operation: " + insn);
 				throw new Error("Internal error.");
@@ -444,16 +446,14 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				MethodInsnNode methodInst = (MethodInsnNode) insn;
 				Type retType = Type.getReturnType(methodInst.desc);
 				
-				DependentValue ret = null;
+				DependentValue ret = (DependentValue) newValue(retType);
 				if (insn.getOpcode() == INVOKESPECIAL && methodInst.name.equals("<init>")) {
 					//Move NEW's return val to invokespecial
-					ret = dvs.remove(0);
+					DependentValue objRef = dvs.get(0);
 					ret.addSrc(insn);
-					for (DependentValue dv: dvs) {
-						ret.addDep(dv);
+					for (int i = 1; i < dvs.size(); i++) {
+						objRef.addDep(dvs.get(i));
 					}
-				} else {
-					ret = (DependentValue) newValue(retType);
 				}
 				
 				if (ret == null || dvs == null || dvs.size() == 0) {

@@ -18,8 +18,6 @@ public class IORecord {
 	
 	private List<Object> outputs = new ArrayList<Object>();
 	
-	private transient Object dataLock = new Object();
-	
 	public IORecord(String methodKey) {
 		this.methodKey = methodKey;
 		this.id = GlobalInfoRecorder.getMethodIndex();
@@ -47,33 +45,24 @@ public class IORecord {
 		}
 		
 		//System.out.println("Register in: " + insert);
-		synchronized(dataLock) {
-			this.inputs.add(insert);
-		}
-	}
-		
-	public void registerAndReplace(Object o, boolean ser, int removeNum) {
-		synchronized(dataLock) {
-			this.removeObjs(removeNum);
-			this.registerInput(o, ser);
-		}
+		this.inputs.add(insert);
 	}
 	
-	public void removeObjs(int removeNum) {
-		synchronized(dataLock) {
-			for (int i = 0; i < removeNum; i++) {
-				this.inputs.removeLast();
-			}
+	public void registerOutput(Object o, boolean ser) {
+		if (o == null) {
+			ser = false;
 		}
-	}
-	
-	public void pullOutput() {
-		synchronized(dataLock) {
-			Object lastInput = this.inputs.removeLast();
-			this.outputs.add(lastInput);
-		}
-	}
 		
+		Object insert = null;
+		if (ser) {
+			insert = IOUtils.newObject(o);
+		} else {
+			insert = o;
+		}
+		
+		this.outputs.add(insert);
+	}
+			
 	public List<Object> getInputs() {
 		return this.inputs;
 	}
