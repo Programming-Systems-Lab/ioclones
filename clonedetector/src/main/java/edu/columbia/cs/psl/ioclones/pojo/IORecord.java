@@ -1,18 +1,21 @@
 package edu.columbia.cs.psl.ioclones.pojo;
 
 import java.util.List;
+import java.util.Set;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedList;
 
 import edu.columbia.cs.psl.ioclones.utils.GlobalInfoRecorder;
 import edu.columbia.cs.psl.ioclones.utils.IOUtils;
-import example.MyObject;
 
 public class IORecord {
 	
 	private String methodKey;
 	
 	private int id;
+	
+	private Set<Integer> stopVar = new HashSet<Integer>();
 	
 	private LinkedList<Object> inputs = new LinkedList<Object>();
 	
@@ -32,7 +35,11 @@ public class IORecord {
 		return this.id;
 	}
 	
-	public void registerInput(Object i, boolean ser) {		
+	public void registerInput(int varId, Object i, boolean ser) {
+		if (this.stopVar.contains(varId)) {
+			return ;
+		}
+		
 		if (i == null) {
 			ser = false;
 		}
@@ -46,6 +53,14 @@ public class IORecord {
 		
 		//System.out.println("Register in: " + insert);
 		this.inputs.add(insert);
+	}
+	
+	public void registerInput(Object i, boolean ser) {
+		this.registerInput(-1, i, ser);
+	}
+	
+	public void stopRegisterInput(int varId) {
+		this.stopVar.add(varId);
 	}
 	
 	public void registerOutput(Object o, boolean ser) {
@@ -80,34 +95,4 @@ public class IORecord {
 		sb.append("Outputs: " + this.outputs + "\n");
 		return sb.toString();
 	}
-	
-	public static void main(String[] args) {
-		IORecord io = new IORecord("a.b.c.method()");
-		int i = 5;
-		io.registerInput(i, false);
-		double d = 8;
-		io.registerInput(d, false);
-		char c = 'c';
-		io.registerInput(c, false);
-		short s = 3;
-		io.registerInput(s, false);
-		io.registerInput(0, false);
-		io.registerInput(-1, false);
-		long l = 8;
-		io.registerInput(8l, false);
-		float f = 3.0f;
-		io.registerInput(2.0f, false);
-		io.registerInput(32767, false);
-		io.registerInput(32768, false);
-		
-		byte b = (byte)'1';
-		io.registerInput(b, false);
-		
-		MyObject mo = new MyObject("test", 123);
-		io.registerInput(mo, true);
-		
-		boolean bl = false;
-		io.registerInput(bl, false);
-	}
-
 }

@@ -99,7 +99,7 @@ public class DependencyAnalyzer extends MethodVisitor {
 					});
 						
 					System.out.println("Relevant input number: " + ios.size());
-					System.out.println("Outpu number: " + ios.size());
+					System.out.println("Output number: " + ios.size());
 					for (DependentValue o: ios.keySet()) {
 						System.out.println("Output: " + o);
 						if (o.getSrcs() != null && o.getSrcs().size() > 0) {

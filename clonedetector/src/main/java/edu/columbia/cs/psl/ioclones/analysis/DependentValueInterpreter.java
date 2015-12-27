@@ -11,6 +11,7 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.FieldInsnNode;
+import org.objectweb.asm.tree.IincInsnNode;
 import org.objectweb.asm.tree.LdcInsnNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MultiANewArrayInsnNode;
@@ -126,7 +127,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				return ret;
 			case NEW:
 				DependentValue newRet = (DependentValue) newValue(Type.getObjectType(((TypeInsnNode) insn).desc));
-				newRet.addSrc(insn);
+				//newRet.addSrc(insn);
 				return newRet;
 			default:
 				logger.error("Invalid new operation: " + insn);
@@ -166,19 +167,32 @@ public class DependentValueInterpreter extends BasicInterpreter {
 		DependentValue ret = null;
 		switch (insn.getOpcode()) {
 			case IINC:
-				if (!(value instanceof DependentValue)) {
-					logger.error("Suspicious val for IINC: " + insn + " " + value);
-				}
 				//The value here should be dependent value
+				oriVal = (DependentValue) value;				
+				ret = (DependentValue) newValue(value.getType());
+				
+				if (this.params.containsKey(oriVal.id)) {
+					oriVal.addSrc(insn);
+				}
+				
+				ret.addDep(oriVal);
 				return value;
 			case INEG:
-				return value;
 	        case L2I:
 	        case F2I:
 	        case D2I:
 	        case I2B:
 	        case I2C:
 	        case I2S:
+	        	oriVal = (DependentValue) value;
+	        	if (this.convertMap.containsKey(oriVal.id)) {
+	        		return this.convertMap.get(oriVal.id);
+	        	}
+	        	
+	        	ret = (DependentValue) newValue(Type.INT_TYPE);
+	        	ret.addDep(oriVal);
+	        	this.convertMap.put(oriVal.id, ret);
+	        	return ret;
 	        case ARRAYLENGTH:
 	            //return BasicValue.INT_VALUE;
 	        	oriVal = (DependentValue) value;
@@ -187,12 +201,10 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	        	}
 	        	
 	            ret = (DependentValue) newValue(Type.INT_TYPE);
-	            //ret.addDep(oriVal);
 	            ret.owner = oriVal;
 	            this.convertMap.put(oriVal.id, ret);
 	            return ret;
 	        case FNEG:
-	        	return value;
 	        case I2F:
 	        case L2F:
 	        case D2F:
@@ -221,7 +233,6 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	        	this.convertMap.put(oriVal.id, ret);
 	        	return ret;
 	        case DNEG:
-	        	return value;
 	        case I2D:
 	        case L2D:
 	        case F2D:
@@ -253,7 +264,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				DependentValue size = (DependentValue) value;
 				ret = (DependentValue) super.unaryOperation(insn, size);
 				ret.addDep(size);
-				ret.addSrc(insn);
+				//ret.addSrc(insn);
 				return ret;
 			default:
 				return super.unaryOperation(insn, value);
@@ -421,9 +432,10 @@ public class DependentValueInterpreter extends BasicInterpreter {
 		
 		DependentValue objRef = (DependentValue)val1;
 		//Don't record the idx for array, too detailed
-		//DependentValue idx = (DependentValue)val2;
+		DependentValue idx = (DependentValue)val2;
 		DependentValue val = (DependentValue)val3;
 		
+		objRef.addDep(idx);
 		objRef.addDep(val);
 		ClassInfoUtils.propagateDepToOwners(objRef, val);
 		val.owner = objRef;
@@ -447,10 +459,9 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				Type retType = Type.getReturnType(methodInst.desc);
 				
 				DependentValue ret = (DependentValue) newValue(retType);
-				if (insn.getOpcode() == INVOKESPECIAL && methodInst.name.equals("<init>")) {
-					//Move NEW's return val to invokespecial
+				if (methodInst.getOpcode() == INVOKESPECIAL 
+						&& methodInst.name.equals("<init>")) {
 					DependentValue objRef = dvs.get(0);
-					ret.addSrc(insn);
 					for (int i = 1; i < dvs.size(); i++) {
 						objRef.addDep(dvs.get(i));
 					}
@@ -475,7 +486,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				dvs.forEach(dv->{
 					mulArr.addDep(dv);
 				});
-				mulArr.addSrc(insn);
+				//mulArr.addSrc(insn);
 				return mulArr;
 			default:
 				return super.naryOperation(insn, values);
@@ -542,7 +553,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 			return v;
 		}
 		
-		System.out.println("Touch merging objects");
+		//System.out.println("Touch merging objects");
 		if(v.getType().getDescriptor().equals("Ljava/lang/Object;"))
 			return v;
 		

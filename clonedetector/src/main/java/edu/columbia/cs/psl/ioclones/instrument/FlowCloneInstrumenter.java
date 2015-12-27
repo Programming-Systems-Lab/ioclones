@@ -48,16 +48,16 @@ public class FlowCloneInstrumenter extends ClassVisitor {
 		if (isInterface || isSynthetic) {
 			return mv;
 		} else {
-			FlowMethodObserver iom = new FlowMethodObserver(mv, 
+			FlowMethodObserver fmo = new FlowMethodObserver(mv, 
 					this.className, 
 					this.superName, 
 					name, 
 					desc, 
 					signature, 
 					exceptions);
-			LocalVariablesSorter lvs = new LocalVariablesSorter(access, desc, iom);
-			iom.setLocalVariablesSorter(lvs);
-			return iom.getLocalVariablesSorter();
+			LocalVariablesSorter lvs = new LocalVariablesSorter(access, desc, fmo);
+			fmo.setLocalVariablesSorter(lvs);
+			return fmo.getLocalVariablesSorter();
 		}
 	}
 }

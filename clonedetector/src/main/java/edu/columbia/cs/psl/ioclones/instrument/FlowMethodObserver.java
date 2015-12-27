@@ -39,7 +39,7 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 	
 	private String returnType;
 	
-	private boolean begin = true;
+	//private boolean begin = true;
 	
 	private LocalVariablesSorter lvs;
 	
@@ -69,9 +69,9 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 		this.methodKey = parsedKeys[0];
 		this.returnType = parsedKeys[1];
 		
-		if (name.equals("<init>")) {
+		/*if (name.equals("<init>")) {
 			this.begin = false;
-		}
+		}*/
 	}
 	
 	public void setLocalVariablesSorter(LocalVariablesSorter lvs) {
@@ -104,27 +104,11 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 	}
 	
 	@Override
-	public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
-		this.mv.visitMethodInsn(opcode, owner, name, desc, itf);
-		
-		if (!this.begin) {
-			owner = ClassInfoUtils.cleanType(owner);
-			if (owner.equals(this.className) && name.equals(INIT)) {
-				this.begin = true;
-			} else if (owner.equals(this.superName) && name.equals(INIT)) {
-				this.begin = true;
-			}
-			
-			return ;
-		}
-	}
-	
-	@Override
 	public void visitInsn(int opcode) {
-		if (!this.begin) {
+		/*if (!this.begin) {
 			this.mv.visitInsn(opcode);
 			return ;
-		}
+		}*/
 		
 		if (this.recordInput) {
 			this.mv.visitInsn(opcode);
@@ -241,18 +225,18 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 			this.mv.visitInsn(opcode);
 		}
 	}
-	
+		
 	@Override
 	public void visitIntInsn(int opcode, int operand) {
 		this.mv.visitIntInsn(opcode, operand);
-		if (this.recordInput) {
+		/*if (this.recordInput) {
 			this.recordInput = false;
 			
 			//Do we need to record empty array?
 			if (opcode == NEWARRAY) {
 				this.recordInput = false;
 			}
-		}
+		}*/
 	}
 	
 	@Override
@@ -280,9 +264,68 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 					this.mv.visitInsn(DUP);
 					break ;
 				default:
-					logger.error("Invalid inptu type: " + opcode + " " + var);
+					logger.error("Invalid input type: " + opcode + " " + var);
 					System.exit(-1);
 			}
+			
+			this.mv.visitVarInsn(ALOAD, this.recordId);
+			this.mv.visitInsn(SWAP);
+			this.convertToInst(var);
+			if (!ser) {
+				this.mv.visitInsn(ICONST_0);
+			} else {
+				this.mv.visitInsn(ICONST_1);
+			}
+			
+			this.mv.visitMethodInsn(INVOKEVIRTUAL, 
+					Type.getInternalName(IORecord.class), 
+					"registerInput", 
+					"(ILjava/lang/Object;Z)V", 
+					false);
+		} else if (this.recordOutput) {
+			//Weird if we touch here
+			this.recordOutput = false;
+			logger.error("Invalid output type: " + opcode + " " + var);
+			System.exit(-1);
+		}
+		
+		if (BytecodeUtils.xstore(opcode)) {
+			this.mv.visitVarInsn(ALOAD, this.recordId);
+			this.mv.visitMethodInsn(INVOKEVIRTUAL, 
+					Type.getInternalName(IORecord.class), 
+					"stopRegisterInput", 
+					"(I)V", 
+					false);
+		}
+	}
+	
+	@Override
+	public void visitFieldInsn(int opcode, String owner, String name, String desc) {
+		if (this.recordInput) {
+			this.mv.visitFieldInsn(opcode, owner, name, desc);
+			
+			this.recordInput = false;
+			Type type = Type.getType(desc);
+			boolean ser = this.handleType(type);
+			
+			this.mv.visitVarInsn(ALOAD, this.recordId);
+			this.mv.visitInsn(SWAP);
+			if (!ser) {
+				this.mv.visitInsn(ICONST_0);
+			} else {
+				this.mv.visitInsn(ICONST_1);
+			}
+			
+			this.mv.visitMethodInsn(INVOKEVIRTUAL, 
+					Type.getInternalName(IORecord.class), 
+					"registerInput", 
+					"(Ljava/lang/Object;Z)V", 
+					false);
+		} else {
+			this.recordOutput = false;
+			
+			Type type = Type.getType(desc);
+			boolean ser = this.handleType(type);
 			
 			this.mv.visitVarInsn(ALOAD, this.recordId);
 			this.mv.visitInsn(SWAP);
@@ -297,38 +340,9 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 					"registerOutput", 
 					"(Ljava/lang/Object;Z)V", 
 					false);
-		} else if (this.recordOutput) {
-			//Weird if we touch here
-			this.recordOutput = false;
-			logger.error("Invalid output type: " + opcode + " " + var);
 		}
 	}
-	
-	@Override
-	public void visitTypeInsn(int opcode, String type) {
-		this.mv.visitTypeInsn(opcode, type);
-		if (this.recordInput) {
-			if (opcode == NEW) {
-				//Wait until invokespecial
-				this.mv.visitInsn(DUP);
-			} else if (opcode == ANEWARRAY) {
-				//Do we need to record empty array...
-				this.recordInput = false;
-				
-				this.mv.visitInsn(DUP);
-				this.mv.visitVarInsn(ALOAD, this.recordId);
-				this.mv.visitInsn(SWAP);
-				this.mv.visitInsn(ICONST_1);
-				
-				this.mv.visitMethodInsn(INVOKEVIRTUAL, 
-						Type.getInternalName(IORecord.class), 
-						"registerOutput", 
-						"(Ljava/lang/Object;Z)V", 
-						false);
-			}
-		}
-	}
-	
+		
 	@Override
 	public void visitLdcInsn(Object cst) {
 		if (cst instanceof String) {
@@ -342,6 +356,54 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 			}
 		} else {
 			this.mv.visitLdcInsn(cst);
+		}
+	}
+	
+	@Override
+	public void visitIincInsn(int var, int increment) {
+		if (this.recordInput) {
+			//Record input and then stop the recording of this var
+			this.mv.visitVarInsn(ALOAD, this.recordId);
+			this.mv.visitVarInsn(ILOAD, var);
+			this.mv.visitMethodInsn(Opcodes.INVOKESTATIC, 
+					Type.getInternalName(Integer.class), 
+					VALUE_OF, 
+					"(I)Ljava/lang/Integer;", 
+					false);
+			this.mv.visitInsn(ICONST_0);
+			this.mv.visitMethodInsn(INVOKEVIRTUAL, 
+					Type.getInternalName(IORecord.class), 
+					"registerInput", 
+					"(Ljava/lang/Object;Z)V", 
+					false);
+			
+			this.mv.visitVarInsn(ALOAD, this.recordId);
+			this.convertToInst(var);
+			this.mv.visitMethodInsn(INVOKEVIRTUAL, 
+					Type.getInternalName(IORecord.class), 
+					"stopRegisterInput", 
+					"(I)V", 
+					false);
+		}
+	}
+	
+	private void convertToInst(int num) {
+		if (num == 1) {
+			this.mv.visitInsn(Opcodes.ICONST_1);
+		} else if (num == 2) {
+			this.mv.visitInsn(Opcodes.ICONST_2);
+		} else if (num == 3) {
+			this.mv.visitInsn(Opcodes.ICONST_3);
+		} else if (num == 4) {
+			this.mv.visitInsn(Opcodes.ICONST_4);
+		} else if (num == 5) {
+			this.mv.visitInsn(Opcodes.ICONST_5);
+		} else if (num > 6 && num <= 127) {
+			this.mv.visitIntInsn(Opcodes.BIPUSH, num);
+		} else if (num > 127 && num <= 32767) {
+			this.mv.visitIntInsn(Opcodes.SIPUSH, num);
+		} else {
+			this.mv.visitLdcInsn(num);
 		}
 	}
 	
