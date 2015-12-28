@@ -25,7 +25,7 @@
 							<goal>shade</goal>
 						</goals>
 						<configuration>
-							<relocations>
+							<!--<relocations>
 								<relocation>
 									<pattern>org.apache.commons.cli</pattern>
 									<shadedPattern>edu.columbia.cs.psl.clonedetector.org.apache.commons.cli</shadedPattern>
@@ -35,12 +35,11 @@
 									<shadedPattern>edu.columbia.cs.psl.clonedetector.org.objectweb.asm</shadedPattern>
 								</relocation>
 							</relocations>
-							<minimizeJar>true</minimizeJar>
+							<minimizeJar>true</minimizeJar>-->
 						</configuration>
 					</execution>
 				</executions>
 			</plugin>
-
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-source-plugin</artifactId>
@@ -53,22 +52,30 @@
 					</execution>
 				</executions>
 			</plugin>
-	  <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-jar-plugin</artifactId>
-        <configuration>
-          <archive>
-            <manifest>
-              <addClasspath>true</addClasspath>
-              <mainClass>edu.columbia.cs.psl.ioclones.Main</mainClass>
-            </manifest>
-            <manifestEntries>
-            	<Premain-Class>edu.columbia.cs.psl.ioclones.premain.PreMain</Premain-Class>
-            </manifestEntries>
-          </archive>
-        </configuration>
-      </plugin>
+	  		<plugin>
+        		<groupId>org.apache.maven.plugins</groupId>
+        		<artifactId>maven-jar-plugin</artifactId>
+        		<configuration>
+          			<archive>
+            			<manifest>
+              				<addClasspath>true</addClasspath>
+              				<mainClass>edu.columbia.cs.psl.ioclones.Main</mainClass>
+            			</manifest>
+            			<manifestEntries>
+            				<Premain-Class>edu.columbia.cs.psl.ioclones.premain.PreMain</Premain-Class>
+            			</manifestEntries>
+          			</archive>
+        		</configuration>
+      		</plugin>
 		</plugins>
+		<resources>
+			<resource>
+				<directory>info</directory>
+				<includes>
+					<include>blacklist.txt</include>
+				</includes>
+			</resource>
+		</resources>
 	</build>
 
 	<dependencies>

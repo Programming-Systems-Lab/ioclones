@@ -242,9 +242,7 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 	@Override
 	public void visitVarInsn(int opcode, int var) {
 		this.mv.visitVarInsn(opcode, var);
-		if (this.recordInput) {
-			this.recordInput = false;
-			
+		if (this.recordInput || this.recordOutput) {			
 			boolean ser = false;
 			switch(opcode) {
 				case ILOAD:
@@ -277,16 +275,25 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 			}
 			this.convertToInst(var);
 			
-			this.mv.visitMethodInsn(INVOKEVIRTUAL, 
-					Type.getInternalName(IORecord.class), 
-					"registerInput", 
-					"(Ljava/lang/Object;ZI)V", 
-					false);
-		} else if (this.recordOutput) {
-			//Weird if we touch here
-			this.recordOutput = false;
-			logger.error("Invalid output type: " + opcode + " " + var);
-			//System.exit(-1);
+			if (this.recordInput) {
+				this.mv.visitMethodInsn(INVOKEVIRTUAL, 
+						Type.getInternalName(IORecord.class), 
+						"registerInput", 
+						"(Ljava/lang/Object;ZI)V", 
+						false);
+			} else {
+				this.mv.visitMethodInsn(INVOKEVIRTUAL, 
+						Type.getInternalName(IORecord.class), 
+						"registerOutput", 
+						"(Ljava/lang/Object;ZI)V", 
+						false);
+			}
+			
+			if (this.recordInput) {
+				this.recordInput = false;
+			} else {
+				this.recordOutput = false;
+			}
 		}
 		
 		//We don't actually need this guard...

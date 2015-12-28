@@ -1,7 +1,10 @@
 package edu.columbia.cs.psl.ioclones.instrument;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.lang.instrument.ClassFileTransformer;
 import java.security.ProtectionDomain;
 
@@ -30,7 +33,7 @@ public class FlowCloneTransformer implements ClassFileTransformer {
 			Class<?> classBeingRedefined, 
 			ProtectionDomain protectionDomain, 
 			byte[] classfileBuffer) {
-		try {
+		try {			
 			if (protectionDomain != null) {
 				String protection = protectionDomain.getCodeSource().getLocation().getPath();
 				if (!ClassInfoUtils.checkProtectionDomain(protection)) {

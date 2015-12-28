@@ -19,7 +19,7 @@ public class ClassInfoUtils {
 	
 	private static final Set<String> BLACK_PREFIX = IOUtils.blackPrefix();
 	
-	private static final File libDir = new File("./lib");
+	private static final File libDir = new File(System.getProperty("user.home") + "/.m2");
 	
 	public static String cleanType(String typeString) {
 		//return typeString.replace("/", ClassUtils.RE_SLASH).replace(";", "");
@@ -98,6 +98,8 @@ public class ClassInfoUtils {
 		try {
 			String checkDir = domainFile.getParentFile().getCanonicalPath();
 			String libDirPath = libDir.getCanonicalPath();
+			//System.out.println("Check dir: " + checkDir);
+			//System.out.println("Lib path: " + libDirPath);
 			if (libDirPath.equals(checkDir)) {
 				return false;
 			} else {
@@ -121,12 +123,4 @@ public class ClassInfoUtils {
 		}
 		return false;
 	}
-	
-	public static void propagateDepToOwners(DependentValue owner, DependentValue written) {
-		owner.addDep(written);
-		if (owner.owner != null) {
-			propagateDepToOwners(owner.owner, written);
-		}
-	}
-
 }

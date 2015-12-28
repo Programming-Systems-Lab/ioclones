@@ -51,7 +51,7 @@ public class IORecord {
 			insert = i;
 		}
 		
-		//System.out.println("Register in: " + insert);
+		System.out.println("Register in: " + insert);
 		this.inputs.add(insert);
 	}
 	
@@ -70,11 +70,13 @@ public class IORecord {
 		
 		Object insert = null;
 		if (ser) {
+			System.out.println("Check o: " + methodKey + " " + o);
 			insert = IOUtils.newObject(o);
 		} else {
 			insert = o;
 		}
 		
+		System.out.println("Register output: " + insert);
 		this.outputs.add(insert);
 	}
 			

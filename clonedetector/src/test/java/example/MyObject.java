@@ -15,7 +15,7 @@ public class MyObject {
 	public String name;
 	
 	public int age;
-	
+		
 	public MyObject[] friends;
 	
 	public MyObject(String name, int age) {

@@ -40,6 +40,7 @@ public class Examples {
 		MyObject mo1 = new MyObject(3);
 		MyObject mo2 = new MyObject(5);
 		moAdd(mo1, mo2);
+		System.out.println(System.getProperty("user.home"));
 	}
 
 }

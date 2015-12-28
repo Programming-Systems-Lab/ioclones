@@ -25,7 +25,9 @@ public class DependentValue extends BasicValue {
 	
 	//public AbstractInsnNode src;
 	
-	private List<AbstractInsnNode> srcs;
+	private List<AbstractInsnNode> inSrcs;
+	
+	private List<AbstractInsnNode> outSinks;
 	
 	private static int idCounter;
 	
@@ -47,15 +49,26 @@ public class DependentValue extends BasicValue {
 		return this.deps;
 	}
 	
-	public void addSrc(AbstractInsnNode src) {
-		if (this.srcs == null)
-			this.srcs = new ArrayList<AbstractInsnNode>();
+	public void addInSrc(AbstractInsnNode src) {
+		if (this.inSrcs == null)
+			this.inSrcs = new ArrayList<AbstractInsnNode>();
 		
-		this.srcs.add(src);
+		this.inSrcs.add(src);
+	}
+		
+	public List<AbstractInsnNode> getInSrcs() {
+		return this.inSrcs;
 	}
 	
-	public List<AbstractInsnNode> getSrcs() {
-		return this.srcs;
+	public void addOutSink(AbstractInsnNode sink) {
+		if (this.outSinks == null)
+			this.outSinks = new ArrayList<AbstractInsnNode>();
+		
+		this.outSinks.add(sink);
+	}
+	
+	public List<AbstractInsnNode> getOutSinks() {
+		return this.outSinks;
 	}
 
 	@Override
@@ -110,13 +123,23 @@ public class DependentValue extends BasicValue {
 		final int prime = 31;
 		int result = super.hashCode();
 		result = prime * result + (flowsToOutput ? 1231 : 1237);
-		if (this.srcs == null) {
+		if (this.inSrcs == null && this.outSinks == null) {
 			result = prime * result;
 		} else {
-			for (AbstractInsnNode src: this.srcs) {
-				result = prime * result + ((src == null) ? 0 : src.hashCode());
+			if (this.inSrcs != null) {
+				for (AbstractInsnNode src: this.inSrcs) {
+					result = prime * result + ((src == null) ? 0 : src.hashCode());
+				}
 			}
+			
+			if (this.outSinks != null) {
+				for (AbstractInsnNode sink: this.outSinks) {
+					result = prime * result + ((sink == null) ? 0: sink.hashCode());
+				}
+			}
+			
 		}
+		
 		//result = prime * result + ((src == null) ? 0 : src.hashCode());
 		return result;
 	}

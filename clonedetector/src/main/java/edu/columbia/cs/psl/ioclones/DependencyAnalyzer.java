@@ -6,6 +6,8 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.AbstractInsnNode;
@@ -20,6 +22,8 @@ import edu.columbia.cs.psl.ioclones.analysis.DependentValue;
 import edu.columbia.cs.psl.ioclones.analysis.DependentValueInterpreter;
 
 public class DependencyAnalyzer extends MethodVisitor {
+	
+	private static final Logger logger = LogManager.getLogger(DependencyAnalyzer.class);
 	
 	public static final String OUTPUT_MSG = "__$$COLUMBIA_IO_OUTPUT";
 	
@@ -67,7 +71,7 @@ public class DependencyAnalyzer extends MethodVisitor {
 									//What are we returning?
 									DependentValue retVal = (DependentValue)fn.getStack(fn.getStackSize() - 1);
 									LinkedList<DependentValue> toOutput = retVal.tag();
-									retVal.addSrc(insn);
+									retVal.addOutSink(insn);
 									
 									//The first will be the ret itself
 									toOutput.removeFirst();
@@ -75,11 +79,11 @@ public class DependencyAnalyzer extends MethodVisitor {
 									//inputs.addAll(toOutput);
 									System.out.println("Output val with inst: " + retVal + " " + insn);
 									System.out.println("Dependent val: " + toOutput);
-									List<List<AbstractInsnNode>> srcs = new ArrayList<List<AbstractInsnNode>>();
+									/*List<List<AbstractInsnNode>> srcs = new ArrayList<List<AbstractInsnNode>>();
 									toOutput.forEach(v->{
 										srcs.add(v.getSrcs());
 									});
-									System.out.println("Dep srcs: " + srcs);
+									System.out.println("Dep srcs: " + srcs);*/
 									break;									
 							}
 						}
@@ -99,14 +103,20 @@ public class DependencyAnalyzer extends MethodVisitor {
 							System.out.println("Dirty input val: " + val);
 							
 							val.getDeps().forEach(d->{
-								System.out.println("Written to input (output): " + d + " " + d.getSrcs());
+								System.out.println("Written to input (output): " + d + " " + d.getInSrcs());
 								LinkedList<DependentValue> toOutput = d.tag();
+								System.out.println("Check to output: " + toOutput);
 								
-								//The first will be d itself
-								toOutput.removeFirst();
-								//inputs.addAll(toOutput);
-								ios.put(d, toOutput);
-								System.out.println("Dependent val: " + toOutput);
+								if (toOutput.size() > 0) {
+									//The first will be d itself
+									toOutput.removeFirst();
+									//inputs.addAll(toOutput);
+									ios.put(d, toOutput);
+									System.out.println("Dependent val: " + toOutput);
+								} else {
+									logger.info("Visited value: " + d);
+								}
+								
 								
 								/*if (d.getSrcs() != null && d.getSrcs().size() > 0) {
 									d.getSrcs().forEach(src-> {
@@ -122,24 +132,34 @@ public class DependencyAnalyzer extends MethodVisitor {
 						System.out.println("Output: " + o);
 						LinkedList<DependentValue> inputs = ios.get(o);
 						
-						if (o.getSrcs() != null && o.getSrcs().size() > 0) {
-							//Should be 1
-							o.getSrcs().forEach(src->{
-								this.instructions.insertBefore(src, new LdcInsnNode(OUTPUT_MSG));
+						//If o's out sinks are null, something wrong
+						if (o.getOutSinks() != null) {
+							o.getOutSinks().forEach(sink->{
+								this.instructions.insertBefore(sink, new LdcInsnNode(OUTPUT_MSG));
 							});
 							
-							if (inputs != null && inputs.size() > 0) {
+							if (inputs != null) {
 								for (DependentValue input: inputs) {
-									if (input.getSrcs() == null || input.getSrcs().size() == 0) {
+									if (input.getInSrcs() == null 
+											|| input.getInSrcs().size() == 0) {
 										continue ;
 									}
 									
-									//Insert instructions for input
-									input.getSrcs().forEach(src->{
+									input.getInSrcs().forEach(src->{
 										this.instructions.insertBefore(src, new LdcInsnNode(INPUT_MSG));
 									});
 								}
 							}
+							
+							//In case the input and output are the same value
+							if (o.getInSrcs() != null) {
+								//System.out.println("I is O: " + o);
+								o.getInSrcs().forEach(src->{
+									this.instructions.insertBefore(src, new LdcInsnNode(INPUT_MSG));
+								});
+							}
+						} else {
+							logger.error("Invalid summarziation of output insts: " + o);
 						}
 					}
 					

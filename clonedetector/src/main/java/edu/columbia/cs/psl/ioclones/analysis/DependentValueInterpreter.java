@@ -36,6 +36,16 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	
 	private Map<Integer, DependentValue> convertMap = new HashMap<Integer, DependentValue>();
 	
+	public boolean propagateDepToOwners(DependentValue owner, DependentValue written) {
+		boolean fromInputParams = this.params.containsKey(owner.id);
+		owner.addDep(written);
+		if (owner.owner != null) {
+			fromInputParams = propagateDepToOwners(owner.owner, written) || fromInputParams;
+		}
+		
+		return fromInputParams;
+	}
+	
 	public Map<Integer, DependentValue> getParams() {
 		return this.params;
 	}
@@ -122,7 +132,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 			case GETSTATIC:
 				DependentValue ret = new DependentValue(Type.getType(((FieldInsnNode) insn).desc));
 				//ret.src = insn;
-				ret.addSrc(insn);
+				ret.addInSrc(insn);
 				//return newValue(Type.getType(((FieldInsnNode) insn).desc));
 				return ret;
 			case NEW:
@@ -149,7 +159,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				//For capturing xloads that might be input
 				if (this.params.containsKey(dv.id)) {
 					System.out.println("Input load: " + insn + " " + dv);
-					dv.addSrc(insn);
+					dv.addInSrc(insn);
 				}
 			default:
 				//return super.copyOperation(insn, value);
@@ -170,7 +180,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				ret = (DependentValue) newValue(value.getType());
 				
 				if (this.params.containsKey(oriVal.id)) {
-					oriVal.addSrc(insn);
+					oriVal.addInSrc(insn);
 				}
 				
 				ret.addDep(oriVal);
@@ -235,7 +245,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	        case L2D:
 	        case F2D:
 	            //return BasicValue.DOUBLE_VALUE;
-	            oriVal = (DependentValue) value;
+	            oriVal = (DependentValue) value;	            
 	            if (this.convertMap.containsKey(oriVal.id)) {
 	            	return this.convertMap.get(oriVal.id);
 	            }
@@ -247,7 +257,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 			case GETFIELD:
 				ret = (DependentValue) super.unaryOperation(insn, value);
 				//ret.src = insn;
-				ret.addSrc(insn);
+				ret.addInSrc(insn);
 				
 				DependentValue owner = (DependentValue)value;
 				ret.owner = owner;
@@ -289,7 +299,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				if (this.objDep) {
 					ret.addDep(arrRef);
 				}
-				ret.addSrc(insn);
+				ret.addInSrc(insn);
 				return ret;
 			case IADD:
 			case ISUB:
@@ -317,7 +327,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				if (this.objDep) {
 					ret.addDep(arrRef);
 				}
-				ret.addSrc(insn);
+				ret.addInSrc(insn);
 				return ret;
 			case FADD:
 			case FSUB:
@@ -337,7 +347,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				if (this.objDep) {
 					ret.addDep(arrRef);
 				}
-				ret.addSrc(insn);
+				ret.addInSrc(insn);
 				return ret;
 			case LADD:
 			case LSUB:
@@ -363,7 +373,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				if (this.objDep) {
 					ret.addDep(arrRef);
 				}
-				ret.addSrc(insn);
+				ret.addInSrc(insn);
 				return ret;
 			case DADD:
 			case DSUB:
@@ -384,7 +394,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				if (this.objDep) {
 					ret.addDep(arrRef);
 				}
-				ret.addSrc(insn);
+				ret.addInSrc(insn);
 				//return BasicValue.REFERENCE_VALUE;
 				return ret;
 			case LCMP:
@@ -413,7 +423,11 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				
 				DependentValue objRef = (DependentValue) value1;
 				DependentValue written = (DependentValue) value2;
-				ClassInfoUtils.propagateDepToOwners(objRef, written);
+				boolean polluteInput = propagateDepToOwners(objRef, written);
+				if (polluteInput) {
+					written.addOutSink(insn);
+				}
+				written.owner = objRef;
 				
 				return null;
 			default:
@@ -434,8 +448,10 @@ public class DependentValueInterpreter extends BasicInterpreter {
 		DependentValue val = (DependentValue)val3;
 		
 		objRef.addDep(idx);
-		objRef.addDep(val);
-		ClassInfoUtils.propagateDepToOwners(objRef, val);
+		boolean polluteInput = this.propagateDepToOwners(objRef, val);
+		if (polluteInput) {
+			val.addOutSink(insn);
+		} 
 		val.owner = objRef;
 		
 		return super.ternaryOperation(insn, val1, val2, val3);
@@ -457,13 +473,13 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				Type retType = Type.getReturnType(methodInst.desc);
 				
 				DependentValue ret = (DependentValue) newValue(retType);
-				if (methodInst.getOpcode() == INVOKESPECIAL 
+				/*if (methodInst.getOpcode() == INVOKESPECIAL 
 						&& methodInst.name.equals("<init>")) {
 					DependentValue objRef = dvs.get(0);
 					for (int i = 1; i < dvs.size(); i++) {
 						objRef.addDep(dvs.get(i));
 					}
-				}
+				}*/
 				
 				if (ret == null || dvs == null || dvs.size() == 0) {
 					return ret; 
@@ -497,6 +513,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 			BasicValue expected) throws AnalyzerException {
 		this.init = true;
 		super.returnOperation(insn, value, expected);
+		//Bind instruction at analyzer
 	}
 	
 	@Override
@@ -522,8 +539,8 @@ public class DependentValueInterpreter extends BasicInterpreter {
 			DependentValue sw = (DependentValue) w;
 			if ((v.getType() == null || v.getType().getDescriptor().equals("Lnull;")) 
 					&& (w.getType() == null || w.getType().getDescriptor().equals("Lnull;"))) {
-				if ((sw.getSrcs() != null && sv.getDeps() != null && sw != null && sv.getDeps().contains(sw)) 
-						|| (sw.getSrcs() == null && sw.getDeps() != null && sv.getDeps() != null && sv.getDeps().containsAll(sw.getDeps())))
+				if ((sw.getInSrcs() != null && sv.getDeps() != null && sw != null && sv.getDeps().contains(sw)) 
+						|| (sw.getInSrcs() == null && sw.getDeps() != null && sv.getDeps() != null && sv.getDeps().containsAll(sw.getDeps())))
 					return v;
 				else {
 					sv.addDep(sw);

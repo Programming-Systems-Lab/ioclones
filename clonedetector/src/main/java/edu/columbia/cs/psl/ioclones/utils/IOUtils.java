@@ -6,6 +6,7 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.lang.reflect.Array;
 import java.net.Socket;
@@ -75,17 +76,22 @@ public class IOUtils {
 	
 	public static Set<String> blackPrefix() {
 		Set<String> ret = new HashSet<String>();
-		File blackFile = new File("./info/blacklist.txt");
-		if (!blackFile.exists()) {
-			return ret;
-		}
 		
 		try {
-			BufferedReader br = new BufferedReader(new FileReader(blackFile));
+			ClassLoader clazzLoader = IOUtils.class.getClassLoader();
+			InputStream blackStream = clazzLoader.getResourceAsStream("blacklist.txt");
+			if (blackStream == null) {
+				logger.warn("Find no black list file");
+				return ret;
+			}
+			
+			InputStreamReader isr = new InputStreamReader(blackStream);
+			BufferedReader br = new BufferedReader(isr);
 			String buf = "";
 			while ((buf = br.readLine()) != null) {
 				ret.add(buf);
 			}
+			isr.close();
 			br.close();
 		} catch (Exception ex) {
 			logger.error("Error: ", ex);
@@ -98,7 +104,14 @@ public class IOUtils {
 		try {
 			XStream xstream = new XStream();
 			String objString = xstream.toXML(obj);
-			//System.out.println("objString: " + objString);
+			if (obj.getClass().isArray()) {
+				/*StringBuilder sb = new StringBuilder();
+				for (int i = 0; i < Array.getLength(obj); i++) {
+					sb.append(Array.get(obj, i) + " ");
+				}
+				System.out.println(sb.toString());*/
+				System.out.println(Array.getLength(obj));
+			}
 			Object newObj = xstream.fromXML(objString);
 			return newObj;
 		} catch (Exception ex) {

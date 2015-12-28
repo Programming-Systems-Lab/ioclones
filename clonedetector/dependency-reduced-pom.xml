@@ -5,6 +5,14 @@
   <artifactId>CloneDetector</artifactId>
   <version>0.0.1-SNAPSHOT</version>
   <build>
+    <resources>
+      <resource>
+        <directory>info</directory>
+        <includes>
+          <include>blacklist.txt</include>
+        </includes>
+      </resource>
+    </resources>
     <plugins>
       <plugin>
         <artifactId>maven-compiler-plugin</artifactId>
@@ -23,19 +31,7 @@
             <goals>
               <goal>shade</goal>
             </goals>
-            <configuration>
-              <relocations>
-                <relocation>
-                  <pattern>org.apache.commons.cli</pattern>
-                  <shadedPattern>edu.columbia.cs.psl.clonedetector.org.apache.commons.cli</shadedPattern>
-                </relocation>
-                <relocation>
-                  <pattern>org.objectweb.asm</pattern>
-                  <shadedPattern>edu.columbia.cs.psl.clonedetector.org.objectweb.asm</shadedPattern>
-                </relocation>
-              </relocations>
-              <minimizeJar>true</minimizeJar>
-            </configuration>
+            <configuration />
           </execution>
         </executions>
       </plugin>
