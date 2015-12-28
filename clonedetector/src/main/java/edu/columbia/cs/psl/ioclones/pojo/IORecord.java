@@ -35,7 +35,7 @@ public class IORecord {
 		return this.id;
 	}
 	
-	public void registerInput(int varId, Object i, boolean ser) {
+	public void registerInput(Object i, boolean ser, int varId) {
 		if (this.stopVar.contains(varId)) {
 			return ;
 		}
@@ -56,7 +56,7 @@ public class IORecord {
 	}
 	
 	public void registerInput(Object i, boolean ser) {
-		this.registerInput(-1, i, ser);
+		this.registerInput(i, ser, -1);
 	}
 	
 	public void stopRegisterInput(int varId) {

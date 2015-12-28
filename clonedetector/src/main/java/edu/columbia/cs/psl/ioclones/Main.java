@@ -61,7 +61,7 @@ public class Main {
 				// TODO Auto-generated method stub
 				MethodVisitor mv = super.visitMethod(access, name, desc, signature, exceptions);
 				
-				mv = new DependencyAnalyzer(className, access, name, desc, signature, exceptions, mv);
+				mv = new DependencyAnalyzer(className, access, name, desc, signature, exceptions, mv, true);
 				return mv;
 			}
 		};

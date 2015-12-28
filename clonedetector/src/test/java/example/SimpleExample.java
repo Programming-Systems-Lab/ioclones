@@ -9,7 +9,7 @@ public class SimpleExample {
 	 * @param in
 	 * @return
 	 */
-	/*int foo(int in) {
+	int foo(int in) {
 		int i = this.field;
 		int j = 0;
 //		int k = i + j;
@@ -21,7 +21,7 @@ public class SimpleExample {
 			k = i + l + in;
 		}
 		return k;
-	}*/
+	}
 	
 	/**
 	 * The input is only iaload this instruction
@@ -36,14 +36,14 @@ public class SimpleExample {
 		return ret;
 	}*/
 	
-	public int trickyInput(int input) {
+	/*public int trickyInput(int input) {
 		int ret = 0;
 		for (int i = 0; i < 5; i++) {
 			ret = (input += 5);
 		}
 		
 		return ret;
-	}
+	}*/
 	
 	/**
 	 * The inputs are two getfields
@@ -129,5 +129,22 @@ public class SimpleExample {
 		} else {
 			this.field = 0;
 		}
+	}*/
+	
+	/*public float rewritePrimitive(float f) {
+		f = 0.5f;
+		return f + 1;
+	}
+	
+	public MyObject rewriteObject(MyObject mo) {
+		mo = new MyObject(15);
+		return mo;
+	}
+	
+	public int iincExample(int input) {
+		for (int i = 0; i < 5; i++) {
+			input++;
+		}
+		return input;
 	}*/
 }

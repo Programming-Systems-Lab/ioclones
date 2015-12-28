@@ -143,7 +143,7 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 					break ;
 				default:
 					logger.error("Invalid input type: " + opcode);
-					System.exit(-1);
+					//System.exit(-1);
 			}
 			
 			this.mv.visitVarInsn(ALOAD, this.recordId);
@@ -194,7 +194,7 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 					break ;
 				default:
 					logger.error("Invalid output type: " + opcode);
-					System.exit(-1);
+					//System.exit(-1);
 			}
 			
 			this.mv.visitVarInsn(ALOAD, this.recordId);
@@ -265,38 +265,40 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 					break ;
 				default:
 					logger.error("Invalid input type: " + opcode + " " + var);
-					System.exit(-1);
+					//System.exit(-1);
 			}
 			
 			this.mv.visitVarInsn(ALOAD, this.recordId);
 			this.mv.visitInsn(SWAP);
-			this.convertToInst(var);
 			if (!ser) {
 				this.mv.visitInsn(ICONST_0);
 			} else {
 				this.mv.visitInsn(ICONST_1);
 			}
+			this.convertToInst(var);
 			
 			this.mv.visitMethodInsn(INVOKEVIRTUAL, 
 					Type.getInternalName(IORecord.class), 
 					"registerInput", 
-					"(ILjava/lang/Object;Z)V", 
+					"(Ljava/lang/Object;ZI)V", 
 					false);
 		} else if (this.recordOutput) {
 			//Weird if we touch here
 			this.recordOutput = false;
 			logger.error("Invalid output type: " + opcode + " " + var);
-			System.exit(-1);
+			//System.exit(-1);
 		}
 		
-		if (BytecodeUtils.xstore(opcode)) {
+		//We don't actually need this guard...
+		/*if (BytecodeUtils.xstore(opcode)) {
 			this.mv.visitVarInsn(ALOAD, this.recordId);
+			this.convertToInst(var);
 			this.mv.visitMethodInsn(INVOKEVIRTUAL, 
 					Type.getInternalName(IORecord.class), 
 					"stopRegisterInput", 
 					"(I)V", 
 					false);
-		}
+		}*/
 	}
 	
 	@Override
@@ -321,7 +323,7 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 					"registerInput", 
 					"(Ljava/lang/Object;Z)V", 
 					false);
-		} else {
+		} else if (this.recordOutput){
 			this.recordOutput = false;
 			
 			Type type = Type.getType(desc);
@@ -340,6 +342,10 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 					"registerOutput", 
 					"(Ljava/lang/Object;Z)V", 
 					false);
+			
+			this.mv.visitFieldInsn(opcode, owner, name, desc);
+		} else {
+			this.mv.visitFieldInsn(opcode, owner, name, desc);
 		}
 	}
 		

@@ -150,8 +150,6 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				if (this.params.containsKey(dv.id)) {
 					System.out.println("Input load: " + insn + " " + dv);
 					dv.addSrc(insn);
-				} else {
-					System.out.println("Check load: " + insn + " " + dv);
 				}
 			default:
 				//return super.copyOperation(insn, value);
@@ -431,7 +429,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 		this.init = true;
 		
 		DependentValue objRef = (DependentValue)val1;
-		//Don't record the idx for array, too detailed
+		//Should record idx for array, too detailed?
 		DependentValue idx = (DependentValue)val2;
 		DependentValue val = (DependentValue)val3;
 		
@@ -503,8 +501,8 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	
 	@Override
 	public BasicValue merge(BasicValue v, BasicValue w) {
-		System.out.println("V: " + v);
-		System.out.println("W: " + w);
+		//System.out.println("V: " + v);
+		//System.out.println("W: " + w);
 		if (v == BasicValue.UNINITIALIZED_VALUE 
 				&& w == BasicValue.UNINITIALIZED_VALUE) {
 			return v;

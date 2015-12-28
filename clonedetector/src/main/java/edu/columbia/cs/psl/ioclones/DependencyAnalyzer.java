@@ -1,12 +1,15 @@
 package edu.columbia.cs.psl.ioclones;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.AbstractInsnNode;
+import org.objectweb.asm.tree.InsnList;
 import org.objectweb.asm.tree.LdcInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.analysis.Analyzer;
@@ -28,14 +31,15 @@ public class DependencyAnalyzer extends MethodVisitor {
 			final String desc, 
 			String signature, 
 			String[] exceptions, 
-			final MethodVisitor cmv) {
+			final MethodVisitor cmv, 
+			boolean debug) {
 		
 		super(Opcodes.ASM5, 
 				new MethodNode(Opcodes.ASM5, access, name, desc, signature, exceptions) {
 			
-			
 			@Override
 			public void visitEnd() {
+				System.out.println("Analyzing " + className + " " + name + " " + desc);
 				DependentValueInterpreter dvi = new DependentValueInterpreter();
 				Analyzer a = new Analyzer(dvi);
 				try {
@@ -63,6 +67,7 @@ public class DependencyAnalyzer extends MethodVisitor {
 									//What are we returning?
 									DependentValue retVal = (DependentValue)fn.getStack(fn.getStackSize() - 1);
 									LinkedList<DependentValue> toOutput = retVal.tag();
+									retVal.addSrc(insn);
 									
 									//The first will be the ret itself
 									toOutput.removeFirst();
@@ -70,11 +75,20 @@ public class DependencyAnalyzer extends MethodVisitor {
 									//inputs.addAll(toOutput);
 									System.out.println("Output val with inst: " + retVal + " " + insn);
 									System.out.println("Dependent val: " + toOutput);
+									List<List<AbstractInsnNode>> srcs = new ArrayList<List<AbstractInsnNode>>();
+									toOutput.forEach(v->{
+										srcs.add(v.getSrcs());
+									});
+									System.out.println("Dep srcs: " + srcs);
 									break;									
 							}
 						}
 						i++;
 						insn = insn.getNext();
+					}
+					
+					if (debug) {
+						this.debug(fr);
 					}
 					
 					Map<Integer, DependentValue> params = dvi.getParams();
@@ -83,8 +97,7 @@ public class DependencyAnalyzer extends MethodVisitor {
 						if (val.getDeps() != null && val.getDeps().size() > 0) {
 							//This means that the input is an object that has been written
 							System.out.println("Dirty input val: " + val);
-							/*System.out.println("Src inst: ");
-							val.getSrcs().forEach(src->System.out.println(src));*/
+							
 							val.getDeps().forEach(d->{
 								System.out.println("Written to input (output): " + d + " " + d.getSrcs());
 								LinkedList<DependentValue> toOutput = d.tag();
@@ -94,56 +107,40 @@ public class DependencyAnalyzer extends MethodVisitor {
 								//inputs.addAll(toOutput);
 								ios.put(d, toOutput);
 								System.out.println("Dependent val: " + toOutput);
+								
+								/*if (d.getSrcs() != null && d.getSrcs().size() > 0) {
+									d.getSrcs().forEach(src-> {
+										this.instructions.insertBefore(src, new LdcInsnNode(OUTPUT_MSG));
+									});
+								}*/
 							});
 						}
 					});
-						
-					System.out.println("Relevant input number: " + ios.size());
+										
 					System.out.println("Output number: " + ios.size());
 					for (DependentValue o: ios.keySet()) {
 						System.out.println("Output: " + o);
+						LinkedList<DependentValue> inputs = ios.get(o);
+						
 						if (o.getSrcs() != null && o.getSrcs().size() > 0) {
-							//Should not be null, should contains one instruction
+							//Should be 1
 							o.getSrcs().forEach(src->{
-								//Insert instructions for o
 								this.instructions.insertBefore(src, new LdcInsnNode(OUTPUT_MSG));
 							});
 							
-							LinkedList<DependentValue> inputs = ios.get(o);
-							for (DependentValue input: inputs) {
-								if (input.getSrcs() == null || input.getSrcs().size() == 0) {
-									continue ;
+							if (inputs != null && inputs.size() > 0) {
+								for (DependentValue input: inputs) {
+									if (input.getSrcs() == null || input.getSrcs().size() == 0) {
+										continue ;
+									}
+									
+									//Insert instructions for input
+									input.getSrcs().forEach(src->{
+										this.instructions.insertBefore(src, new LdcInsnNode(INPUT_MSG));
+									});
 								}
-								
-								//Insert instructions for input
-								input.getSrcs().forEach(src->{
-									this.instructions.insert(src, new LdcInsnNode(INPUT_MSG));
-								});
 							}
 						}
-					}
-					
-					//print debug info
-					insn = this.instructions.getFirst();
-					i = 0;
-					while(insn != null) {
-						Frame fn = fr[i];
-						if(fn != null) {
-							String stack = "Stack: ";
-							for(int j = 0; j < fn.getStackSize(); j++) {
-								stack += fn.getStack(j)+ " ";
-							}
-								
-							String locals = "Locals ";
-							for(int j = 0; j < fn.getLocals(); j++) {
-								locals += fn.getLocal(j) + " ";
-							}
-
-							this.instructions.insertBefore(insn, new LdcInsnNode(stack));
-							this.instructions.insertBefore(insn, new LdcInsnNode(locals));
-						}
-						i++;
-						insn = insn.getNext();
 					}
 					
 					/*for(DependentValue v : inputs) {
@@ -161,6 +158,32 @@ public class DependencyAnalyzer extends MethodVisitor {
 				}
 				super.visitEnd();
 				this.accept(cmv);
+				System.out.println();
+			}
+			
+			public void debug(Frame[] fr) {
+				//print debug info
+				AbstractInsnNode insn = this.instructions.getFirst();
+				int i = 0;
+				while(insn != null) {
+					Frame fn = fr[i];
+					if(fn != null) {
+						String stack = "Stack: ";
+						for(int j = 0; j < fn.getStackSize(); j++) {
+							stack += fn.getStack(j)+ " ";
+						}
+							
+						String locals = "Locals ";
+						for(int j = 0; j < fn.getLocals(); j++) {
+							locals += fn.getLocal(j) + " ";
+						}
+
+						this.instructions.insertBefore(insn, new LdcInsnNode(stack));
+						this.instructions.insertBefore(insn, new LdcInsnNode(locals));
+					}
+					i++;
+					insn = insn.getNext();
+				}
 			}
 		});
 	}

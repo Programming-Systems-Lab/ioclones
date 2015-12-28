@@ -53,15 +53,18 @@
 					</execution>
 				</executions>
 			</plugin>
-<plugin>
+	  <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-jar-plugin</artifactId>
         <configuration>
           <archive>
             <manifest>
               <addClasspath>true</addClasspath>
-              <mainClass>edu.columbia.cs.psl.clones.Main</mainClass>
+              <mainClass>edu.columbia.cs.psl.ioclones.Main</mainClass>
             </manifest>
+            <manifestEntries>
+            	<Premain-Class>edu.columbia.cs.psl.ioclones.premain.PreMain</Premain-Class>
+            </manifestEntries>
           </archive>
         </configuration>
       </plugin>
