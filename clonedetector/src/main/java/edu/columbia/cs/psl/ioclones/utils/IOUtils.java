@@ -10,7 +10,6 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.lang.reflect.Array;
 import java.net.Socket;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Collection;
 import java.util.HashSet;
@@ -73,7 +72,7 @@ public class IOUtils {
 		}
 		return null;
 	}
-	
+		
 	public static Set<String> blackPrefix() {
 		Set<String> ret = new HashSet<String>();
 		

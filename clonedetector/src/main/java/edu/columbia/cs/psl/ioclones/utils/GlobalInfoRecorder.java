@@ -1,6 +1,7 @@
 package edu.columbia.cs.psl.ioclones.utils;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.List;
 import java.io.File;
@@ -20,9 +21,11 @@ public class GlobalInfoRecorder {
 	
 	private static final AtomicInteger methodIndexer = new AtomicInteger();
 	
-	private static final Map<String, List<IORecord>> ioRecords = new HashMap<String, List<IORecord>>();
+	private static final Map<String, HashSet<IORecord>> ioRecords = new HashMap<String, HashSet<IORecord>>();
 	
 	private static Object recordLock = new Object();
+	
+	private static int recordCounter = 0;
 	
 	public static int getMethodIndex() {
 		return methodIndexer.getAndIncrement();
@@ -30,13 +33,20 @@ public class GlobalInfoRecorder {
 	
 	public static void registerIO(IORecord io) {
 		synchronized(recordLock) {
+			recordCounter++;
+			if (io.getInputs().size() == 0 
+					&& io.getOutputs().size() == 0) {
+				logger.info("Empty io record: " + io.getMethodKey());
+				return ;
+			}
+			
 			String methodKey = io.getMethodKey();
 			if (ioRecords.containsKey(methodKey)) {
 				ioRecords.get(methodKey).add(io);
 			} else {
-				List<IORecord> rList = new ArrayList<IORecord>();
-				rList.add(io);
-				ioRecords.put(methodKey, rList);
+				HashSet<IORecord> rSet = new HashSet<IORecord>();
+				rSet.add(io);
+				ioRecords.put(methodKey, rSet);
 			}
 		}
 	}
@@ -77,6 +87,7 @@ public class GlobalInfoRecorder {
 					IOUtils.writeFile(xmlString, file);
 				});
 			});
+			logger.info("Total IO records: " + recordCounter);
 		}
 	}
 }

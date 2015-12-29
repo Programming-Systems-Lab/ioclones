@@ -39,8 +39,9 @@ public class Examples {
 		//add(3, 5);
 		MyObject mo1 = new MyObject(3);
 		MyObject mo2 = new MyObject(5);
-		moAdd(mo1, mo2);
-		System.out.println(System.getProperty("user.home"));
+		for (int i = 0; i < 5; i++) {
+			moAdd(mo1, mo2);
+		}
 	}
 
 }

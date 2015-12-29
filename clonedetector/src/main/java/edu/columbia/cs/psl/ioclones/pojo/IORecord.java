@@ -17,7 +17,7 @@ public class IORecord {
 	
 	private Set<Integer> stopVar = new HashSet<Integer>();
 	
-	private LinkedList<Object> inputs = new LinkedList<Object>();
+	private List<Object> inputs = new ArrayList<Object>();
 	
 	private List<Object> outputs = new ArrayList<Object>();
 	
@@ -87,7 +87,7 @@ public class IORecord {
 	public List<Object> getOutputs() {
 		return this.outputs;
 	}
-	
+		
 	@Override
 	public String toString() {
 		StringBuilder sb = new StringBuilder();
@@ -97,4 +97,41 @@ public class IORecord {
 		sb.append("Outputs: " + this.outputs + "\n");
 		return sb.toString();
 	}
+	
+	@Override
+	public boolean equals(Object obj) {
+		if (!(obj instanceof IORecord)) {
+			return false;
+		}
+		
+		IORecord tmp = (IORecord)obj;
+		if (!tmp.getMethodKey().equals(this.methodKey)) {
+			return false;
+		}
+		
+		String tmpInput = IOUtils.fromObj2XML(tmp.getInputs());
+		String thisInput = IOUtils.fromObj2XML(this.inputs);
+		if (!tmpInput.equals(thisInput)) {
+			return false;
+		}
+		
+		String tmpOutput = IOUtils.fromObj2XML(tmp.getOutputs());
+		String thisOutput = IOUtils.fromObj2XML(this.outputs);
+		if (!tmpOutput.equals(thisOutput)) {
+			return false;
+		}
+		
+		return true;
+	}
+	
+	@Override
+	public int hashCode() {
+		int result = 17;
+		String inputString = IOUtils.fromObj2XML(this.inputs);
+		String outputString = IOUtils.fromObj2XML(this.outputs);
+		result = 31 * this.methodKey.hashCode();
+		result = 31 * result + inputString.hashCode();
+		result = 31 * result + outputString.hashCode();
+		return result;
+	}	
 }

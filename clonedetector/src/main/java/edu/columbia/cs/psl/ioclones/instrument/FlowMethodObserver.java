@@ -158,6 +158,8 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 					"registerInput", 
 					"(Ljava/lang/Object;Z)V", 
 					false);
+			
+			return ;
 		} else if (this.recordOutput) {
 			this.recordOutput = false;
 			boolean ser = false;
@@ -209,21 +211,19 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 					Type.getInternalName(IORecord.class), 
 					"registerOutput", 
 					"(Ljava/lang/Object;Z)V", 
-					false);
-			
-			if (BytecodeUtils.xreturn(opcode)) {
-				this.mv.visitVarInsn(ALOAD, this.recordId);
-				this.mv.visitMethodInsn(INVOKESTATIC, 
-						Type.getInternalName(GlobalInfoRecorder.class), 
-						"registerIO", 
-						"(Ledu/columbia/cs/psl/ioclones/pojo/IORecord;)V", 
-						false);
-			}
-			
-			this.mv.visitInsn(opcode);
-		} else {
-			this.mv.visitInsn(opcode);
+					false);	
 		}
+		
+		if (BytecodeUtils.xreturn(opcode)) {
+			this.mv.visitVarInsn(ALOAD, this.recordId);
+			this.mv.visitMethodInsn(INVOKESTATIC, 
+					Type.getInternalName(GlobalInfoRecorder.class), 
+					"registerIO", 
+					"(Ledu/columbia/cs/psl/ioclones/pojo/IORecord;)V", 
+					false);
+		}
+		
+		this.mv.visitInsn(opcode);
 	}
 		
 	@Override
@@ -398,6 +398,7 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 					"(I)V", 
 					false);
 		}
+		this.mv.visitIincInsn(var, increment);
 	}
 	
 	private void convertToInst(int num) {

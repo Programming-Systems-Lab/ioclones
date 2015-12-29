@@ -19,12 +19,11 @@ import org.objectweb.asm.commons.JSRInlinerAdapter;
 import org.objectweb.asm.util.CheckClassAdapter;
 
 import edu.columbia.cs.psl.ioclones.DependencyAnalyzer;
+import edu.columbia.cs.psl.ioclones.config.IOCloneConfig;
 import edu.columbia.cs.psl.ioclones.utils.ClassInfoUtils;
 
 public class FlowCloneTransformer implements ClassFileTransformer {
-	
-	private boolean DEBUG = true;
-	
+		
 	private static final Logger logger = LogManager.getLogger(FlowCloneTransformer.class);
 	
 	@Override
@@ -101,7 +100,7 @@ public class FlowCloneTransformer implements ClassFileTransformer {
 			};
 			analysisReader.accept(cv, ClassReader.EXPAND_FRAMES);
 			
-			if (DEBUG) {
+			if (IOCloneConfig.getInstance().isDebug()) {
 				File debugDir = new File("debug");
 				if (!debugDir.exists()) {
 					debugDir.mkdir();
