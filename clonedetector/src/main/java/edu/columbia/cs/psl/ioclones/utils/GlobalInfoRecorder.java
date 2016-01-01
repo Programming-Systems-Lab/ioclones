@@ -54,8 +54,8 @@ public class GlobalInfoRecorder {
 	public static void reportIOs(String baseDir) {
 		synchronized(recordLock) {
 			ioRecords.forEach((mKey, ios)->{
-				logger.info("Methods: " + mKey);
-				logger.info("# of records: " + ios.size());
+				System.out.println("Methods: " + mKey);
+				System.out.println("# of records: " + ios.size());
 				
 				String[] parsed = mKey.split("-");
 				String className = parsed[0];
@@ -69,7 +69,7 @@ public class GlobalInfoRecorder {
 				}
 				
 				ios.forEach(io->{
-					logger.info(io);
+					//logger.info(io);
 					
 					IOUtils.cleanNonSerializables(io.getInputs());
 					IOUtils.cleanNonSerializables(io.getOutputs());
@@ -87,7 +87,7 @@ public class GlobalInfoRecorder {
 					IOUtils.writeFile(xmlString, file);
 				});
 			});
-			logger.info("Total IO records: " + recordCounter);
+			System.out.println("Total IO records: " + recordCounter);
 		}
 	}
 }

@@ -147,4 +147,16 @@ public class SimpleExample {
 		}
 		return input;
 	}*/
+	
+	public int ifTest(int i, int j) {
+		int ret = - 1;
+		if (i > j) {
+			ret = 0;
+		} else {
+			ret = 1;
+		}
+		
+		System.out.println("Do somethingelse");
+		return ret;
+	}
 }
