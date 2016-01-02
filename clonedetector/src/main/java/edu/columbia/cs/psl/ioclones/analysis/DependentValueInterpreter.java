@@ -36,6 +36,8 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	
 	private Map<Integer, DependentValue> convertMap = new HashMap<Integer, DependentValue>();
 	
+	private Map<Integer, DependentValue> controlMap = new HashMap<Integer, DependentValue>();
+	
 	public boolean propagateDepToOwners(DependentValue owner, DependentValue written) {
 		boolean fromInputParams = this.params.containsKey(owner.id);
 		owner.addDep(written);
@@ -48,6 +50,10 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	
 	public Map<Integer, DependentValue> getParams() {
 		return this.params;
+	}
+	
+	public Map<Integer, DependentValue> getControls() {
+		return this.controlMap;
 	}
 		
 	@Override
@@ -277,6 +283,17 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				ret.addDep(size);
 				//ret.addSrc(insn);
 				return ret;
+			case IFEQ:
+			case IFNE:
+			case IFLT:
+			case IFGE:
+			case IFGT:
+			case IFLE:
+			case TABLESWITCH:
+			case LOOKUPSWITCH:
+				DependentValue cont = (DependentValue) value;
+				this.controlMap.put(cont.id, cont);
+				return null;
 			default:
 				return super.unaryOperation(insn, value);
 		}
@@ -419,6 +436,10 @@ public class DependentValueInterpreter extends BasicInterpreter {
 			case IF_ICMPLE:
 			case IF_ACMPEQ:
 			case IF_ACMPNE:
+				DependentValue cont1 = (DependentValue) value1;
+				DependentValue cont2 = (DependentValue) value2;
+				this.controlMap.put(cont1.id, cont1);
+				this.controlMap.put(cont2.id, cont2);
 				return null;
 			case PUTFIELD:
 				if (value2 == BasicValue.UNINITIALIZED_VALUE) {

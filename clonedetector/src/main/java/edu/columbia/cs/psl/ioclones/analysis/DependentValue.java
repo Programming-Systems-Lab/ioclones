@@ -1,13 +1,9 @@
 package edu.columbia.cs.psl.ioclones.analysis;
 
-
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.LinkedList;
-import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.Set;
 
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
@@ -25,9 +21,9 @@ public class DependentValue extends BasicValue {
 	
 	//public AbstractInsnNode src;
 	
-	private List<AbstractInsnNode> inSrcs;
+	private Set<AbstractInsnNode> inSrcs;
 	
-	private List<AbstractInsnNode> outSinks;
+	private Set<AbstractInsnNode> outSinks;
 	
 	private static int idCounter;
 	
@@ -51,23 +47,23 @@ public class DependentValue extends BasicValue {
 	
 	public void addInSrc(AbstractInsnNode src) {
 		if (this.inSrcs == null)
-			this.inSrcs = new ArrayList<AbstractInsnNode>();
+			this.inSrcs = new HashSet<AbstractInsnNode>();
 		
 		this.inSrcs.add(src);
 	}
 		
-	public List<AbstractInsnNode> getInSrcs() {
+	public Collection<AbstractInsnNode> getInSrcs() {
 		return this.inSrcs;
 	}
 	
 	public void addOutSink(AbstractInsnNode sink) {
 		if (this.outSinks == null)
-			this.outSinks = new ArrayList<AbstractInsnNode>();
+			this.outSinks = new HashSet<AbstractInsnNode>();
 		
 		this.outSinks.add(sink);
 	}
 	
-	public List<AbstractInsnNode> getOutSinks() {
+	public Collection<AbstractInsnNode> getOutSinks() {
 		return this.outSinks;
 	}
 

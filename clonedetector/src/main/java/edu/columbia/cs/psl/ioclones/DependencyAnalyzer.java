@@ -55,12 +55,12 @@ public class DependencyAnalyzer extends MethodVisitor {
 			public void visitEnd() {
 				System.out.println("Analyzing " + className + " " + name + " " + desc);
 				
-				BlockAnalyzer blockAnalyzer = new BlockAnalyzer(className, name, desc, this.instructions);
-				blockAnalyzer.constructBlocks();
+				//BlockAnalyzer blockAnalyzer = new BlockAnalyzer(className, name, desc, this.instructions);
+				//blockAnalyzer.constructBlocks();
 				
 				DependentValueInterpreter dvi = new DependentValueInterpreter();
 				Analyzer a = new Analyzer(dvi);
-				try {					
+				try {				
 					Frame[] fr = a.analyze(className, this);
 															
 					//1st round, collect vals relevant to outputs
@@ -93,11 +93,6 @@ public class DependencyAnalyzer extends MethodVisitor {
 									//inputs.addAll(toOutput);
 									System.out.println("Output val with inst: " + retVal + " " + insn);
 									System.out.println("Dependent val: " + toOutput);
-									/*List<List<AbstractInsnNode>> srcs = new ArrayList<List<AbstractInsnNode>>();
-									toOutput.forEach(v->{
-										srcs.add(v.getSrcs());
-									});
-									System.out.println("Dep srcs: " + srcs);*/
 									break;									
 							}
 						}
@@ -131,7 +126,6 @@ public class DependencyAnalyzer extends MethodVisitor {
 									logger.info("Visited value: " + d);
 								}
 								
-								
 								/*if (d.getSrcs() != null && d.getSrcs().size() > 0) {
 									d.getSrcs().forEach(src-> {
 										this.instructions.insertBefore(src, new LdcInsnNode(OUTPUT_MSG));
@@ -142,7 +136,7 @@ public class DependencyAnalyzer extends MethodVisitor {
 					});
 										
 					System.out.println("Output number: " + ios.size());
-					Set<AbstractInsnNode> controlTarget = new HashSet<AbstractInsnNode>();
+					Set<AbstractInsnNode> visited = new HashSet<AbstractInsnNode>();
 					for (DependentValue o: ios.keySet()) {
 						System.out.println("Output: " + o);
 						LinkedList<DependentValue> inputs = ios.get(o);
@@ -150,7 +144,7 @@ public class DependencyAnalyzer extends MethodVisitor {
 						//If o's out sinks are null, something wrong
 						if (o.getOutSinks() != null) {
 							o.getOutSinks().forEach(sink->{
-								controlTarget.add(sink);
+								visited.add(sink);
 								this.instructions.insertBefore(sink, new LdcInsnNode(OUTPUT_MSG));
 							});
 							
@@ -162,7 +156,7 @@ public class DependencyAnalyzer extends MethodVisitor {
 									}
 									
 									input.getInSrcs().forEach(src->{
-										controlTarget.add(src);
+										visited.add(src);
 										this.instructions.insertBefore(src, new LdcInsnNode(INPUT_MSG));
 									});
 								}
@@ -181,7 +175,18 @@ public class DependencyAnalyzer extends MethodVisitor {
 					}
 					
 					//Need to analyze which control instruction should be recorded
-					blockAnalyzer.insertGuide(controlTarget);
+					//blockAnalyzer.insertGuide(controlTarget);
+					//Jumps will affect outputs
+					logger.info("Control vals: " + dvi.getControls().size());
+					dvi.getControls().forEach((id, val)->{
+						if (val.getInSrcs() != null && val.getInSrcs().size() > 0) {
+							val.getInSrcs().forEach(vSrc->{
+								if (!visited.contains(vSrc)) {
+									this.instructions.insertBefore(vSrc, new LdcInsnNode(INPUT_MSG));
+								}
+							});
+						}
+					});
 				} catch (AnalyzerException e) {
 					e.printStackTrace();
 				}
