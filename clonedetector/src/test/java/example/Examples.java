@@ -38,6 +38,17 @@ public class Examples {
 			base = 5;
 		}
 		
+		switch(i) {
+		case 1:
+			System.out.println("1");
+			break ;
+		case 100:
+			System.out.println("100");
+			break ;
+		default:
+			System.out.println("Default");
+		}
+		
 		return base;
 	}
 	

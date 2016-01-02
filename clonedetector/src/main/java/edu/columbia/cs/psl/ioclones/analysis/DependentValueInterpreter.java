@@ -517,7 +517,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	public void returnOperation(AbstractInsnNode insn, 
 			BasicValue value, 
 			BasicValue expected) throws AnalyzerException {
-		System.out.println("Return op: " + insn + " " + value + " " + expected);
+		//System.out.println("Return op: " + insn + " " + value + " " + expected);
 		this.init = true;
 		super.returnOperation(insn, value, expected);
 		//Bind instruction at analyzer
