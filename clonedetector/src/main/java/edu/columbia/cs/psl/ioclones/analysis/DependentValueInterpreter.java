@@ -69,6 +69,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	
 	@Override
 	public BasicValue newOperation(final AbstractInsnNode insn) throws AnalyzerException {
+		//System.out.println("New op: " + insn);
 		this.init = true;
 		
 		switch (insn.getOpcode()) {
@@ -147,6 +148,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	
 	@Override
 	public BasicValue copyOperation(AbstractInsnNode insn, BasicValue value) throws AnalyzerException {
+		//System.out.println("Copy op: " + insn + " " + value);
 		this.init = true;
 		
 		DependentValue dv = (DependentValue) value;
@@ -169,6 +171,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 
 	@Override
 	public BasicValue unaryOperation(AbstractInsnNode insn, BasicValue value) throws AnalyzerException {
+		//System.out.println("Unary op: " + insn + " " + value);
 		this.init= true;
 		
 		DependentValue oriVal = null;
@@ -281,6 +284,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	
 	@Override
 	public BasicValue binaryOperation(final AbstractInsnNode insn, final BasicValue value1, final BasicValue value2) throws AnalyzerException {
+		//System.out.println("Binary op: " + insn + " " + value1 + " " + value2);
 		this.init = true;
 		
 		DependentValue ret = null;
@@ -440,6 +444,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 			BasicValue val1, 
 			BasicValue val2, 
 			BasicValue val3) throws AnalyzerException {
+		//System.out.println("Ternary op: " + insn + " " + val1 + " " + val2 + " " + val3);
 		this.init = true;
 		
 		DependentValue objRef = (DependentValue)val1;
@@ -460,6 +465,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	@Override
 	public BasicValue naryOperation(AbstractInsnNode insn,
             List values) throws AnalyzerException {
+		//System.out.println("Nary op: " + insn + " " + values);
 		this.init = true;
 		
 		List<DependentValue> dvs = (List<DependentValue>) values;
@@ -511,6 +517,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	public void returnOperation(AbstractInsnNode insn, 
 			BasicValue value, 
 			BasicValue expected) throws AnalyzerException {
+		System.out.println("Return op: " + insn + " " + value + " " + expected);
 		this.init = true;
 		super.returnOperation(insn, value, expected);
 		//Bind instruction at analyzer
@@ -528,7 +535,10 @@ public class DependentValueInterpreter extends BasicInterpreter {
 		if (!(v instanceof DependentValue 
 				|| w instanceof DependentValue)) {
 			return super.merge(v, w);
-		}	
+		}
+		
+		DependentValue tmpV = (DependentValue) v;
+		DependentValue tmpW = (DependentValue) w;
 
 		if (v.equals(w)) {
 			return v;
