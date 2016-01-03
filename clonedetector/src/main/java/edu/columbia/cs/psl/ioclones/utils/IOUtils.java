@@ -172,20 +172,15 @@ public class IOUtils {
 		while (it.hasNext()) {
 			Object o = it.next();
 			
+			if (o == null) {
+				continue ;
+			}
+			
 			Class objClass = o.getClass();
 			if (shouldRemove(o)) {
 				it.remove();
 				logger.info("Remove obj: " + o);
 			}
-			
-			/*if (blackObjects.contains(o.getClass())) {
-			it.remove();
-		} else if (!attemptSerialization(o)) {
-			blackObjects.add(o.getClass());
-			logger.info("Remove non-serializable obj: " + o);
-			
-			it.remove();
-		}*/
 		}
 	}
 	
