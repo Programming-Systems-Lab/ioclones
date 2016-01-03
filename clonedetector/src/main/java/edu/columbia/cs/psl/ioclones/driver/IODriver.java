@@ -12,6 +12,7 @@ import org.apache.logging.log4j.Logger;
 
 import edu.columbia.cs.psl.ioclones.config.IOCloneConfig;
 import edu.columbia.cs.psl.ioclones.utils.GlobalInfoRecorder;
+import edu.columbia.cs.psl.ioclones.utils.ShutdownLogger;
 
 public class IODriver {
 	
@@ -49,8 +50,12 @@ public class IODriver {
 				@Override
 				public void run() {
 					logger.info("Reporting IOs");
+					ShutdownLogger.appendMessage("Reporting IOs");
 					try {
-						GlobalInfoRecorder.reportIOs(iorepo.getCanonicalPath());
+						int recordCount = GlobalInfoRecorder.getRecordCounter();
+						int exactCount = GlobalInfoRecorder.reportIOs(iorepo.getCanonicalPath(), targetClass.getName());
+						logger.info("Record count: " + recordCount);
+						logger.info("Exact count: " + exactCount);
 					} catch (Exception ex) {
 						logger.error("Error: ", ex);
 					}
@@ -61,5 +66,4 @@ public class IODriver {
 			logger.error("Error: ", ex);
 		}
 	}
-
 }

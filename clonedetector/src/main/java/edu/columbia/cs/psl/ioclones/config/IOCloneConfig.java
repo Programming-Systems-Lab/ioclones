@@ -17,6 +17,8 @@ public class IOCloneConfig {
 	
 	private boolean debug;
 	
+	private boolean objDep;
+	
 	private IOCloneConfig() {
 		
 	}
@@ -44,6 +46,14 @@ public class IOCloneConfig {
 	
 	public boolean isDebug() {
 		return this.debug;
+	}
+	
+	public void setObjDep(boolean objDep) {
+		this.objDep = objDep;
+	}
+	
+	public boolean isObjDep() {
+		return this.objDep;
 	}
 	
 	@Override

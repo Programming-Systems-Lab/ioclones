@@ -13,10 +13,10 @@ public class Examples {
 		return new int[]{1, 2, 3};
 	}*/
 	
-	/*public static double moAdd(MyObject mo1, MyObject mo2) {
+	public static double moAdd(MyObject mo1, MyObject mo2) {
 		double ret = mo1.age + mo2.age;
 		return ret;
-	}*/
+	}
 	
 	/*public static int add(int i, int j) {
 		int ret = i + j;
@@ -32,7 +32,7 @@ public class Examples {
 		return (byte)1;
 	}*/
 	
-	public static int controlExample(int i, int j) {
+	/*public static int controlExample(int i, int j) {
 		int base = 15;
 		if (i < j) {
 			base = 5;
@@ -50,9 +50,9 @@ public class Examples {
 		}
 		
 		return base;
-	}
+	}*/
 	
-	/*public static void main(String[] args) {
+	public static void main(String[] args) {
 		//System.out.println(add(3, 5.0));
 		//System.out.println(System.getProperty("java.class.path"));
 		//add(3, 5.0);
@@ -62,6 +62,6 @@ public class Examples {
 		for (int i = 0; i < 5; i++) {
 			moAdd(mo1, mo2);
 		}
-	}*/
+	}
 
 }
