@@ -2,6 +2,10 @@ package edu.columbia.cs.psl.ioclones.pojo;
 
 import java.util.List;
 import java.util.Set;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -11,9 +15,11 @@ import edu.columbia.cs.psl.ioclones.utils.IOUtils;
 
 public class IORecord {
 	
+	private static final Logger logger = LogManager.getLogger(IORecord.class);
+	
 	private String methodKey;
 	
-	private int id;
+	private int id = -1;
 	
 	private Set<Integer> stopVar = new HashSet<Integer>();
 	
@@ -21,8 +27,15 @@ public class IORecord {
 	
 	private List<Object> outputs = new ArrayList<Object>();
 	
+	private boolean stopRecord = false;
+	
 	public IORecord(String methodKey) {
 		this.methodKey = methodKey;
+		if (GlobalInfoRecorder.stopRecord(methodKey)) {
+			this.stopRecord = true;
+			return ;
+		}
+		
 		this.id = GlobalInfoRecorder.getMethodIndex();
 		//System.out.println("Instantiate io record: " + this.methodKey + " " + this.id);
 	}
@@ -36,6 +49,10 @@ public class IORecord {
 	}
 	
 	public void registerInput(Object i, boolean ser, int varId) {
+		if (this.stopRecord) {
+			return ;
+		}
+		
 		if (this.stopVar.contains(varId)) {
 			return ;
 		}
@@ -51,32 +68,45 @@ public class IORecord {
 			insert = i;
 		}
 		
-		System.out.println("Register in: " + insert);
+		//System.out.println("Register in: " + insert);
 		this.inputs.add(insert);
 	}
 	
 	public void registerInput(Object i, boolean ser) {
+		if (this.stopRecord) {
+			return ;
+		}
+		
 		this.registerInput(i, ser, -1);
 	}
 	
 	public void stopRegisterInput(int varId) {
+		if (this.stopRecord) {
+			return ;
+		}
+		
 		this.stopVar.add(varId);
 	}
 	
 	public void registerOutput(Object o, boolean ser) {
+		if (this.stopRecord) {
+			return ;
+		}
+		
+		logger.info(this.methodKey + ": " + o);
 		if (o == null) {
 			ser = false;
 		}
 		
 		Object insert = null;
 		if (ser) {
-			System.out.println("Check o: " + methodKey + " " + o);
+			//System.out.println("Check o: " + methodKey + " " + o);
 			insert = IOUtils.newObject(o);
 		} else {
 			insert = o;
 		}
 		
-		System.out.println("Register output: " + insert);
+		//System.out.println("Register output: " + insert);
 		this.outputs.add(insert);
 	}
 			

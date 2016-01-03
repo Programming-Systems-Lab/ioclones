@@ -13,9 +13,14 @@ public class Examples {
 		return new int[]{1, 2, 3};
 	}*/
 	
-	public static double moAdd(MyObject mo1, MyObject mo2) {
-		double ret = mo1.age + mo2.age;
-		return ret;
+	public double moAdd(MyObject mo1, MyObject mo2) {
+		try {
+			double ret = mo1.age + mo2.age;
+			return ret;
+		} catch (Exception ex) {
+			ex.printStackTrace();
+		}
+		return 0;
 	}
 	
 	/*public static int add(int i, int j) {
@@ -57,11 +62,11 @@ public class Examples {
 		//System.out.println(System.getProperty("java.class.path"));
 		//add(3, 5.0);
 		//add(3, 5);
-		MyObject mo1 = new MyObject(3);
+		/*MyObject mo1 = new MyObject(3);
 		MyObject mo2 = new MyObject(5);
 		for (int i = 0; i < 5; i++) {
 			moAdd(mo1, mo2);
-		}
+		}*/
 	}
 
 }

@@ -13,6 +13,7 @@ import org.apache.logging.log4j.Logger;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.FrameNode;
 import org.objectweb.asm.tree.JumpInsnNode;
@@ -29,6 +30,7 @@ import org.objectweb.asm.tree.analysis.Frame;
 import edu.columbia.cs.psl.ioclones.analysis.DependentValue;
 import edu.columbia.cs.psl.ioclones.analysis.DependentValueInterpreter;
 import edu.columbia.cs.psl.ioclones.pojo.LabelInfo;
+import edu.columbia.cs.psl.ioclones.utils.ClassInfoUtils;
 import edu.columbia.cs.psl.ioclones.pojo.BlockInfo;
 
 public class DependencyAnalyzer extends MethodVisitor {
@@ -58,7 +60,26 @@ public class DependencyAnalyzer extends MethodVisitor {
 				//BlockAnalyzer blockAnalyzer = new BlockAnalyzer(className, name, desc, this.instructions);
 				//blockAnalyzer.constructBlocks();
 				
-				DependentValueInterpreter dvi = new DependentValueInterpreter();
+				boolean isStatic = ClassInfoUtils.checkAccess(access, Opcodes.ACC_STATIC);
+				Type[] args = null;
+				if (isStatic) {
+					args = Type.getArgumentTypes(desc);
+				} else {
+					Type[] methodArgs = Type.getArgumentTypes(desc);
+					args = new Type[methodArgs.length + 1];
+					args[0] = Type.getObjectType(className);
+					for (int i = 1; i < args.length; i++) {
+						args[i] = methodArgs[i - 1];
+					}
+				}
+				Type returnType = Type.getReturnType(desc);
+				/*System.out.println("Args:");
+				for (Type t: args) {
+					System.out.println(t);
+				}
+				System.out.println("Return: " + returnType);*/
+				
+				DependentValueInterpreter dvi = new DependentValueInterpreter(args, returnType);
 				Analyzer a = new Analyzer(dvi);
 				try {				
 					Frame[] fr = a.analyze(className, this);

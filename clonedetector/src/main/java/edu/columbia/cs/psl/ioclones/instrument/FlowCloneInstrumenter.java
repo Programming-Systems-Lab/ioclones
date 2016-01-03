@@ -47,6 +47,12 @@ public class FlowCloneInstrumenter extends ClassVisitor {
 		boolean isSynthetic = ClassInfoUtils.checkAccess(access, Opcodes.ACC_SYNTHETIC);
 		if (isInterface || isSynthetic) {
 			return mv;
+		} else if (name.equals("toString") && desc.equals("()Ljava/lang/String;")) {
+			return mv;
+		} else if (name.equals("equals") && desc.equals("(Ljava/lang/Object;)Z")) {
+			return mv;
+		} else if (name.equals("hashCode") && desc.equals("()I")) {
+			return mv;
 		} else {
 			FlowMethodObserver fmo = new FlowMethodObserver(mv, 
 					this.className, 

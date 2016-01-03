@@ -3,6 +3,7 @@ package edu.columbia.cs.psl.ioclones.utils;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.List;
 import java.io.BufferedOutputStream;
 import java.io.File;
@@ -17,6 +18,7 @@ import org.apache.logging.log4j.Logger;
 
 import com.google.gson.reflect.TypeToken;
 
+import edu.columbia.cs.psl.ioclones.config.IOCloneConfig;
 import edu.columbia.cs.psl.ioclones.pojo.IORecord;
 
 public class GlobalInfoRecorder {
@@ -34,6 +36,10 @@ public class GlobalInfoRecorder {
 	};
 	
 	private static final Map<String, HashSet<IORecord>> ioRecords = new HashMap<String, HashSet<IORecord>>();
+	
+	private static final Set<String> reachLimit = new HashSet<String>();
+	
+	private static int callLimit = IOCloneConfig.getInstance().getCallLimit();
 	
 	private static Object recordLock = new Object();
 	
@@ -53,6 +59,10 @@ public class GlobalInfoRecorder {
 	
 	public static void registerIO(IORecord io) {
 		synchronized(recordLock) {
+			if (stopRecord(io.getMethodKey())) {
+				return ;
+			}
+			
 			recordCounter++;
 			if (io.getInputs().size() == 0 
 					&& io.getOutputs().size() == 0) {
@@ -68,6 +78,17 @@ public class GlobalInfoRecorder {
 				rSet.add(io);
 				ioRecords.put(methodKey, rSet);
 			}
+			
+			if (ioRecords.get(methodKey).size() >= callLimit) {
+				reachLimit.add(methodKey);
+				logger.info("Reach limit: " + methodKey);
+			}
+		}
+	}
+	
+	public static boolean stopRecord(String methodKey) {
+		synchronized(recordLock) {
+			return reachLimit.contains(methodKey);
 		}
 	}
 	

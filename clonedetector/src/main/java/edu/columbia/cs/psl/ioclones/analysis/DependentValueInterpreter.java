@@ -26,8 +26,12 @@ import edu.columbia.cs.psl.ioclones.utils.ClassInfoUtils;
 public class DependentValueInterpreter extends BasicInterpreter {
 	
 	private static Logger logger = LogManager.getLogger(DependentValueInterpreter.class);
+		
+	private Type[] allTypes;
 	
-	private boolean init = false;
+	private int initValCount = 0;
+	
+	private boolean initParams = false;
 	
 	private boolean objDep = false;
 		
@@ -37,6 +41,14 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	private Map<Integer, DependentValue> convertMap = new HashMap<Integer, DependentValue>();
 	
 	private Map<Integer, DependentValue> controlMap = new HashMap<Integer, DependentValue>();
+	
+	public DependentValueInterpreter(Type[] args, Type retType) {
+		if (retType.getSort() == Type.VOID) {
+			this.initParams = true;
+		}
+		
+		this.allTypes = args;
+	}
 	
 	public boolean propagateDepToOwners(DependentValue owner, DependentValue written) {
 		boolean fromInputParams = this.params.containsKey(owner.id);
@@ -65,8 +77,17 @@ public class DependentValueInterpreter extends BasicInterpreter {
 		}
 		DependentValue dv = new DependentValue(type);
 		
-		if (!this.init) {
-			this.params.put(dv.id, dv);
+		if (!this.initParams) {
+			//Ignore the return val, if it's not void
+			this.initParams = true;
+			return dv;
+		} else if (this.initValCount < this.allTypes.length) {
+			Type curType = this.allTypes[this.initValCount++];
+			if (curType.equals(dv.getType())) {
+				this.params.put(dv.id, dv);
+			} else {
+				logger.error("Incompatible type: " + curType + " " + dv.getType());
+			}
 		}
 		
 		return dv;
@@ -76,7 +97,6 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	@Override
 	public BasicValue newOperation(final AbstractInsnNode insn) throws AnalyzerException {
 		//System.out.println("New op: " + insn);
-		this.init = true;
 		
 		switch (insn.getOpcode()) {
 			case ACONST_NULL:
@@ -155,7 +175,6 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	@Override
 	public BasicValue copyOperation(AbstractInsnNode insn, BasicValue value) throws AnalyzerException {
 		//System.out.println("Copy op: " + insn + " " + value);
-		this.init = true;
 		
 		DependentValue dv = (DependentValue) value;
 		switch(insn.getOpcode()) {
@@ -178,7 +197,6 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	@Override
 	public BasicValue unaryOperation(AbstractInsnNode insn, BasicValue value) throws AnalyzerException {
 		//System.out.println("Unary op: " + insn + " " + value);
-		this.init= true;
 		
 		DependentValue oriVal = null;
 		DependentValue ret = null;
@@ -302,7 +320,6 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	@Override
 	public BasicValue binaryOperation(final AbstractInsnNode insn, final BasicValue value1, final BasicValue value2) throws AnalyzerException {
 		//System.out.println("Binary op: " + insn + " " + value1 + " " + value2);
-		this.init = true;
 		
 		DependentValue ret = null;
 		DependentValue arrRef = null;
@@ -466,7 +483,6 @@ public class DependentValueInterpreter extends BasicInterpreter {
 			BasicValue val2, 
 			BasicValue val3) throws AnalyzerException {
 		//System.out.println("Ternary op: " + insn + " " + val1 + " " + val2 + " " + val3);
-		this.init = true;
 		
 		DependentValue objRef = (DependentValue)val1;
 		//Should record idx for array, too detailed?
@@ -487,7 +503,6 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	public BasicValue naryOperation(AbstractInsnNode insn,
             List values) throws AnalyzerException {
 		//System.out.println("Nary op: " + insn + " " + values);
-		this.init = true;
 		
 		List<DependentValue> dvs = (List<DependentValue>) values;
 		switch(insn.getOpcode()) {
@@ -539,7 +554,6 @@ public class DependentValueInterpreter extends BasicInterpreter {
 			BasicValue value, 
 			BasicValue expected) throws AnalyzerException {
 		//System.out.println("Return op: " + insn + " " + value + " " + expected);
-		this.init = true;
 		super.returnOperation(insn, value, expected);
 		//Bind instruction at analyzer
 	}
@@ -558,8 +572,8 @@ public class DependentValueInterpreter extends BasicInterpreter {
 			return super.merge(v, w);
 		}
 		
-		DependentValue tmpV = (DependentValue) v;
-		DependentValue tmpW = (DependentValue) w;
+		//DependentValue tmpV = (DependentValue) v;
+		//DependentValue tmpW = (DependentValue) w;
 
 		if (v.equals(w)) {
 			return v;

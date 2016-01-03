@@ -19,6 +19,8 @@ public class IOCloneConfig {
 	
 	private boolean objDep;
 	
+	private int callLimit;
+	
 	private IOCloneConfig() {
 		
 	}
@@ -56,10 +58,20 @@ public class IOCloneConfig {
 		return this.objDep;
 	}
 	
+	public void setCallLimit(int callLimit) {
+		this.callLimit = callLimit;
+	}
+	
+	public int getCallLimit() {
+		return this.callLimit;
+	}
+	
 	@Override
 	public String toString() {
 		StringBuilder sb = new StringBuilder();
 		sb.append("Debug: " + this.debug + "\n");
+		sb.append("Record obj dep: " + this.objDep);
+		sb.append("Call limit: " + this.callLimit);
 		return sb.toString();
 	}
 	

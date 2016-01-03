@@ -92,8 +92,14 @@ public class FlowCloneTransformer implements ClassFileTransformer {
 					boolean isSynthetic = ClassInfoUtils.checkAccess(access, Opcodes.ACC_SYNTHETIC);
 					if (isInterface || isSynthetic) {
 						return mv;
+					} else if (name.equals("toString") && desc.equals("()Ljava/lang/String;")) {
+						return mv;
+					} else if (name.equals("equals") && desc.equals("(Ljava/lang/Object;)Z")) {
+						return mv;
+					} else if (name.equals("hashCode") && desc.equals("()I")) {
+						return mv;
 					} else {
-						mv = new DependencyAnalyzer(className, access, name, desc, signature, exceptions, mv, false);
+						mv = new DependencyAnalyzer(this.className, access, name, desc, signature, exceptions, mv, false);
 						return mv;
 					}
 				}
