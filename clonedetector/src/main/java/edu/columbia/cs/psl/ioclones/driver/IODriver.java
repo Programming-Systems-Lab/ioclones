@@ -49,17 +49,18 @@ public class IODriver {
 			Runtime.getRuntime().addShutdownHook(new Thread() {
 				@Override
 				public void run() {
-					logger.info("Reporting IOs");
 					ShutdownLogger.appendMessage("Reporting IOs");
 					try {
 						int recordCount = GlobalInfoRecorder.getRecordCounter();
 						int exactCount = GlobalInfoRecorder.reportIOs(iorepo.getCanonicalPath(), targetClass.getName());
-						logger.info("Record count: " + recordCount);
-						logger.info("Exact count: " + exactCount);
+						
+						ShutdownLogger.appendMessage("Record count: " + recordCount);
+						ShutdownLogger.appendMessage("Exact count: " + exactCount);
 					} catch (Exception ex) {
-						logger.error("Error: ", ex);
+						ShutdownLogger.appendException(ex);
 					}
-					logger.info("Finish io clone reporting");
+					ShutdownLogger.appendMessage("Finish io clone reporting");
+					ShutdownLogger.finalFlush();
 				}
 			});
 		} catch (Exception ex) {

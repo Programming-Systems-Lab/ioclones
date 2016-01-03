@@ -94,11 +94,11 @@ public class GlobalInfoRecorder {
 					String methodName = parsed[1];
 					String desc = parsed[2];
 					
-					String classDirString = baseDir + "/" + className;
+					/*String classDirString = baseDir + "/" + className;
 					File classDir = new File(classDirString);
 					if (!classDir.exists()) {
 						classDir.mkdir();
-					}
+					}*/
 					
 					ios.forEach(io->{
 						//logger.info(io);
