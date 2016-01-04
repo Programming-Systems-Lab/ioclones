@@ -18,22 +18,40 @@ import org.xmlunit.diff.DifferenceEvaluator;
 import org.xmlunit.diff.DifferenceEvaluators;
 import org.xmlunit.diff.ElementSelectors;
 
+import edu.columbia.cs.psl.ioclones.sim.SimAnalyzer;
+
 public class XMLDiffer {
 	
 	private static final Logger logger = LogManager.getLogger(XMLDiffer.class);
 	
-	private static final Class[] parameters = new Class[]{URL.class};
-	
 	private static final DifferenceEvaluator valEvaluator = new DifferenceEvaluator() {
 		@Override
 		public ComparisonResult evaluate(Comparison comparison, ComparisonResult outcome) {
-			System.out.println("Check: " + outcome + " " + comparison.getType());
+			//System.out.println("Check: " + outcome + " " + comparison.getType());
+			//System.out.println("Outcome: " + outcome);
+			//System.out.println("Comp. type: " + comparison.getType());
+			//System.out.println("Control: " + comparison.getControlDetails().getTarget());
+			//System.out.println("Test: " + comparison.getTestDetails().getTarget());
 			if (outcome == ComparisonResult.DIFFERENT) {
 				switch(comparison.getType()) {
 					case TEXT_VALUE:
-						Detail d = comparison.getControlDetails();
-						System.out.println(d.getTarget().getNodeName());
-						System.out.println(d.getValue());
+						Detail control = comparison.getControlDetails();
+						Detail test = comparison.getTestDetails();
+						System.out.println(control.getTarget().getNodeName());
+						System.out.println(control.getValue());
+						
+						if (control != null && test != null) {
+							try {
+								double controlVal = Double.parseDouble((String)control.getValue());
+								double testVal = Double.parseDouble((String)test.getValue());
+								if (Math.abs(controlVal - testVal) < SimAnalyzer.TOLERANCE) {
+									outcome = ComparisonResult.EQUAL;
+								}
+							} catch (NumberFormatException nfe) {
+								// ignore, delegate to nested DifferenceListener
+							}
+						}
+						
 						break ;	
 					case NODE_TYPE:
 					case HAS_DOCTYPE_DECLARATION:
@@ -52,19 +70,21 @@ public class XMLDiffer {
 		}
 	};
 	
-	public static void xmlDiff(String xml1, String xml2) {
+	public static Diff xmlDiff(String xml1, String xml2) {
 		DifferenceEvaluator chainedEvaluator = DifferenceEvaluators.chain(DifferenceEvaluators.Default, valEvaluator);
 		//.withNodeMatcher(new DefaultNodeMatcher(ElementSelectors.byName))
 		Diff d = DiffBuilder.compare(Input.fromString(xml1))
 				.withTest(Input.fromString(xml2))
-				.withDifferenceEvaluator(valEvaluator)
 				.ignoreWhitespace()
+				.withDifferenceEvaluator(valEvaluator)
 				.build();
 		d.getDifferences().forEach(diff->{
 			//System.out.println(diff);
 			System.out.println(diff.getComparison());
 			System.out.println(diff.getResult());
 		});
+		
+		return d;
 	}
 	
 	public static void xmlDiff(File f1, File f2) {
@@ -75,30 +95,4 @@ public class XMLDiffer {
 			System.out.println(diff.getResult());
 		});
 	}
-	
-	public static void main(String[] args) throws Exception {
-		File codebaseFile = new File("/Users/mikefhsu/Desktop/code_repos/io_play/bin");
-		if (!codebaseFile.exists()) {
-			logger.error("Invalid codebase: " + codebaseFile.getAbsolutePath());
-			System.exit(-1);
-		}
-		URLClassLoader sysloader = (URLClassLoader)ClassLoader.getSystemClassLoader();
-		Class sysClass = URLClassLoader.class;
-		Method method = sysClass.getDeclaredMethod("addURL", parameters);
-		method.setAccessible(true);
-		method.invoke(sysloader, new Object[]{codebaseFile.toURI().toURL()});
-		
-		File f1 = new File("/Users/mikefhsu/Desktop/code_repos/R5P1Y11.aditsu/R5P1Y11.aditsu.Cakes-get-389.xml");
-		File f2 = new File("/Users/mikefhsu/Desktop/code_repos/R5P1Y11.aditsu/R5P1Y11.aditsu.Cakes-get-390.xml");
-		xmlDiff(f1, f2);
-		
-		Object obj1 = IOUtils.fromXML2Obj(f1);
-		Object obj2 = IOUtils.fromXML2Obj(f2);
-		
-		String xml1 = IOUtils.fromObj2XML(obj1);
-		String xml2 = IOUtils.fromObj2XML(obj2);
-		
-		xmlDiff(xml1, xml2);
-	}
-
 }
