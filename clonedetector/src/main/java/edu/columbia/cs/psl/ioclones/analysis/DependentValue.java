@@ -24,7 +24,7 @@ public class DependentValue extends BasicValue {
 	private Set<AbstractInsnNode> inSrcs;
 	
 	private Set<AbstractInsnNode> outSinks;
-	
+		
 	private static int idCounter;
 	
 	public int id;
@@ -66,7 +66,7 @@ public class DependentValue extends BasicValue {
 	public Collection<AbstractInsnNode> getOutSinks() {
 		return this.outSinks;
 	}
-
+	
 	@Override
 	public String toString() {
 		if (this == NULL_VALUE) {

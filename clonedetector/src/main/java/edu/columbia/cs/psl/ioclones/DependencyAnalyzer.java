@@ -42,6 +42,12 @@ public class DependencyAnalyzer extends MethodVisitor {
 	
 	public static final String INPUT_MSG = "__$$COLUMBIA_IO_INPUT";
 	
+	public static final String INPUT_COPY_0_MSG = "__$$COLUMBIA_IO_INPUT0";
+	
+	public static final String INPUT_COPY_1_MSG = "__$$COLUMBIA_IO_INPUT1";
+	
+	public static final String INPUT_COPY_2_MSG = "__$$COLUMBIA_IO_INPUT2";
+	
 	public DependencyAnalyzer(final String className, 
 			int access, 
 			final String name, 
@@ -90,6 +96,7 @@ public class DependencyAnalyzer extends MethodVisitor {
 					Map<DependentValue, LinkedList<DependentValue>> ios = 
 							new HashMap<DependentValue, LinkedList<DependentValue>>();
 					AbstractInsnNode insn = this.instructions.getFirst();
+					Set<Integer> visitedVals = new HashSet<Integer>();
 					int i = 0;					
 					while(insn != null) {
 						Frame fn = fr[i];
@@ -112,7 +119,10 @@ public class DependencyAnalyzer extends MethodVisitor {
 									//The first will be the ret itself
 									toOutput.removeFirst();
 									ios.put(retVal, toOutput);
-									//inputs.addAll(toOutput);
+									
+									visitedVals.add(retVal.id);
+									toOutput.forEach(v->visitedVals.add(v.id));
+									
 									System.out.println("Output val with inst: " + retVal + " " + insn);
 									System.out.println("Dependent val: " + toOutput);
 									break;									
@@ -134,31 +144,33 @@ public class DependencyAnalyzer extends MethodVisitor {
 							System.out.println("Dirty input val: " + val);
 							
 							val.getDeps().forEach(d->{
-								System.out.println("Written to input (output): " + d + " " + d.getInSrcs());
-								LinkedList<DependentValue> toOutput = d.tag();
-								System.out.println("Check to output: " + toOutput);
-								
-								if (toOutput.size() > 0) {
-									//The first will be d itself
-									toOutput.removeFirst();
-									//inputs.addAll(toOutput);
-									ios.put(d, toOutput);
-									System.out.println("Dependent val: " + toOutput);
-								} else {
-									logger.info("Visited value: " + d);
+								if (!visitedVals.contains(d.id)) {
+									System.out.println("Written to input (output): " + d + " " + d.getInSrcs());
+									LinkedList<DependentValue> toOutput = d.tag();
+									
+									if (toOutput.size() > 0) {
+										//The first will be d itself
+										toOutput.removeFirst();
+										ios.put(d, toOutput);
+										System.out.println("Dependent val: " + toOutput);
+									} else {
+										logger.info("Visited value: " + d);
+									}
+									
+									visitedVals.add(d.id);
+									toOutput.forEach(to->visitedVals.add(d.id));
+									
+									/*if (d.getSrcs() != null && d.getSrcs().size() > 0) {
+										d.getSrcs().forEach(src-> {
+											this.instructions.insertBefore(src, new LdcInsnNode(OUTPUT_MSG));
+										});
+									}*/
 								}
-								
-								/*if (d.getSrcs() != null && d.getSrcs().size() > 0) {
-									d.getSrcs().forEach(src-> {
-										this.instructions.insertBefore(src, new LdcInsnNode(OUTPUT_MSG));
-									});
-								}*/
 							});
 						}
 					});
 										
 					System.out.println("Output number: " + ios.size());
-					Set<AbstractInsnNode> visited = new HashSet<AbstractInsnNode>();
 					for (DependentValue o: ios.keySet()) {
 						System.out.println("Output: " + o);
 						LinkedList<DependentValue> inputs = ios.get(o);
@@ -166,7 +178,6 @@ public class DependencyAnalyzer extends MethodVisitor {
 						//If o's out sinks are null, something wrong
 						if (o.getOutSinks() != null) {
 							o.getOutSinks().forEach(sink->{
-								visited.add(sink);
 								this.instructions.insertBefore(sink, new LdcInsnNode(OUTPUT_MSG));
 							});
 							
@@ -178,7 +189,6 @@ public class DependencyAnalyzer extends MethodVisitor {
 									}
 									
 									input.getInSrcs().forEach(src->{
-										visited.add(src);
 										this.instructions.insertBefore(src, new LdcInsnNode(INPUT_MSG));
 									});
 								}
@@ -199,54 +209,19 @@ public class DependencyAnalyzer extends MethodVisitor {
 					//Need to analyze which control instruction should be recorded
 					//blockAnalyzer.insertGuide(controlTarget);
 					//Jumps will affect outputs
-					logger.info("Control vals: " + dvi.getControls().size());
-					AbstractInsnNode check = this.instructions.getFirst();
-					List<AbstractInsnNode> controlValNodes = new ArrayList<AbstractInsnNode>();
-					while (check != null) {						
-						if (check.getType() == AbstractInsnNode.JUMP_INSN) {
-							JumpInsnNode jumpNode = (JumpInsnNode) check;
-							int opcode = jumpNode.getOpcode();
-							if (opcode != Opcodes.GOTO && opcode != Opcodes.JSR) {
-								switch(opcode) {
-									case Opcodes.IFEQ:
-									case Opcodes.IFNE:
-									case Opcodes.IFLT:
-									case Opcodes.IFGE:
-									case Opcodes.IFGT:
-									case Opcodes.IFLE:
-									case Opcodes.IFNULL:
-									case Opcodes.IFNONNULL:
-										AbstractInsnNode valNode = jumpNode.getPrevious();
-										controlValNodes.add(valNode);
-										break ;
-									case Opcodes.IF_ICMPEQ:
-									case Opcodes.IF_ICMPNE:
-									case Opcodes.IF_ICMPLT:
-									case Opcodes.IF_ICMPGE:
-									case Opcodes.IF_ICMPGT:
-									case Opcodes.IF_ICMPLE:
-									case Opcodes.IF_ACMPEQ:
-									case Opcodes.IF_ACMPNE:
-										AbstractInsnNode val2 = jumpNode.getPrevious();
-										AbstractInsnNode val1 = val2.getPrevious();
-										controlValNodes.add(val1);
-										controlValNodes.add(val2);
-										break ;
-									default:
-										logger.error("Invalid jump node: " + opcode);
-								}
-							}
-						} else if (check.getType() == AbstractInsnNode.LOOKUPSWITCH_INSN 
-								|| check.getType() == AbstractInsnNode.TABLESWITCH_INSN) {
-							AbstractInsnNode val = check.getPrevious();
-							controlValNodes.add(val);
-						}
-						check = check.getNext();
-					}
+					logger.info("Single control vals: " + dvi.getSingleControls().size());
+					dvi.getSingleControls().forEach(sc->{
+						this.instructions.insertBefore(sc, new LdcInsnNode(INPUT_MSG));
+					});
 					
-					controlValNodes.forEach(cInsn->{
-						if (!visited.contains(cInsn)) {
-							this.instructions.insertBefore(cInsn, new LdcInsnNode(INPUT_MSG));
+					logger.info("Double control vals: " + dvi.getDoubleControls().size());
+					dvi.getDoubleControls().forEach((dc, record)->{
+						if (record[0] && record[1]) {
+							this.instructions.insertBefore(dc, new LdcInsnNode(INPUT_COPY_2_MSG));
+						} else if (record[0]) {
+							this.instructions.insertBefore(dc, new LdcInsnNode(INPUT_COPY_0_MSG));
+						} else if (record[1]) {
+							this.instructions.insertBefore(dc, new LdcInsnNode(INPUT_COPY_1_MSG));
 						}
 					});
 				} catch (AnalyzerException e) {

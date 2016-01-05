@@ -134,8 +134,8 @@ public class SimAnalysisDriver {
 		simFutures.forEach(simF->{
 			try {
 				IOSim simObj = simF.get();
-				System.out.println("Comp key: " + simObj.key);
-				System.out.println("Best sim.: " + simObj.bestSim);
+				logger.info("Comp. key: " + simObj.key);
+				logger.info("Best sim.: " + simObj.bestSim);
 			} catch (Exception ex) {
 				logger.error("Error: ", ex);
 			}

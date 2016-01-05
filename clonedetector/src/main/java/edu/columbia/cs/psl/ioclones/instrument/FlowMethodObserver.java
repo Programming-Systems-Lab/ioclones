@@ -2,6 +2,7 @@ package edu.columbia.cs.psl.ioclones.instrument;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
@@ -48,6 +49,8 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 	private boolean recordOutput = false;
 	
 	private boolean recordInput = false;
+	
+	private int copySignal = -1;
 	
 	public FlowMethodObserver(final MethodVisitor mv, 
 			final String className,
@@ -355,6 +358,96 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 			this.mv.visitFieldInsn(opcode, owner, name, desc);
 		}
 	}
+	
+	@Override
+	public void visitJumpInsn(int opcode, Label label) {
+		if (this.recordInput) {
+			this.recordInput = false;
+			
+			switch(opcode) {
+				case IFEQ:
+				case IFNE:
+				case IFLT:
+				case IFGE:
+				case IFGT:
+				case IFLE:
+					this.handlePrimitive(Integer.class);
+					this.mv.visitVarInsn(ALOAD, this.recordId);
+					this.mv.visitInsn(SWAP);
+					this.mv.visitInsn(ICONST_0);
+					this.mv.visitMethodInsn(INVOKEVIRTUAL, 
+							Type.getInternalName(IORecord.class), 
+							"registerInput", 
+							"(Ljava/lang/Object;Z)V", 
+							false);
+					break ;
+				case IFNULL:
+				case IFNONNULL:
+					this.mv.visitInsn(Opcodes.DUP);
+					this.mv.visitVarInsn(ALOAD, this.recordId);
+					this.mv.visitInsn(SWAP);
+					this.mv.visitInsn(ICONST_1);
+					this.mv.visitMethodInsn(INVOKEVIRTUAL, 
+							Type.getInternalName(IORecord.class), 
+							"registerInput", 
+							"(Ljava/lang/Object;Z)V", 
+							false);
+					break ;
+				case IF_ICMPEQ:
+				case IF_ICMPNE:
+				case IF_ICMPLT:
+				case IF_ICMPGE:
+				case IF_ICMPGT:
+				case IF_ICMPLE:
+					this.mv.visitInsn(Opcodes.DUP2);
+					if (this.copySignal == 2) {
+						for (int i = 0; i < 2; i++) {
+							this.mv.visitVarInsn(ALOAD, this.recordId);
+							this.mv.visitInsn(SWAP);
+							this.mv.visitInsn(ICONST_0);
+							this.mv.visitMethodInsn(INVOKEVIRTUAL, 
+									Type.getInternalName(IORecord.class), 
+									"registerInput", 
+									"(Ljava/lang/Object;Z)V", 
+									false);
+						}
+						this.mv.visitMethodInsn(INVOKEVIRTUAL, 
+								Type.getInternalName(IORecord.class), 
+								"swapLastTwo", 
+								"()V", 
+								false);
+					} else if (this.copySignal == 0) {
+						//Record the one under the top
+						this.mv.visitInsn(Opcodes.POP);
+						this.mv.visitVarInsn(ALOAD, this.recordId);
+						this.mv.visitInsn(SWAP);
+						this.mv.visitInsn(ICONST_0);
+						this.mv.visitMethodInsn(INVOKEVIRTUAL, 
+								Type.getInternalName(IORecord.class), 
+								"registerInput", 
+								"(Ljava/lang/Object;Z)V", 
+								false);
+					} else if (this.copySignal == 1) {
+						//Record the top
+						this.mv.visitVarInsn(ALOAD, this.recordId);
+						this.mv.visitInsn(SWAP);
+						this.mv.visitInsn(ICONST_0);
+						this.mv.visitMethodInsn(INVOKEVIRTUAL, 
+								Type.getInternalName(IORecord.class), 
+								"registerInput", 
+								"(Ljava/lang/Object;Z)V", 
+								false);
+						this.mv.visitInsn(Opcodes.POP);
+					} else {
+						logger.info("Invalid copy signal: " + this.copySignal);
+					}
+					this.copySignal = -1;
+					break ;
+			}
+		}
+		
+		this.mv.visitJumpInsn(opcode, label);
+	}
 		
 	@Override
 	public void visitLdcInsn(Object cst) {
@@ -362,6 +455,15 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 			String literal = (String) cst;
 			if (literal.equals(DependencyAnalyzer.INPUT_MSG)) {
 				this.recordInput = true;
+			} else if (literal.equals(DependencyAnalyzer.INPUT_COPY_0_MSG)) {
+				this.recordInput = true;
+				this.copySignal = 0;
+			} else if (literal.equals(DependencyAnalyzer.INPUT_COPY_1_MSG)) {
+				this.recordInput = true;
+				this.copySignal = 1;
+			} else if (literal.equals(DependencyAnalyzer.INPUT_COPY_2_MSG)) {
+				this.recordInput = true;
+				this.copySignal = 2;
 			} else if (literal.equals(DependencyAnalyzer.OUTPUT_MSG)) {
 				this.recordOutput = true;
 			} else {

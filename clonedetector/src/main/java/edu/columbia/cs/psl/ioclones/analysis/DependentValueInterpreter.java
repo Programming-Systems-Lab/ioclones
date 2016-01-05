@@ -1,8 +1,10 @@
 package edu.columbia.cs.psl.ioclones.analysis;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -24,7 +26,7 @@ import edu.columbia.cs.psl.ioclones.utils.ClassInfoUtils;
 
 
 public class DependentValueInterpreter extends BasicInterpreter {
-	
+		
 	private static Logger logger = LogManager.getLogger(DependentValueInterpreter.class);
 		
 	private Type[] allTypes;
@@ -40,7 +42,9 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	
 	private Map<Integer, DependentValue> convertMap = new HashMap<Integer, DependentValue>();
 	
-	private Map<Integer, DependentValue> controlMap = new HashMap<Integer, DependentValue>();
+	private Map<AbstractInsnNode, boolean[]> doubleControls = new HashMap<AbstractInsnNode, boolean[]>();
+	
+	private Set<AbstractInsnNode> singleControls= new HashSet<AbstractInsnNode>();
 	
 	public DependentValueInterpreter(Type[] args, Type retType) {
 		if (retType.getSort() == Type.VOID) {
@@ -63,9 +67,13 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	public Map<Integer, DependentValue> getParams() {
 		return this.params;
 	}
+		
+	public Map<AbstractInsnNode, boolean[]> getDoubleControls() {
+		return this.doubleControls;
+	}
 	
-	public Map<Integer, DependentValue> getControls() {
-		return this.controlMap;
+	public Set<AbstractInsnNode> getSingleControls() {
+		return this.singleControls;
 	}
 		
 	@Override
@@ -307,10 +315,16 @@ public class DependentValueInterpreter extends BasicInterpreter {
 			case IFGE:
 			case IFGT:
 			case IFLE:
+			case IFNULL:
+			case IFNONNULL:
 			case TABLESWITCH:
 			case LOOKUPSWITCH:
 				DependentValue cont = (DependentValue) value;
-				this.controlMap.put(cont.id, cont);
+				//If nobody load it, let control record it
+				if (cont.getInSrcs() == null 
+						|| cont.getInSrcs().size() == 0) {
+					this.singleControls.add(insn);
+				}
 				return null;
 			default:
 				return super.unaryOperation(insn, value);
@@ -455,8 +469,20 @@ public class DependentValueInterpreter extends BasicInterpreter {
 			case IF_ACMPNE:
 				DependentValue cont1 = (DependentValue) value1;
 				DependentValue cont2 = (DependentValue) value2;
-				this.controlMap.put(cont1.id, cont1);
-				this.controlMap.put(cont2.id, cont2);
+				
+				System.out.println("Val1: " + value1);
+				System.out.println("Val2: " + value2);
+				
+				boolean[] record = new boolean[2];
+				if (cont1.getInSrcs() == null || cont1.getInSrcs().size() == 0) {
+					record[0] = true;
+				}
+				
+				if (cont2.getInSrcs() == null || cont2.getInSrcs().size() == 0) {
+					record[1] = false;
+				}
+				this.doubleControls.put(insn, record);
+				
 				return null;
 			case PUTFIELD:
 				if (value2 == BasicValue.UNINITIALIZED_VALUE) {
