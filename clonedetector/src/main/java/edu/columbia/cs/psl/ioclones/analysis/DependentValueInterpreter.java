@@ -42,9 +42,9 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	
 	private Map<Integer, DependentValue> convertMap = new HashMap<Integer, DependentValue>();
 	
-	private Map<AbstractInsnNode, boolean[]> doubleControls = new HashMap<AbstractInsnNode, boolean[]>();
+	private Map<AbstractInsnNode, DependentValue[]> doubleControls = new HashMap<AbstractInsnNode, DependentValue[]>();
 	
-	private Set<AbstractInsnNode> singleControls= new HashSet<AbstractInsnNode>();
+	private Map<AbstractInsnNode, DependentValue> singelControls = new HashMap<AbstractInsnNode, DependentValue>();
 	
 	public DependentValueInterpreter(Type[] args, Type retType) {
 		if (retType.getSort() == Type.VOID) {
@@ -67,13 +67,13 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	public Map<Integer, DependentValue> getParams() {
 		return this.params;
 	}
-		
-	public Map<AbstractInsnNode, boolean[]> getDoubleControls() {
+	
+	public Map<AbstractInsnNode, DependentValue[]> getDoubleControls() {
 		return this.doubleControls;
 	}
 	
-	public Set<AbstractInsnNode> getSingleControls() {
-		return this.singleControls;
+	public Map<AbstractInsnNode, DependentValue> getSingleControls() {
+		return this.singelControls;
 	}
 		
 	@Override
@@ -320,11 +320,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 			case TABLESWITCH:
 			case LOOKUPSWITCH:
 				DependentValue cont = (DependentValue) value;
-				//If nobody load it, let control record it
-				if (cont.getInSrcs() == null 
-						|| cont.getInSrcs().size() == 0) {
-					this.singleControls.add(insn);
-				}
+				this.getSingleControls().put(insn, cont);
 				return null;
 			default:
 				return super.unaryOperation(insn, value);
@@ -473,14 +469,15 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				System.out.println("Val1: " + value1);
 				System.out.println("Val2: " + value2);
 				
-				boolean[] record = new boolean[2];
+				/*boolean[] record = new boolean[2];
 				if (cont1.getInSrcs() == null || cont1.getInSrcs().size() == 0) {
 					record[0] = true;
 				}
 				
 				if (cont2.getInSrcs() == null || cont2.getInSrcs().size() == 0) {
 					record[1] = false;
-				}
+				}*/
+				DependentValue[] record = {cont1, cont2};
 				this.doubleControls.put(insn, record);
 				
 				return null;

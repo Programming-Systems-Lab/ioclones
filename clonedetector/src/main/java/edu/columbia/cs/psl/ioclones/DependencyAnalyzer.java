@@ -96,7 +96,6 @@ public class DependencyAnalyzer extends MethodVisitor {
 					Map<DependentValue, LinkedList<DependentValue>> ios = 
 							new HashMap<DependentValue, LinkedList<DependentValue>>();
 					AbstractInsnNode insn = this.instructions.getFirst();
-					Set<Integer> visitedVals = new HashSet<Integer>();
 					int i = 0;					
 					while(insn != null) {
 						Frame fn = fr[i];
@@ -120,9 +119,6 @@ public class DependencyAnalyzer extends MethodVisitor {
 									toOutput.removeFirst();
 									ios.put(retVal, toOutput);
 									
-									visitedVals.add(retVal.id);
-									toOutput.forEach(v->visitedVals.add(v.id));
-									
 									System.out.println("Output val with inst: " + retVal + " " + insn);
 									System.out.println("Dependent val: " + toOutput);
 									break;									
@@ -144,31 +140,29 @@ public class DependencyAnalyzer extends MethodVisitor {
 							System.out.println("Dirty input val: " + val);
 							
 							val.getDeps().forEach(d->{
-								if (!visitedVals.contains(d.id)) {
-									System.out.println("Written to input (output): " + d + " " + d.getInSrcs());
-									LinkedList<DependentValue> toOutput = d.tag();
-									
-									if (toOutput.size() > 0) {
-										//The first will be d itself
-										toOutput.removeFirst();
-										ios.put(d, toOutput);
-										System.out.println("Dependent val: " + toOutput);
-									} else {
-										logger.info("Visited value: " + d);
-									}
-									
-									visitedVals.add(d.id);
-									toOutput.forEach(to->visitedVals.add(d.id));
-									
-									/*if (d.getSrcs() != null && d.getSrcs().size() > 0) {
-										d.getSrcs().forEach(src-> {
-											this.instructions.insertBefore(src, new LdcInsnNode(OUTPUT_MSG));
-										});
-									}*/
+								System.out.println("Written to input (output): " + d + " " + d.getInSrcs());
+								LinkedList<DependentValue> toOutput = d.tag();
+								
+								if (toOutput.size() > 0) {
+									//The first will be d itself
+									toOutput.removeFirst();
+									ios.put(d, toOutput);
+									System.out.println("Dependent val: " + toOutput);
+								} else {
+									logger.info("Visited value: " + d);
 								}
+								
+								/*if (d.getSrcs() != null && d.getSrcs().size() > 0) {
+									d.getSrcs().forEach(src-> {
+										this.instructions.insertBefore(src, new LdcInsnNode(OUTPUT_MSG));
+									});
+								}*/
 							});
 						}
 					});
+					
+					Set<Integer> touched = new HashSet<Integer>();
+					Set<AbstractInsnNode> visitedInInsns = new HashSet<AbstractInsnNode>();
 										
 					System.out.println("Output number: " + ios.size());
 					for (DependentValue o: ios.keySet()) {
@@ -180,6 +174,18 @@ public class DependencyAnalyzer extends MethodVisitor {
 							o.getOutSinks().forEach(sink->{
 								this.instructions.insertBefore(sink, new LdcInsnNode(OUTPUT_MSG));
 							});
+							touched.add(o.id);
+							
+							//In case the input and output are the same value
+							if (o.getInSrcs() != null) {
+								//System.out.println("I is O: " + o);
+								o.getInSrcs().forEach(src->{
+									if (!visitedInInsns.contains(src)) {
+										this.instructions.insertBefore(src, new LdcInsnNode(INPUT_MSG));
+										visitedInInsns.add(src);
+									}
+								});
+							}
 							
 							if (inputs != null) {
 								for (DependentValue input: inputs) {
@@ -189,17 +195,13 @@ public class DependencyAnalyzer extends MethodVisitor {
 									}
 									
 									input.getInSrcs().forEach(src->{
-										this.instructions.insertBefore(src, new LdcInsnNode(INPUT_MSG));
+										if (!visitedInInsns.contains(src)) {
+											this.instructions.insertBefore(src, new LdcInsnNode(INPUT_MSG));
+											visitedInInsns.add(src);
+										}
 									});
+									touched.add(input.id);
 								}
-							}
-							
-							//In case the input and output are the same value
-							if (o.getInSrcs() != null) {
-								//System.out.println("I is O: " + o);
-								o.getInSrcs().forEach(src->{
-									this.instructions.insertBefore(src, new LdcInsnNode(INPUT_MSG));
-								});
 							}
 						} else {
 							logger.error("Invalid summarziation of output insts: " + o);
@@ -209,13 +211,23 @@ public class DependencyAnalyzer extends MethodVisitor {
 					//Need to analyze which control instruction should be recorded
 					//blockAnalyzer.insertGuide(controlTarget);
 					//Jumps will affect outputs
-					logger.info("Single control vals: " + dvi.getSingleControls().size());
-					dvi.getSingleControls().forEach(sc->{
-						this.instructions.insertBefore(sc, new LdcInsnNode(INPUT_MSG));
+					logger.info("Cand. single controls: " + dvi.getSingleControls().size());
+					dvi.getSingleControls().forEach((sc, val)->{
+						if (this.recordControl(val, touched)) {
+							this.instructions.insertBefore(sc, new LdcInsnNode(INPUT_MSG));
+						}
 					});
 					
-					logger.info("Double control vals: " + dvi.getDoubleControls().size());
-					dvi.getDoubleControls().forEach((dc, record)->{
+					logger.info("Cand. double controls: " + dvi.getDoubleControls().size());
+					dvi.getDoubleControls().forEach((dc, vals)->{
+						boolean[] record = {false, false};
+						for (int k = 0; k < vals.length; k++) {
+							DependentValue dVal = vals[k];
+							if (this.recordControl(dVal, touched)) {
+								record[k] = true;
+							}
+						}
+						
 						if (record[0] && record[1]) {
 							this.instructions.insertBefore(dc, new LdcInsnNode(INPUT_COPY_2_MSG));
 						} else if (record[0]) {
@@ -256,6 +268,20 @@ public class DependencyAnalyzer extends MethodVisitor {
 					insn = insn.getNext();
 				}
 			}
+			
+			public boolean recordControl(DependentValue val, Set<Integer> touched) {
+				//if val has no src, leave it to control
+				if (val.getInSrcs() == null || val.getInSrcs().size() == 0) {
+					return true;
+				}
+				
+				//If val is relevant to output, it will be recorded...
+				if (!touched.contains(val.id)) {
+					return true;
+				}
+				
+				return false;
+			} 
 		});
 	}
 

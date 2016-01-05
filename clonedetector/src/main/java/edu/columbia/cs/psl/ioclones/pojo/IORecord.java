@@ -79,10 +79,10 @@ public class IORecord {
 		
 		this.registerInput(i, ser, -1);
 	}
-	
+		
 	public void swapLastTwo() {
 		Object last = this.inputs.get(this.inputs.size() - 1);
-		Object last2 = this.inputs.get(this.inputs.size() - 1);
+		Object last2 = this.inputs.get(this.inputs.size() - 2);
 		this.inputs.set(this.inputs.size() - 2, last);
 		this.inputs.set(this.inputs.size() - 1, last2);
 	}
