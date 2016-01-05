@@ -1,5 +1,6 @@
 package edu.columbia.cs.psl.ioclones;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -199,13 +200,53 @@ public class DependencyAnalyzer extends MethodVisitor {
 					//blockAnalyzer.insertGuide(controlTarget);
 					//Jumps will affect outputs
 					logger.info("Control vals: " + dvi.getControls().size());
-					dvi.getControls().forEach((id, val)->{
-						if (val.getInSrcs() != null && val.getInSrcs().size() > 0) {
-							val.getInSrcs().forEach(vSrc->{
-								if (!visited.contains(vSrc)) {
-									this.instructions.insertBefore(vSrc, new LdcInsnNode(INPUT_MSG));
+					AbstractInsnNode check = this.instructions.getFirst();
+					List<AbstractInsnNode> controlValNodes = new ArrayList<AbstractInsnNode>();
+					while (check != null) {						
+						if (check.getType() == AbstractInsnNode.JUMP_INSN) {
+							JumpInsnNode jumpNode = (JumpInsnNode) check;
+							int opcode = jumpNode.getOpcode();
+							if (opcode != Opcodes.GOTO && opcode != Opcodes.JSR) {
+								switch(opcode) {
+									case Opcodes.IFEQ:
+									case Opcodes.IFNE:
+									case Opcodes.IFLT:
+									case Opcodes.IFGE:
+									case Opcodes.IFGT:
+									case Opcodes.IFLE:
+									case Opcodes.IFNULL:
+									case Opcodes.IFNONNULL:
+										AbstractInsnNode valNode = jumpNode.getPrevious();
+										controlValNodes.add(valNode);
+										break ;
+									case Opcodes.IF_ICMPEQ:
+									case Opcodes.IF_ICMPNE:
+									case Opcodes.IF_ICMPLT:
+									case Opcodes.IF_ICMPGE:
+									case Opcodes.IF_ICMPGT:
+									case Opcodes.IF_ICMPLE:
+									case Opcodes.IF_ACMPEQ:
+									case Opcodes.IF_ACMPNE:
+										AbstractInsnNode val2 = jumpNode.getPrevious();
+										AbstractInsnNode val1 = val2.getPrevious();
+										controlValNodes.add(val1);
+										controlValNodes.add(val2);
+										break ;
+									default:
+										logger.error("Invalid jump node: " + opcode);
 								}
-							});
+							}
+						} else if (check.getType() == AbstractInsnNode.LOOKUPSWITCH_INSN 
+								|| check.getType() == AbstractInsnNode.TABLESWITCH_INSN) {
+							AbstractInsnNode val = check.getPrevious();
+							controlValNodes.add(val);
+						}
+						check = check.getNext();
+					}
+					
+					controlValNodes.forEach(cInsn->{
+						if (!visited.contains(cInsn)) {
+							this.instructions.insertBefore(cInsn, new LdcInsnNode(INPUT_MSG));
 						}
 					});
 				} catch (AnalyzerException e) {

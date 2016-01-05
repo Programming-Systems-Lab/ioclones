@@ -3,6 +3,7 @@ package edu.columbia.cs.psl.ioclones.utils;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.InputStream;
@@ -11,12 +12,15 @@ import java.io.OutputStream;
 import java.lang.reflect.Array;
 import java.net.Socket;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -36,6 +40,16 @@ public class IOUtils {
 	private static final Set<Class> blackObjects = new HashSet<Class>();
 	
 	private static Object boLock = new Object();
+	
+	public static String getExtension(String fileName) {
+		int lastDot = fileName.lastIndexOf(".");
+		if (lastDot == -1) {
+			return null;
+		}
+		
+		String extension = fileName.substring(lastDot + 1, fileName.length());
+		return extension;
+	}
 		
 	public static <T> void writeJson(T obj, TypeToken typeToken, String fileName) {
 		GsonBuilder gb = new GsonBuilder();
@@ -287,6 +301,56 @@ public class IOUtils {
 		}
 	}
 	
+	public static void unzipIORecords(File zipFile, List<IORecord> records) {
+		try {
+			ZipInputStream zis = new ZipInputStream(new FileInputStream(zipFile));
+			ZipEntry curEntry = null;
+			
+			while ((curEntry = zis.getNextEntry()) != null) {
+				//System.out.println("Cur entry: " + curEntry.getName());
+				
+				if (curEntry.isDirectory()) {
+					continue ;
+				}
+				
+				String extension = getExtension(curEntry.getName());
+				if (extension.equals("xml")) {
+					StringBuilder sb = new StringBuilder();
+					byte[] buffer = new byte[1024];
+					int read = 0;
+					
+					while ((read = zis.read(buffer, 0, 1024)) >= 0) {
+						sb.append(new String(buffer, 0, read));
+					}
+					
+					IORecord io = (IORecord) fromXML2Obj(sb.toString());
+					records.add(io);
+				}
+			}
+		} catch (Exception ex) {
+			logger.error("Error: ", ex);
+		}
+	}
+	
+	public static void collectIORecords(File iofile, List<IORecord> files, List<File> zips) {		
+		if (iofile.isDirectory()) {
+			for (File f: iofile.listFiles()) {
+				collectIORecords(f, files, zips);
+			}
+		} else {
+			if (iofile.getName().startsWith(".")) {
+				return ;
+			}
+			
+			String extension = IOUtils.getExtension(iofile.getName());
+			if (extension.equals("xml")) {
+				files.add((IORecord)fromXML2Obj(iofile));
+			} else if (extension.equals("zip")) {
+				zips.add(iofile);
+			}
+		}
+	}
+	
 	public static void collectIORecords(File dir, List<IORecord> recorder) {
 		if (!dir.exists()) {
 			logger.error("Non-exisiting directory: " + dir.getAbsolutePath());
@@ -311,5 +375,11 @@ public class IOUtils {
 				}
 			}
 		}
+	}
+	
+	public static void main(String[] args) {
+		File f = new File("iorepo/R5P1Y11.aditsu.Cakes.zip");
+		List<IORecord> records = new ArrayList<IORecord>();
+		unzipIORecords(f, records);
 	}
 }
