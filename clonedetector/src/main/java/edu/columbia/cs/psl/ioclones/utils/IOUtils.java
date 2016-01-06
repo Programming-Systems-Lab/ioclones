@@ -332,7 +332,8 @@ public class IOUtils {
 		}
 	}
 	
-	public static void collectIORecords(File iofile, List<IORecord> files, List<File> zips) {		
+	public static void collectIORecords(File iofile, List<IORecord> files, List<File> zips) {
+		System.out.println("io file: " + iofile.getAbsolutePath());
 		if (iofile.isDirectory()) {
 			for (File f: iofile.listFiles()) {
 				collectIORecords(f, files, zips);

@@ -22,6 +22,8 @@ public class NoOrderAnalyzer extends AbstractSim {
 	
 	private static final Logger logger = LogManager.getLogger(NoOrderAnalyzer.class);
 	
+	private static double THRESHOLD = 0.7;
+	
 	public Object cleanObject(Object o) {
 		if (o == null) {
 			return o;
@@ -99,13 +101,10 @@ public class NoOrderAnalyzer extends AbstractSim {
 		
 		Set<Object> clean1 = this.cleanCollection(c1);
 		Set<Object> clean2 = this.cleanCollection(c2);
-		Set<Object> clone2 = new HashSet<Object>(clean2);
 		
-		Set<Object> commonSet = new HashSet<Object>();
+		return this.compareObject(clean1, clean2);
 		
-		Iterator<Object> it1 = clean1.iterator();
-		Iterator<Object> it2 = clone2.iterator();
-		while (it1.hasNext()) {
+		/*while (it1.hasNext()) {
 			Object o1 = it1.next();
 			
 			while (it2.hasNext()) {
@@ -123,6 +122,15 @@ public class NoOrderAnalyzer extends AbstractSim {
 		int union = clean1.size() + clean2.size() - intersect;
 		double jaccard = ((double)intersect)/union;
 		
-		return jaccard;
+		return jaccard;*/
+	}
+	
+	public static void main(String[] args) {
+		System.out.println(Math.pow(Math.E, -(2 * 0.4)));
+		System.out.println((1.0 - 3 * Math.pow(Math.E, 0)) * (1.0 - 3 * Math.pow(Math.E, 0.038)));
+		System.out.println((1.0 - 3 * Math.pow(Math.E, 1)) * (1.0 - 3 * Math.pow(Math.E, 1)));
+		
+		System.out.println(AbstractSim.expo.correlation(0.9, 0.9));
+		
 	}
 }

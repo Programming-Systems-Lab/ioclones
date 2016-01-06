@@ -17,6 +17,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import edu.columbia.cs.psl.ioclones.pojo.IORecord;
+import edu.columbia.cs.psl.ioclones.sim.AbstractSim;
 import edu.columbia.cs.psl.ioclones.sim.NoOrderAnalyzer;
 import edu.columbia.cs.psl.ioclones.sim.SimAnalyzer;
 import edu.columbia.cs.psl.ioclones.utils.IOUtils;
@@ -42,13 +43,34 @@ public class SimAnalysisDriver {
 			logger.error("Invalid io repo: " + iorepoFile.getAbsolutePath());
 			System.exit(-1);
 		}
+		logger.info("Codebase: " + codebaseFile.getAbsolutePath());
+		logger.info("IO Repo: " + iorepoFile.getAbsolutePath());
+		
+		String[] myPaths = System.getProperty("java.class.path").split(":");
+		String[] javaPaths = System.getProperty("sun.boot.class.path").split(":");
+		
+		List<URL> toAdd = new ArrayList<URL>();
+		
+		for (String m: myPaths) {
+			File mf = new File(m);
+			toAdd.add(mf.toURI().toURL());
+		}
+		
+		for (String j: javaPaths) {
+			File jf = new File(j);
+			toAdd.add(jf.toURI().toURL());
+		}
+		toAdd.add(codebaseFile.toURI().toURL());
 		
 		try {
 			URLClassLoader sysloader = (URLClassLoader)ClassLoader.getSystemClassLoader();
 			Class sysClass = URLClassLoader.class;
 			Method method = sysClass.getDeclaredMethod("addURL", parameters);
 			method.setAccessible(true);
-			method.invoke(sysloader, new Object[]{codebaseFile.toURI().toURL()});
+			//method.invoke(sysloader, new Object[]{codebaseFile.toURI().toURL()});
+			for (URL url: toAdd) {
+				method.invoke(sysloader, new Object[]{url});
+			}
 		} catch (Exception ex) {
 			logger.error("Error: ", ex);
 		}
@@ -62,6 +84,7 @@ public class SimAnalysisDriver {
 				Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
 		List<Future<List<IORecord>>> results = new ArrayList<Future<List<IORecord>>>(); 
 		zips.forEach(zip->{
+			System.out.println("Zip file: " + zip);
 			Future<List<IORecord>> future = es.submit(new Callable<List<IORecord>>(){
 
 				@Override
@@ -76,7 +99,8 @@ public class SimAnalysisDriver {
 		});
 		
 		es.shutdown();
-		while (es.isTerminated());
+		while (!es.isTerminated());
+		System.out.println("Loading files complete");
 		
 		if (directRecords.size() > 0) {
 			allRecords.addAll(directRecords);
@@ -94,11 +118,11 @@ public class SimAnalysisDriver {
 		logger.info("Total IO records: " + allRecords.size());
 		
 		ExecutorService simEs = 
-				Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+				Executors.newFixedThreadPool(1);
 		List<Future<IOSim>> simFutures = new ArrayList<Future<IOSim>>();
 		for (int i = 0; i < allRecords.size(); i++) {
+			IORecord control = allRecords.get(i);
 			for (int j = i + 1; j < allRecords.size(); j++) {
-				IORecord control = allRecords.get(i);
 				IORecord test = allRecords.get(j);
 				
 				if (control.getMethodKey().equals(test.getMethodKey())) {
@@ -114,10 +138,12 @@ public class SimAnalysisDriver {
 						SimAnalyzer analyzer = new NoOrderAnalyzer();
 						double inSim = analyzer.similarity(control.getInputs(), test.getInputs());
 						double outSim = analyzer.similarity(control.getOutputs(), test.getOutputs());
-						double sim = inSim * outSim;
+						double sim = AbstractSim.expo.correlation(inSim, outSim); 
 						
 						if (sim > simObj.bestSim) {
 							simObj.bestSim = sim;
+							simObj.inSim = inSim;
+							simObj.outSim = outSim;
 						}
 						
 						return simObj;
@@ -129,13 +155,15 @@ public class SimAnalysisDriver {
 		}
 		
 		simEs.shutdown();
-		while (simEs.isTerminated());
+		while (!simEs.isTerminated());
 		
 		simFutures.forEach(simF->{
 			try {
 				IOSim simObj = simF.get();
 				logger.info("Comp. key: " + simObj.key);
 				logger.info("Best sim.: " + simObj.bestSim);
+				logger.info("Input sim.:" + simObj.inSim);
+				logger.info("Output sim: " + simObj.outSim);
 			} catch (Exception ex) {
 				logger.error("Error: ", ex);
 			}
@@ -162,6 +190,10 @@ public class SimAnalysisDriver {
 		public Set<String> key = new HashSet<String>();
 		
 		public double bestSim = 0.0;
+		
+		public double inSim = 0.0;
+		
+		public double outSim = 0.0;
 		
 		public IOSim(String control, String test) {
 			//Order does not matter
