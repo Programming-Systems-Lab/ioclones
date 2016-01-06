@@ -402,6 +402,11 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 					this.mv.visitInsn(Opcodes.DUP2);
 					if (this.copySignal == 2) {
 						for (int i = 0; i < 2; i++) {
+							this.mv.visitMethodInsn(Opcodes.INVOKESTATIC, 
+									Type.getInternalName(Integer.class), 
+									VALUE_OF, 
+									"(I)Ljava/lang/Integer;", 
+									false);
 							this.mv.visitVarInsn(ALOAD, this.recordId);
 							this.mv.visitInsn(SWAP);
 							this.mv.visitInsn(ICONST_0);
@@ -411,6 +416,7 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 									"(Ljava/lang/Object;Z)V", 
 									false);
 						}
+						this.mv.visitVarInsn(ALOAD, this.recordId);
 						this.mv.visitMethodInsn(INVOKEVIRTUAL, 
 								Type.getInternalName(IORecord.class), 
 								"swapLastTwo", 
@@ -419,6 +425,11 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 					} else if (this.copySignal == 0) {
 						//Record the one under the top
 						this.mv.visitInsn(Opcodes.POP);
+						this.mv.visitMethodInsn(Opcodes.INVOKESTATIC, 
+								Type.getInternalName(Integer.class), 
+								VALUE_OF, 
+								"(I)Ljava/lang/Integer;", 
+								false);
 						this.mv.visitVarInsn(ALOAD, this.recordId);
 						this.mv.visitInsn(SWAP);
 						this.mv.visitInsn(ICONST_0);
@@ -429,6 +440,11 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 								false);
 					} else if (this.copySignal == 1) {
 						//Record the top
+						this.mv.visitMethodInsn(Opcodes.INVOKESTATIC, 
+								Type.getInternalName(Integer.class), 
+								VALUE_OF, 
+								"(I)Ljava/lang/Integer;", 
+								false);
 						this.mv.visitVarInsn(ALOAD, this.recordId);
 						this.mv.visitInsn(SWAP);
 						this.mv.visitInsn(ICONST_0);

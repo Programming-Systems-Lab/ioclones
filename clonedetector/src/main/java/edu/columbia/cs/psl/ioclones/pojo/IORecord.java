@@ -70,6 +70,7 @@ public class IORecord {
 		
 		//System.out.println("Register in: " + insert);
 		this.inputs.add(insert);
+		//System.out.println("After register: " + this.inputs);
 	}
 	
 	public void registerInput(Object i, boolean ser) {
@@ -81,10 +82,16 @@ public class IORecord {
 	}
 		
 	public void swapLastTwo() {
+		if (this.stopRecord) {
+			return ;
+		}
+		
+		//System.out.println("Before swap2: " + this.inputs);
 		Object last = this.inputs.get(this.inputs.size() - 1);
 		Object last2 = this.inputs.get(this.inputs.size() - 2);
 		this.inputs.set(this.inputs.size() - 2, last);
 		this.inputs.set(this.inputs.size() - 1, last2);
+		//System.out.println("After swap2: " + this.inputs);
 	}
 	
 	public void stopRegisterInput(int varId) {
@@ -100,7 +107,7 @@ public class IORecord {
 			return ;
 		}
 		
-		logger.info(this.methodKey + ": " + o);
+		//logger.info(this.methodKey + ": " + o);
 		if (o == null) {
 			ser = false;
 		}
