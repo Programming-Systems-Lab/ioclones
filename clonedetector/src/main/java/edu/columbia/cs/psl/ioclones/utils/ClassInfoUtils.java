@@ -21,6 +21,10 @@ public class ClassInfoUtils {
 	
 	private static final File libDir = new File(System.getProperty("user.home") + "/.m2");
 	
+	public static String genClassFieldKey(String className, String fieldName) {
+		return className + DELIM + fieldName;
+	}
+	
 	public static String cleanType(String typeString) {
 		//return typeString.replace("/", ClassUtils.RE_SLASH).replace(";", "");
 		return typeString.replace("/", ClassInfoUtils.RE_SLASH);

@@ -6,7 +6,7 @@ import java.util.ArrayList;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 
-public class MyObject {
+public class MyObject extends MyParent implements MyInter{
 	
 	public static String staticString;
 	
@@ -39,7 +39,8 @@ public class MyObject {
 		int i = 0;
 		
 		MyObject mo = new MyObject("123", 58);
-		int age = mo.age;
+		//System.out.println(mo.parentInt);
+		/*int age = mo.age;
 		boolean bool = mo.bool;
 		Type retType = Type.getType("I");
 		System.out.println(retType.getSort());
@@ -64,7 +65,7 @@ public class MyObject {
 		
 		List list = new ArrayList();
 		list.add(null);
-		System.out.println(null == null);
+		System.out.println(null == null);*/
 	}
 
 }

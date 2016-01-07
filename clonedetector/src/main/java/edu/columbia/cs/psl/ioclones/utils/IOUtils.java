@@ -10,12 +10,17 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.lang.reflect.Array;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.net.Socket;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -30,8 +35,11 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import com.google.gson.stream.JsonReader;
 import com.thoughtworks.xstream.XStream;
+import com.thoughtworks.xstream.mapper.MapperWrapper;
 
 import edu.columbia.cs.psl.ioclones.pojo.IORecord;
+import edu.columbia.cs.psl.ioclones.xmlconverter.BlackConverter;
+import edu.columbia.cs.psl.ioclones.xmlconverter.InnerClassConverter;
 
 public class IOUtils {
 	
@@ -41,15 +49,89 @@ public class IOUtils {
 	
 	private static Object boLock = new Object();
 	
+	private static Set<String> blackFields = new HashSet<String>();
+	
+	private static Object bfLock = new Object();
+	
 	private static XStream xstream = null;
 	
 	public static XStream getXStream() {
 		if (xstream == null) {
-			xstream = new XStream();
+			xstream = new XStream() {
+				@Override
+				protected MapperWrapper wrapMapper(MapperWrapper next) {
+					return new MapperWrapper(next) {
+						@Override
+						public boolean shouldSerializeMember(Class definedIn, 
+								String fieldName) {
+							if (definedIn == Object.class) {
+								return false;
+							}
+							
+							String fieldKey = ClassInfoUtils.genClassFieldKey(definedIn.getName(), fieldName);
+							synchronized(bfLock) {
+								if (blackFields.contains(fieldKey)) {
+									return false;
+								}
+							}
+							
+							Field f = null;
+							LinkedList<Class> queue = new LinkedList<Class>();
+							queue.add(definedIn);
+							while (queue.size() > 0) {
+								Class clazz = queue.removeFirst();
+								try {
+									f = clazz.getDeclaredField(fieldName);
+								} catch (NoSuchFieldException ex) {									
+									if (clazz.getSuperclass() != null) {
+										queue.add(clazz.getSuperclass());
+									}
+								}
+							}
+							
+							if (f == null) {
+								//Not in super classes;
+								logger.info(fieldName + " in interfaces");
+								for (Class inter: definedIn.getInterfaces()) {
+									queue.add(inter);
+								}
+							}
+							
+							while (queue.size() > 0) {
+								Class curInter = queue.removeFirst();
+								try {
+									f = curInter.getDeclaredField(fieldName);
+								} catch (NoSuchFieldException ex) {
+									for (Class superInter: curInter.getInterfaces()) {
+										queue.add(superInter);
+									}
+								}
+							}
+							
+							if (f == null) {
+								logger.error("Cannot find field: " + fieldKey);
+								return super.shouldSerializeMember(definedIn, fieldName);
+							} else {
+								if (f.isSynthetic()) {
+									logger.info("Synth. field: " + fieldKey);
+									synchronized(bfLock) {
+										blackFields.add(fieldKey);
+									}
+									return false;
+								} else {
+									return super.shouldSerializeMember(definedIn, fieldName);
+								}
+							}
+						}
+					};
+				}
+			};
 			//xstream.setMode(XStream.NO_REFERENCES);
 			xstream.ignoreUnknownElements();
 			BlackConverter bc = new BlackConverter();
 			xstream.registerConverter(bc, XStream.PRIORITY_VERY_HIGH);
+			//InnerClassConverter ic = new InnerClassConverter(xstream);
+			//xstream.registerConverter(ic, XStream.PRIORITY_VERY_HIGH);
 		}
 		
 		return xstream;
@@ -126,19 +208,14 @@ public class IOUtils {
 		
 		return ret;
 	}
-	
+		
 	public static Object newObject(Object obj) {
 		try {
 			XStream xstream = getXStream();
 			String objString = xstream.toXML(obj);
-			if (obj.getClass().isArray()) {
-				/*StringBuilder sb = new StringBuilder();
-				for (int i = 0; i < Array.getLength(obj); i++) {
-					sb.append(Array.get(obj, i) + " ");
-				}
-				System.out.println(sb.toString());*/
+			/*if (obj.getClass().isArray()) {
 				System.out.println(Array.getLength(obj));
-			}
+			}*/
 			Object newObj = xstream.fromXML(objString);
 			return newObj;
 		} catch (Exception ex) {
@@ -187,6 +264,7 @@ public class IOUtils {
 			return obj;
 		} catch (Exception ex) {
 			logger.error("Fail to convert xml string to obj: " + xmlString);
+			logger.error("Trace", ex);
 		}
 		return null;
 	}
@@ -399,9 +477,75 @@ public class IOUtils {
 		}
 	}
 	
-	public static void main(String[] args) {
-		File f = new File("iorepo/R5P1Y11.aditsu.Cakes.zip");
-		List<IORecord> records = new ArrayList<IORecord>();
-		unzipIORecords(f, records);
+	public static void main(String[] args) throws Exception {
+		//File f = new File("iorepo/R5P1Y11.aditsu.Cakes.zip");
+		//List<IORecord> records = new ArrayList<IORecord>();
+		//unzipIORecords(f, records);
+		/*String codebase = "/Users/mikefhsu/Desktop/code_repos/hitoshi_container/code_repo/bin";
+		Class[] parameters = new Class[]{URL.class};
+		File codebaseFile = new File(codebase);
+		if (!codebaseFile.exists()) {
+			logger.error("Invalid codebase: " + codebaseFile.getAbsolutePath());
+			System.exit(-1);
+		}
+		URLClassLoader sysloader = (URLClassLoader)ClassLoader.getSystemClassLoader();
+		Class sysClass = URLClassLoader.class;
+		Method method = sysClass.getDeclaredMethod("addURL", parameters);
+		method.setAccessible(true);
+		method.invoke(sysloader, new Object[]{codebaseFile.toURI().toURL()});*/
+		
+		String xmlString = 
+				"<R5P1Y11.vot.a_-Point-array>"
+				+ "<R5P1Y11.vot.a_-Point>"
+				+ "<x>0</x>"
+				+ "<y>10</y>"
+				+ "<outer-class>"
+				+ "<w>15</w>"
+				+ "<l>3</l>" 
+				+ "<u>3</u>" 
+				+ "<g>3</g>"
+				+ "<lower>"
+				+ "<R5P1Y11.vot.a_-Point>"
+				+ "<x>0</x>"
+				+ "<y>6</y>"
+				+ "<outer-class reference=\"../../..\"/>"
+				+ "</R5P1Y11.vot.a_-Point>"
+				+ "<R5P1Y11.vot.a_-Point>"
+				+ "<x>10</x>"
+				+ "<y>8</y>"
+				+ "<outer-class reference=\"../../..\"/>"
+				+ "</R5P1Y11.vot.a_-Point>"
+				+ "<R5P1Y11.vot.a_-Point>"
+				+ "<x>15</x>"
+				+ "<y>9</y>"
+				+ "<outer-class reference=\"../../..\"/>"
+				+ "</R5P1Y11.vot.a_-Point>"
+				+ "</lower>"
+				+ "<upper reference=\"../../..\"/>"
+				+ "<LOWER__Y>-2000.0</LOWER__Y>"
+				+ "<out/>"
+				+ "<in/>"
+				+ "<St/>"
+				+ "</outer-class>"
+				+ "</R5P1Y11.vot.a_-Point>"
+				+ "</R5P1Y11.vot.a_-Point-array>";
+		//XStream xstream = getXStream();
+		//Object obj = fromXML2Obj(xmlString);
+		
+		Test t = new Test("A_11");
+		t.run();
+		//String tString = fromObj2XML(t);
+		//System.out.println(tString);
+		String test = fromObj2XML(t.lower);
+		System.out.println("Test string: " + test);
+		//Object personObj = fromXML2Obj(tString);
+		//System.out.println(personObj);
+		Object newObj = fromXML2Obj(test);
+		/*for (int i = 0; i < t.upper.length; i++) {
+			String test = fromObj2XML(t.lower[i]);
+			Object newObj = fromXML2Obj(test);
+			System.out.println(test);
+			System.out.println(newObj);
+		}*/
 	}
 }
