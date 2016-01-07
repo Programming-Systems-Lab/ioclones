@@ -83,7 +83,7 @@
 			</resource>
 		</resources>
 	</build>
-
+	
 	<dependencies>
 		<dependency>
 			<groupId>junit</groupId>

@@ -464,6 +464,42 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 		
 		this.mv.visitJumpInsn(opcode, label);
 	}
+	
+	@Override
+	public void visitLookupSwitchInsn(Label dflt, int[] keys, Label[] labels) {
+		if (this.recordInput) {
+			this.recordInput = false;
+			
+			this.handlePrimitive(Integer.class);
+			this.mv.visitVarInsn(ALOAD, this.recordId);
+			this.mv.visitInsn(SWAP);
+			this.mv.visitInsn(ICONST_0);
+			this.mv.visitMethodInsn(INVOKEVIRTUAL, 
+					Type.getInternalName(IORecord.class), 
+					"registerInput", 
+					"(Ljava/lang/Object;Z)V", 
+					false);
+		}
+		this.mv.visitLookupSwitchInsn(dflt, keys, labels);
+	}
+	
+	@Override
+	public void visitTableSwitchInsn(int min, int max, Label dflt, Label... labels) {
+		if (this.recordInput) {
+			this.recordInput = false;
+			
+			this.handlePrimitive(Integer.class);
+			this.mv.visitVarInsn(ALOAD, this.recordId);
+			this.mv.visitInsn(SWAP);
+			this.mv.visitInsn(ICONST_0);
+			this.mv.visitMethodInsn(INVOKEVIRTUAL, 
+					Type.getInternalName(IORecord.class), 
+					"registerInput", 
+					"(Ljava/lang/Object;Z)V", 
+					false);
+		}
+		this.mv.visitTableSwitchInsn(min, max, dflt, labels);
+	}
 		
 	@Override
 	public void visitLdcInsn(Object cst) {

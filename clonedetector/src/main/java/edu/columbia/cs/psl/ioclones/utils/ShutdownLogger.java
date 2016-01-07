@@ -9,6 +9,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.nio.channels.FileLock;
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
 
@@ -36,19 +37,20 @@ public class ShutdownLogger {
 		appendMessage(sw.toString());
 	}
 	
-	public static void appendMessage(String msg) {
-		int threadId = GlobalInfoRecorder.getThreadIndex();
-		System.out.println(msgPrefix + threadId + ": " + msg);
-		buf.append(msg + "\n");
-		
+	private static void flushBuf(int threadId) {
 		if (buf.length() > BUF_SIZE) {
 			try {
 				File shutdownLog = new File(logPrefix + threadId + ".log");
 				if (!shutdownLog.exists()) {
 					shutdownLog.createNewFile();
 				}
+				FileLock fLock = null;
+				FileInputStream shutdownStream = new FileInputStream(shutdownLog);
+				while ((fLock = shutdownStream.getChannel().tryLock()) != null);
 				
 				Files.write(shutdownLog.toPath(), buf.toString().getBytes(), StandardOpenOption.APPEND);
+				shutdownStream.close();
+				
 				buf = new StringBuilder();
 			} catch (Exception ex) {
 				ex.printStackTrace();
@@ -56,20 +58,17 @@ public class ShutdownLogger {
 		}
 	}
 	
+	public static void appendMessage(String msg) {
+		int threadId = GlobalInfoRecorder.getThreadIndex();
+		System.out.println(msgPrefix + threadId + ": " + msg);
+		
+		buf.append(msg + "\n");
+		flushBuf(threadId);
+	}
+	
 	public static void finalFlush() {
-		if (buf.length() > 0) {
-			try {
-				int threadId = GlobalInfoRecorder.getThreadIndex();
-				File shutdownLog = new File(logPrefix + threadId + ".log");
-				if (!shutdownLog.exists()) {
-					shutdownLog.createNewFile();
-				}
-				
-				Files.write(shutdownLog.toPath(), buf.toString().getBytes(), StandardOpenOption.APPEND);
-			} catch (Exception ex) {
-				ex.printStackTrace();
-			}
-		}
+		int threadId = GlobalInfoRecorder.getThreadIndex();
+		flushBuf(threadId);
 	}
 	
 }

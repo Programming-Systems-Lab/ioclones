@@ -60,13 +60,10 @@ public class CrowdDriver {
 					Class checkClass = Class.forName(fullName);
 					try {
 						Method mainMethod = checkClass.getMethod("main", mainParameters);
-						
-						if (mainMethod == null) {
-							logger.warn("Cannot detect main method: " + checkClass.getName());
-						} else {
-							executables.add(checkClass.getName());
-						}
-					} catch (Exception ex) {
+						executables.add(checkClass.getName());
+					} catch (NoSuchMethodException noSuch) {
+						//Means this class has no main
+					}catch (Exception ex) {
 						logger.error("Error: ", ex);
 					}
 				}
@@ -74,13 +71,16 @@ public class CrowdDriver {
 		}
 		
 		int coreNum = Runtime.getRuntime().availableProcessors();
+		logger.info("Processor number: " + coreNum);
 		ExecutorService executor = Executors.newFixedThreadPool(coreNum);
 		List<Future<Void>> resultList = new ArrayList<Future<Void>>();
 		executables.forEach(c->{
-			ExecuteWorker newWorker = new ExecuteWorker(c);
+			ExecuteWorker newWorker = new ExecuteWorker(c, codebaseFile.getAbsolutePath());
 			Future<Void> result = executor.submit(newWorker);
 			resultList.add(result);
 		});
+		executor.shutdown();
+		while (!executor.isTerminated());
 		
 		resultList.forEach(f->{
 			try {
@@ -89,8 +89,9 @@ public class CrowdDriver {
 				logger.error("Error: ", ex);
 			}
 		});
+		logger.info("Complete crowd executions");
 		
-		executor.shutdown();
+		/*executor.shutdown();
 		try {
 			if (!executor.awaitTermination(60, TimeUnit.SECONDS)) {
 				executor.shutdown();
@@ -101,7 +102,7 @@ public class CrowdDriver {
 		} catch (Exception ex) {
 			executor.shutdownNow();
 			Thread.currentThread().interrupt();
-		}
+		}*/
 	}
 	
 	public static class ExecuteWorker implements Callable<Void> {
@@ -110,8 +111,11 @@ public class CrowdDriver {
 		
 		private String executeClass;
 		
-		public ExecuteWorker(String executeClass) {
+		private String executePath;
+		
+		public ExecuteWorker(String executeClass, String executePath) {
 			this.executeClass = executeClass;
+			this.executePath = executePath;
 		}
 
 		@Override
@@ -121,16 +125,20 @@ public class CrowdDriver {
 			List<String> commands = new ArrayList<String>();
 			commands.add("java");
 			commands.add("-Xmx6g");
-			commands.add("-javaagent:lib/CloneDetector-0.0.1-SNAPSHOT.jar");
-			commands.add("-cp lib/CloneDetector-0.0.1-SNAPSHOT.jar:~/.m2/repository/*:bin/");
+			commands.add("-javaagent:target/CloneDetector-0.0.1-SNAPSHOT.jar");
+			commands.add("-cp");
+			commands.add("target/CloneDetector-0.0.1-SNAPSHOT.jar:" + this.executePath);
 			commands.add("edu.columbia.cs.psl.ioclones.driver.IODriver");
 			commands.add(this.executeClass);
 			
-			Process process = pb.start();
-			ProcessInfoHandler info = new ProcessInfoHandler(process.getInputStream());
-			info.start();
+			logger.info("Executing: " + executeClass);
+			logger.info("Commands: " + commands);
 			
-			logger.info("Subprocess info: " + info.getOutputMsg());
+			Process process = pb.inheritIO().command(commands).start();
+			//ProcessInfoHandler info = new ProcessInfoHandler(process.getInputStream());
+			//info.start();
+			
+			//logger.info("Subprocess info: " + info.getOutputMsg());
 			
 			int exitVal = process.waitFor();
 			if (exitVal != 0) {
@@ -161,7 +169,9 @@ public class CrowdDriver {
 				String line = null;
 				while ((line = br.nextLine()) != null) {
 					//Not real time msg
-					this.output.append(line);
+					//this.output.append(line);
+					//logger.info(line);
+					System.out.println(line);
 				}
 			} catch (Exception ex) {
 				logger.error("Error: ", ex);

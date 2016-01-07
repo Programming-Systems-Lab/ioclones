@@ -17,7 +17,7 @@ public abstract class AbstractSim implements SimAnalyzer {
 	
 	private static final Logger logger = LogManager.getLogger(AbstractSim.class);
 	
-	private static final double CONSTANT = 0.8;
+	private static final double CONSTANT = 1.0;
 	
 	public static final double EXP_CONSTANT = 2;
 	
@@ -72,15 +72,15 @@ public abstract class AbstractSim implements SimAnalyzer {
 			return 1.0;
 		}
 		
-		System.out.println("O1 class: " + o1.getClass());
-		System.out.println("O2 class: " + o2.getClass());
+		//System.out.println("O1 class: " + o1.getClass());
+		//System.out.println("O2 class: " + o2.getClass());
 		
 		//Try floatint point
 		try {
 			double d1 = Double.parseDouble(o1.toString());
 			double d2 = Double.parseDouble(o2.toString());
-			System.out.println("d1: " + d1);
-			System.out.println("d2: " + d2 + "\n");
+			//System.out.println("d1: " + d1);
+			//System.out.println("d2: " + d2 + "\n");
 			
 			if (Math.abs(d1 - d2) < TOLERANCE) {
 				return 1.0;
@@ -104,10 +104,11 @@ public abstract class AbstractSim implements SimAnalyzer {
 			}
 			
 			Iterator<Object> c1IT = c1.iterator();
-			Iterator<Object> c2IT = c2.iterator();
 			double simSum = 0.0;
 			while (c1IT.hasNext()) {
 				Object co1 = c1IT.next();
+				
+				Iterator<Object> c2IT = c2.iterator();
 				while (c2IT.hasNext()) {
 					Object co2 = c2IT.next();
 					simSum += this.compareObject(co1, co2);

@@ -41,6 +41,20 @@ public class IOUtils {
 	
 	private static Object boLock = new Object();
 	
+	private static XStream xstream = null;
+	
+	public static XStream getXStream() {
+		if (xstream == null) {
+			xstream = new XStream();
+			//xstream.setMode(XStream.NO_REFERENCES);
+			xstream.ignoreUnknownElements();
+			BlackConverter bc = new BlackConverter();
+			xstream.registerConverter(bc, XStream.PRIORITY_VERY_HIGH);
+		}
+		
+		return xstream;
+	}
+	
 	public static String getExtension(String fileName) {
 		int lastDot = fileName.lastIndexOf(".");
 		if (lastDot == -1) {
@@ -115,7 +129,7 @@ public class IOUtils {
 	
 	public static Object newObject(Object obj) {
 		try {
-			XStream xstream = new XStream();
+			XStream xstream = getXStream();
 			String objString = xstream.toXML(obj);
 			if (obj.getClass().isArray()) {
 				/*StringBuilder sb = new StringBuilder();
@@ -128,7 +142,13 @@ public class IOUtils {
 			Object newObj = xstream.fromXML(objString);
 			return newObj;
 		} catch (Exception ex) {
-			logger.error("Fail to create new obj: ", ex);
+			logger.error("Fail to create new obj: ", obj.getClass().getName());
+			logger.error("Trace", ex);
+			XStream xstream = new XStream();
+			BlackConverter bc = new BlackConverter();
+			xstream.registerConverter(bc, XStream.PRIORITY_VERY_HIGH);
+			logger.error("Contents: " + xstream.toXML(obj));
+			System.exit(-1);
 		}
 		
 		return null;
@@ -136,11 +156,12 @@ public class IOUtils {
 	
 	public static String fromObj2XML(Object obj) {
 		try {
-			XStream xstream = new XStream();
+			XStream xstream = getXStream();
 			String objString = xstream.toXML(obj);
 			return objString;
 		} catch (Exception ex) {
 			logger.error("Fail to convert obj to xml: " + obj.getClass());
+			logger.error("Trace", ex);
 		}
 		
 		return null;
@@ -148,7 +169,7 @@ public class IOUtils {
 	
 	public static Object fromXML2Obj(File f) {
 		try {
-			XStream xstream = new XStream();
+			XStream xstream = getXStream();
 			Object obj = xstream.fromXML(f);
 			return obj;
 		} catch (Exception ex) {
@@ -161,7 +182,7 @@ public class IOUtils {
 	
 	public static Object fromXML2Obj(String xmlString) {
 		try {
-			XStream xstream = new XStream();
+			XStream xstream = getXStream();
 			Object obj = xstream.fromXML(xmlString);
 			return obj;
 		} catch (Exception ex) {

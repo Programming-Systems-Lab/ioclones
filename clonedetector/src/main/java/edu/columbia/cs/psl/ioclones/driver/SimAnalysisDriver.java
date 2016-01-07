@@ -100,7 +100,6 @@ public class SimAnalysisDriver {
 		
 		es.shutdown();
 		while (!es.isTerminated());
-		System.out.println("Loading files complete");
 		
 		if (directRecords.size() > 0) {
 			allRecords.addAll(directRecords);
@@ -118,7 +117,7 @@ public class SimAnalysisDriver {
 		logger.info("Total IO records: " + allRecords.size());
 		
 		ExecutorService simEs = 
-				Executors.newFixedThreadPool(1);
+				Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
 		List<Future<IOSim>> simFutures = new ArrayList<Future<IOSim>>();
 		for (int i = 0; i < allRecords.size(); i++) {
 			IORecord control = allRecords.get(i);
