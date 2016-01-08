@@ -77,16 +77,16 @@ public class IOUtils {
 								}
 							}
 							
-							if (fieldName.equals("this$0")) {
+							/*if (fieldName.equals("this$0")) {
 								synchronized(bfLock) {
 									System.out.println("Dont serialize: " + fieldKey);
 									blackFields.add(fieldKey);
 								}
 								return false;
 							}
-							return super.shouldSerializeMember(definedIn, fieldName);
+							return super.shouldSerializeMember(definedIn, fieldName);*/
 							
-							/*Field f = null;
+							Field f = null;
 							LinkedList<Class> queue = new LinkedList<Class>();
 							queue.add(definedIn);
 							while (queue.size() > 0) {
@@ -132,7 +132,7 @@ public class IOUtils {
 								} else {
 									return super.shouldSerializeMember(definedIn, fieldName);
 								}
-							}*/
+							}
 						}
 					};
 				}

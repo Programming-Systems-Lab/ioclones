@@ -20,6 +20,10 @@ public class EnumMapConverter implements Converter {
 	private static Map<Class, Map<String, Enum>> enumRecorder = new HashMap<Class, Map<String, Enum>>();
 	
 	public boolean canConvert(Class type) {
+		if (type == null) {
+			return false;
+		}
+		
         return type.isEnum() || Enum.class.isAssignableFrom(type);
     }
 

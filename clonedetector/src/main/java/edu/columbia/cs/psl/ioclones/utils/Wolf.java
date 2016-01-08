@@ -15,6 +15,15 @@ public class Wolf {
 	enum TestType {
 		EXAMPLE, SMALL, LARGE
 	}
+	
+    private boolean isPossible(long[] a, long m, long money) {
+        for (long value : a) {
+            if (value < m) {
+                money -= (m - value);
+            }
+        }
+        return money >= 0;
+    }
 
 //	 TestType TYPE = TestType.EXAMPLE;
 //	 TestType TYPE = TestType.SMALL;

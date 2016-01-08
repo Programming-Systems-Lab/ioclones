@@ -605,6 +605,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 		if (v instanceof DependentValue && w instanceof DependentValue) {
 			DependentValue sv = (DependentValue) v;
 			DependentValue sw = (DependentValue) w;
+			
 			if ((v.getType() == null || v.getType().getDescriptor().equals("Lnull;")) 
 					&& (w.getType() == null || w.getType().getDescriptor().equals("Lnull;"))) {
 				if ((sw.getInSrcs() != null && sv.getDeps() != null && sw != null && sv.getDeps().contains(sw)) 
@@ -624,7 +625,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				return v;
 			} else {
 				if (v.getType().equals(w.getType())) {
-					sv.addDep(sw);
+					sv.addDep(sw);					
 					return v;
 				}
 			}

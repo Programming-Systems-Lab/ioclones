@@ -210,7 +210,7 @@ public class DependencyAnalyzer extends MethodVisitor {
 								}
 							}
 						} else {
-							logger.error("Invalid summarziation of output insts: " + o);
+							logger.warn("Empty inst for output: " + o);
 						}
 					}
 					
@@ -267,8 +267,8 @@ public class DependencyAnalyzer extends MethodVisitor {
 							locals += fn.getLocal(j) + " ";
 						}
 
-						this.instructions.insertBefore(insn, new LdcInsnNode(stack));
-						this.instructions.insertBefore(insn, new LdcInsnNode(locals));
+						//this.instructions.insertBefore(insn, new LdcInsnNode(stack));
+						//this.instructions.insertBefore(insn, new LdcInsnNode(locals));
 					}
 					i++;
 					insn = insn.getNext();

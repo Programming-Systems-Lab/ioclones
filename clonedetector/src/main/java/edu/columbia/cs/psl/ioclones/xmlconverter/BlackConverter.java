@@ -2,6 +2,7 @@ package edu.columbia.cs.psl.ioclones.xmlconverter;
 
 import java.io.Reader;
 import java.io.Writer;
+import java.util.Scanner;
 import java.util.StringTokenizer;
 
 import com.thoughtworks.xstream.converters.Converter;
@@ -22,7 +23,10 @@ public class BlackConverter implements Converter {
 		/*if (Reader.class.isAssignableFrom(arg0) || Writer.class.isAssignableFrom(arg0) || StringTokenizer.class.isAssignableFrom(arg0)) {
 			System.out.println("Capture one");
 		}*/
-		return Reader.class.isAssignableFrom(arg0) || Writer.class.isAssignableFrom(arg0) || StringTokenizer.class.isAssignableFrom(arg0);
+		return Reader.class.isAssignableFrom(arg0) 
+				|| Writer.class.isAssignableFrom(arg0) 
+				|| Scanner.class.isAssignableFrom(arg0)
+				|| StringTokenizer.class.isAssignableFrom(arg0);
 	}
 
 	@Override
