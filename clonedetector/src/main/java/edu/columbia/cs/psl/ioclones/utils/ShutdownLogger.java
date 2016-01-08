@@ -8,6 +8,7 @@ import java.io.FileWriter;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
+import java.io.RandomAccessFile;
 import java.io.StringWriter;
 import java.nio.channels.FileLock;
 import java.nio.file.Files;
@@ -23,7 +24,29 @@ public class ShutdownLogger {
 	
 	private static StringBuilder buf = new StringBuilder();
 	
-	private static final String logPrefix = "logs/shutdown_";
+	private static final String logPrefix = "logs/shutdown";
+	
+	private static File shutdownLog;
+	
+	private static Object shutdownLogLock = new Object();
+	
+	static {
+		synchronized(shutdownLogLock) {
+			shutdownLog = new File(logPrefix + ".log");
+			try {
+				if (!shutdownLog.exists()) {
+					shutdownLog.createNewFile();
+					shutdownLog.setExecutable(true, false);
+					shutdownLog.setReadable(true, false);
+					shutdownLog.setWritable(true, false);
+					//shutdownLog = new File(logPrefix + threadId + ".log");
+				}
+			} catch (Exception ex) {
+				ex.printStackTrace();
+			}
+		}
+		
+	}
 	
 	public static void appendException(Exception toRecord) {
 		//int threadId = GlobalInfoRecorder.getThreadIndex();
@@ -37,24 +60,33 @@ public class ShutdownLogger {
 		appendMessage(sw.toString());
 	}
 	
-	private static void flushBuf(int threadId) {
-		if (buf.length() > BUF_SIZE) {
-			try {
-				File shutdownLog = new File(logPrefix + threadId + ".log");
-				if (!shutdownLog.exists()) {
-					shutdownLog.createNewFile();
+	private static void flushBuf(int threadId, boolean forced) {
+		if (buf.length() > BUF_SIZE || forced) {
+			synchronized(shutdownLogLock) {
+				try {
+					Files.write(shutdownLog.toPath(), buf.toString().getBytes(), StandardOpenOption.APPEND);
+					buf = new StringBuilder();
+				} catch (Exception ex) {
+					ex.printStackTrace();
 				}
+			}
+			
+			/*try {
+				File shutdownLog = new File(logPrefix + threadId + ".log");
+				
 				FileLock fLock = null;
-				FileInputStream shutdownStream = new FileInputStream(shutdownLog);
-				while ((fLock = shutdownStream.getChannel().tryLock()) != null);
+				//FileInputStream shutdownStream = new FileInputStream(shutdownLog);
+				RandomAccessFile ra = new RandomAccessFile(shutdownLog, "rw");
+				while ((fLock = ra.getChannel().tryLock()) != null);
 				
 				Files.write(shutdownLog.toPath(), buf.toString().getBytes(), StandardOpenOption.APPEND);
-				shutdownStream.close();
+				//shutdownStream.close();
+				fLock.release();
 				
 				buf = new StringBuilder();
 			} catch (Exception ex) {
 				ex.printStackTrace();
-			}
+			}*/
 		}
 	}
 	
@@ -63,12 +95,12 @@ public class ShutdownLogger {
 		System.out.println(msgPrefix + threadId + ": " + msg);
 		
 		buf.append(msg + "\n");
-		flushBuf(threadId);
+		flushBuf(threadId, false);
 	}
 	
 	public static void finalFlush() {
 		int threadId = GlobalInfoRecorder.getThreadIndex();
-		flushBuf(threadId);
+		flushBuf(threadId, true);
 	}
 	
 }

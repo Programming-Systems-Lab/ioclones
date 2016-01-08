@@ -62,7 +62,7 @@ public class DependencyAnalyzer extends MethodVisitor {
 												
 			@Override
 			public void visitEnd() {
-				System.out.println("Analyzing " + className + " " + name + " " + desc);
+				logger.info("Analyzing " + className + " " + name + " " + desc);
 				
 				//BlockAnalyzer blockAnalyzer = new BlockAnalyzer(className, name, desc, this.instructions);
 				//blockAnalyzer.constructBlocks();
@@ -116,8 +116,14 @@ public class DependencyAnalyzer extends MethodVisitor {
 									retVal.addOutSink(insn);
 									
 									//The first will be the ret itself
-									toOutput.removeFirst();
-									ios.put(retVal, toOutput);
+									if (toOutput.size() == 0) {
+										//This means that this output has been analyzed before (merge)
+										logger.warn("Visited val: " + retVal);
+										logger.warn("Corresponding inst: " + insn);
+									} else {
+										toOutput.removeFirst();
+										ios.put(retVal, toOutput);
+									}
 									
 									System.out.println("Output val with inst: " + retVal + " " + insn);
 									System.out.println("Dependent val: " + toOutput);

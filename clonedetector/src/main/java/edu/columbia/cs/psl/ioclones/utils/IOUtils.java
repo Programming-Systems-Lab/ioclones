@@ -35,11 +35,13 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import com.google.gson.stream.JsonReader;
 import com.thoughtworks.xstream.XStream;
+import com.thoughtworks.xstream.converters.enums.EnumToStringConverter;
 import com.thoughtworks.xstream.mapper.MapperWrapper;
 
 import edu.columbia.cs.psl.ioclones.pojo.IORecord;
 import edu.columbia.cs.psl.ioclones.xmlconverter.BlackConverter;
 import edu.columbia.cs.psl.ioclones.xmlconverter.InnerClassConverter;
+import edu.columbia.cs.psl.ioclones.xmlconverter.EnumMapConverter;
 
 public class IOUtils {
 	
@@ -75,7 +77,16 @@ public class IOUtils {
 								}
 							}
 							
-							Field f = null;
+							if (fieldName.equals("this$0")) {
+								synchronized(bfLock) {
+									System.out.println("Dont serialize: " + fieldKey);
+									blackFields.add(fieldKey);
+								}
+								return false;
+							}
+							return super.shouldSerializeMember(definedIn, fieldName);
+							
+							/*Field f = null;
 							LinkedList<Class> queue = new LinkedList<Class>();
 							queue.add(definedIn);
 							while (queue.size() > 0) {
@@ -121,7 +132,7 @@ public class IOUtils {
 								} else {
 									return super.shouldSerializeMember(definedIn, fieldName);
 								}
-							}
+							}*/
 						}
 					};
 				}
@@ -130,6 +141,8 @@ public class IOUtils {
 			xstream.ignoreUnknownElements();
 			BlackConverter bc = new BlackConverter();
 			xstream.registerConverter(bc, XStream.PRIORITY_VERY_HIGH);
+			EnumMapConverter mec = new EnumMapConverter();
+			xstream.registerConverter(mec, XStream.PRIORITY_VERY_HIGH);
 			//InnerClassConverter ic = new InnerClassConverter(xstream);
 			//xstream.registerConverter(ic, XStream.PRIORITY_VERY_HIGH);
 		}
