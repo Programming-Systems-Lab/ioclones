@@ -54,12 +54,14 @@ public class EnumMapConverter implements Converter {
             type = type.getSuperclass(); // polymorphic enums
         }
         String name = reader.getValue();
+        
         //System.out.println("Check type and name: " + type.getName() + " " + name);
         //System.out.println("Current node name: " + reader.getNodeName());
         //System.out.println("Current node val: " + reader.getValue());
+        
         try {
         	if (!enumRecorder.containsKey(type)) {
-        		logger.error("Fail to retrieve enum type from recorder: " + type.getName());
+        		logger.warn("No enum type from recorder, try enum valueOf: " + type.getName());
         		return Enum.valueOf(type, name);
         	} else {
         		return enumRecorder.get(type).get(name);

@@ -37,8 +37,8 @@ public class XMLDiffer {
 					case TEXT_VALUE:
 						Detail control = comparison.getControlDetails();
 						Detail test = comparison.getTestDetails();
-						System.out.println(control.getTarget().getNodeName());
-						System.out.println(control.getValue());
+						//System.out.println(control.getTarget().getNodeName());
+						//System.out.println(control.getValue());
 						
 						if (control != null && test != null) {
 							try {
@@ -78,11 +78,10 @@ public class XMLDiffer {
 				.ignoreWhitespace()
 				.withDifferenceEvaluator(valEvaluator)
 				.build();
-		d.getDifferences().forEach(diff->{
-			//System.out.println(diff);
+		/*d.getDifferences().forEach(diff->{
 			System.out.println(diff.getComparison());
 			System.out.println(diff.getResult());
-		});
+		});*/
 		
 		return d;
 	}

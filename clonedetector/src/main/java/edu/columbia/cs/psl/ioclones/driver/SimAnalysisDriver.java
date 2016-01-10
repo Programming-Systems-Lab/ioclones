@@ -1,20 +1,28 @@
 package edu.columbia.cs.psl.ioclones.driver;
 
+import java.io.Console;
 import java.io.File;
 import java.lang.reflect.Method;
+import java.math.BigDecimal;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.CommandLineParser;
+import org.apache.commons.cli.DefaultParser;
+import org.apache.commons.cli.Options;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -28,10 +36,29 @@ public class SimAnalysisDriver {
 	
 	private static final Logger logger = LogManager.getLogger(SimAnalysisDriver.class);
 	
+	private static final String urlHeader = "jdbc:mysql://";
+	
 	private static final Class[] parameters = new Class[]{URL.class};
 	
+	private static Options options = new Options();
+	
+	static {
+		options.addOption("cb", true, "Codebase");
+		options.addOption("io", true, "IO Repo");
+		options.addOption("db", false, "DB URL");
+		options.addOption("user", false, "DB Username");
+	}
+	
 	public static void main(String args[]) throws Exception {
-		String codebase = args[0];
+		CommandLineParser parser = new DefaultParser();
+		CommandLine cmd = parser.parse(options, args);
+		
+		if (!cmd.hasOption("cb") || !cmd.hasOption("io")) {
+			logger.error("No codebase or io repo to process...");
+			System.exit(-1);
+		}
+		
+		String codebase = cmd.getOptionValue("cb");
 		File codebaseFile = new File(codebase);
 		//File codebaseFile = new File("/Users/mikefhsu/Desktop/code_repos/io_play/bin");
 		if (!codebaseFile.exists()) {
@@ -39,7 +66,7 @@ public class SimAnalysisDriver {
 			System.exit(-1);
 		}
 		
-		String iorepo = args[1];
+		String iorepo = cmd.getOptionValue("io");
 		File iorepoFile = new File(iorepo);
 		if (!iorepoFile.exists()) {
 			logger.error("Invalid io repo: " + iorepoFile.getAbsolutePath());
@@ -47,6 +74,23 @@ public class SimAnalysisDriver {
 		}
 		logger.info("Codebase: " + codebaseFile.getAbsolutePath());
 		logger.info("IO Repo: " + iorepoFile.getAbsolutePath());
+		
+		String db = null;
+		String userName = null;
+		String pw = null;
+		
+		if (cmd.hasOption("db")) {
+			//db, username and pw should be together
+			db = urlHeader + cmd.getOptionValue("db");
+			userName = cmd.getOptionValue("user");
+			
+			logger.info("DB: " + db);
+			logger.info("Username: " + userName);
+			
+			Console console = System.console();
+			char[] pwArray = console.readPassword("Password: ");
+			pw = new String(pwArray);
+		}
 		
 		String[] myPaths = System.getProperty("java.class.path").split(":");
 		String[] javaPaths = System.getProperty("sun.boot.class.path").split(":");
@@ -136,19 +180,22 @@ public class SimAnalysisDriver {
 					public IOSim call() throws Exception {
 						// TODO Auto-generated method stub
 						IOSim simObj = new IOSim(control.getMethodKey(), test.getMethodKey());
+						
+						logger.info("Executing: " + simObj.key);
+						
 						SimAnalyzer analyzer = new NoOrderAnalyzer();
 						//System.out.println("Control input: " + control.getInputs());
 						//System.out.println("Test input: " + test.getInputs());
 						double inSim = analyzer.similarity(control.getInputs(), test.getInputs());
 						double outSim = analyzer.similarity(control.getOutputs(), test.getOutputs());
-						double sim = AbstractSim.expo.correlation(inSim, outSim); 
+						double sim = AbstractSim.expo.correlation(inSim, outSim);
 						
-						if (sim > simObj.bestSim) {
-							simObj.bestSim = sim;
-							simObj.inSim = inSim;
-							simObj.outSim = outSim;
-							simObj.setMethodId(control, test);
-						}
+						simObj.sim = sim;
+						simObj.inSim = inSim;
+						simObj.outSim = outSim;
+						simObj.setMethodId(control, test);
+						
+						logger.info("End: " + simObj.key);
 						
 						return simObj;
 					}
@@ -161,21 +208,29 @@ public class SimAnalysisDriver {
 		simEs.shutdown();
 		while (!simEs.isTerminated());
 		
-		List<IOSim> toExport = new ArrayList<IOSim>();
+		Map<String, IOSim> toExport = new HashMap<String, IOSim>();
 		simFutures.forEach(simF->{
 			try {
 				IOSim simObj = simF.get();
-				toExport.add(simObj);
+				String key = simObj.key.toString();
+				if (toExport.containsKey(key)) {
+					IOSim curSim = toExport.get(key);
+					if ((simObj.sim - curSim.sim) > SimAnalyzer.TOLERANCE) {
+						toExport.put(key, simObj);
+					}
+				} else {
+					toExport.put(key, simObj);
+				}
 				logger.info("Comp. key: " + simObj.key);
 				logger.info("Mehtod keys: " + Arrays.toString(simObj.methodIds));
-				logger.info("Best sim.: " + simObj.bestSim);
+				logger.info("Best sim.: " + simObj.sim);
 				logger.info("Input sim.:" + simObj.inSim);
 				logger.info("Output sim: " + simObj.outSim);
 			} catch (Exception ex) {
 				logger.error("Error: ", ex);
 			}
 		});
-		IOUtils.exportIOSimilarity(toExport);
+		IOUtils.exportIOSimilarity(toExport.values(), db, userName, pw);
 		
 		/*File f1 = new File("/Users/mikefhsu/Desktop/code_repos/R5P1Y11.aditsu/R5P1Y11.aditsu.Cakes-get-389.xml");
 		File f2 = new File("/Users/mikefhsu/Desktop/code_repos/R5P1Y11.aditsu/R5P1Y11.aditsu.Cakes-get-390.xml");
@@ -198,7 +253,7 @@ public class SimAnalysisDriver {
 		
 		public int[] methodIds = new int[2];
 		
-		public double bestSim = 0.0;
+		public double sim = 0.0;
 		
 		public double inSim = 0.0;
 		

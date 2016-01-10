@@ -126,6 +126,11 @@
 			<artifactId>xmlunit-core</artifactId>
 			<version>2.0.0-alpha-03</version>
 		</dependency>
+		<dependency>
+			<groupId>mysql</groupId>
+			<artifactId>mysql-connector-java</artifactId>
+			<version>5.1.38</version>
+		</dependency>
 	</dependencies>
 	<distributionManagement>
 		<snapshotRepository>
