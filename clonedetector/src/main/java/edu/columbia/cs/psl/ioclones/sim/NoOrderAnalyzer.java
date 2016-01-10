@@ -30,10 +30,10 @@ public class NoOrderAnalyzer extends AbstractSim {
 		}
 		
 		Class clazz = o.getClass();
-		if (Number.class.isAssignableFrom(clazz) 
+		if (String.class.isAssignableFrom(clazz) 
 				|| Boolean.class.isAssignableFrom(clazz) 
 				|| Character.class.isAssignableFrom(clazz) 
-				|| String.class.isAssignableFrom(clazz)) {
+				|| Number.class.isAssignableFrom(clazz)) {
 			return o;
 		} else if (clazz.isArray()) {
 			//For array, convert to list

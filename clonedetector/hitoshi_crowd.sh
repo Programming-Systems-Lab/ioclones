@@ -3,6 +3,7 @@
 BASEDIR=$(pwd)
 IO_REPO="$BASEDIR/iorepo"
 LOGS="$BASEDIR/logs"
+RESULTS="$BASEDIR/results"
 
 echo 'Executing HitoshiIO crowd execution'
 if [ -d "$IO_REPO" ];
@@ -13,8 +14,15 @@ else
 	mkdir $IO_REPO
 fi
 
-if [ -d "$LOGS" ];
+if [ -d "$RESULTS" ];
+then
+	echo "Confirm $RESULTS"
+else
+	echo "Creating $RESULTS"
+	mkdir $RESULTS
+fi
 
+if [ -d "$LOGS" ];
 then
 	echo "Confirm $LOGS"
 else

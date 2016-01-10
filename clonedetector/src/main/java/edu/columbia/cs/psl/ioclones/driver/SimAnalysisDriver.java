@@ -5,6 +5,8 @@ import java.lang.reflect.Method;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -84,7 +86,7 @@ public class SimAnalysisDriver {
 				Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
 		List<Future<List<IORecord>>> results = new ArrayList<Future<List<IORecord>>>(); 
 		zips.forEach(zip->{
-			System.out.println("Zip file: " + zip);
+			logger.info("Zip file: " + zip);
 			Future<List<IORecord>> future = es.submit(new Callable<List<IORecord>>(){
 
 				@Override
@@ -135,6 +137,8 @@ public class SimAnalysisDriver {
 						// TODO Auto-generated method stub
 						IOSim simObj = new IOSim(control.getMethodKey(), test.getMethodKey());
 						SimAnalyzer analyzer = new NoOrderAnalyzer();
+						//System.out.println("Control input: " + control.getInputs());
+						//System.out.println("Test input: " + test.getInputs());
 						double inSim = analyzer.similarity(control.getInputs(), test.getInputs());
 						double outSim = analyzer.similarity(control.getOutputs(), test.getOutputs());
 						double sim = AbstractSim.expo.correlation(inSim, outSim); 
@@ -143,6 +147,7 @@ public class SimAnalysisDriver {
 							simObj.bestSim = sim;
 							simObj.inSim = inSim;
 							simObj.outSim = outSim;
+							simObj.setMethodId(control, test);
 						}
 						
 						return simObj;
@@ -156,10 +161,13 @@ public class SimAnalysisDriver {
 		simEs.shutdown();
 		while (!simEs.isTerminated());
 		
+		List<IOSim> toExport = new ArrayList<IOSim>();
 		simFutures.forEach(simF->{
 			try {
 				IOSim simObj = simF.get();
+				toExport.add(simObj);
 				logger.info("Comp. key: " + simObj.key);
+				logger.info("Mehtod keys: " + Arrays.toString(simObj.methodIds));
 				logger.info("Best sim.: " + simObj.bestSim);
 				logger.info("Input sim.:" + simObj.inSim);
 				logger.info("Output sim: " + simObj.outSim);
@@ -167,7 +175,7 @@ public class SimAnalysisDriver {
 				logger.error("Error: ", ex);
 			}
 		});
-		
+		IOUtils.exportIOSimilarity(toExport);
 		
 		/*File f1 = new File("/Users/mikefhsu/Desktop/code_repos/R5P1Y11.aditsu/R5P1Y11.aditsu.Cakes-get-389.xml");
 		File f2 = new File("/Users/mikefhsu/Desktop/code_repos/R5P1Y11.aditsu/R5P1Y11.aditsu.Cakes-get-390.xml");
@@ -186,7 +194,9 @@ public class SimAnalysisDriver {
 	
 	public static class IOSim {
 		
-		public Set<String> key = new HashSet<String>();
+		public List<String> key = new ArrayList<String>();
+		
+		public int[] methodIds = new int[2];
 		
 		public double bestSim = 0.0;
 		
@@ -198,6 +208,14 @@ public class SimAnalysisDriver {
 			//Order does not matter
 			this.key.add(control);
 			this.key.add(test);
+			Collections.sort(key);
+		}
+		
+		public void setMethodId(IORecord control, IORecord test) {
+			int controlIdx = this.key.indexOf(control.getMethodKey());
+			int testIdx = this.key.indexOf(test.getMethodKey());
+			this.methodIds[controlIdx] = control.getId();
+			this.methodIds[testIdx] = test.getId();
 		}
 	}
 

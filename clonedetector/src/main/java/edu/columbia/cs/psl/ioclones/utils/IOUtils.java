@@ -15,9 +15,13 @@ import java.lang.reflect.Method;
 import java.net.Socket;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -38,6 +42,7 @@ import com.thoughtworks.xstream.XStream;
 import com.thoughtworks.xstream.converters.enums.EnumToStringConverter;
 import com.thoughtworks.xstream.mapper.MapperWrapper;
 
+import edu.columbia.cs.psl.ioclones.driver.SimAnalysisDriver.IOSim;
 import edu.columbia.cs.psl.ioclones.pojo.IORecord;
 import edu.columbia.cs.psl.ioclones.xmlconverter.BlackConverter;
 import edu.columbia.cs.psl.ioclones.xmlconverter.InnerClassConverter;
@@ -56,6 +61,8 @@ public class IOUtils {
 	private static Object bfLock = new Object();
 	
 	private static XStream xstream = null;
+	
+	private static final String csvHeader = "method_keys, method_ids, in_sim, out_sim, total_sim \n";
 	
 	public static XStream getXStream() {
 		if (xstream == null) {
@@ -486,6 +493,51 @@ public class IOUtils {
 						recorder.add(record);
 					}
 				}
+			}
+		}
+	}
+	
+	public static void exportIOSimilarity(List<IOSim> simObjs) {
+		String fileName = "results/ioreport_" + (new Date()).getTime() + ".csv";
+		File resultFile = new File(fileName);
+		if (!resultFile.exists()) {
+			try {
+				resultFile.createNewFile();
+			} catch (Exception ex) {
+				logger.error("Error, ", ex);
+			}
+		}
+		
+		StringBuilder sb = new StringBuilder();
+		sb.append(csvHeader);
+		
+		int counter = 0;
+		for (IOSim simObj: simObjs) {
+			String keyString = simObj.key.get(0) + ":" + simObj.key.get(1);
+			sb.append(keyString + ",");
+			String idString = simObj.methodIds[0] + ":" + simObj.methodIds[1];
+			sb.append(idString + ",");
+			sb.append(simObj.inSim + ",");
+			sb.append(simObj.outSim + ",");
+			sb.append(simObj.bestSim + "\n");
+			
+			counter++;
+			if (counter > 5000) {
+				try {
+					Files.write(resultFile.toPath(), sb.toString().getBytes(), StandardOpenOption.APPEND);
+					sb = new StringBuilder();
+					counter = 0;
+				} catch (Exception ex) {
+					logger.error("Error: ", ex);
+				}
+			}
+		}
+		
+		if (sb.length() > 0) {
+			try {
+				Files.write(resultFile.toPath(), sb.toString().getBytes(), StandardOpenOption.APPEND);
+			} catch (Exception ex) {
+				logger.error("Error: ", ex);
 			}
 		}
 	}

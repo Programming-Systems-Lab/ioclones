@@ -1,7 +1,10 @@
 package edu.columbia.cs.psl.ioclones.sim;
 
+import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.logging.log4j.LogManager;
@@ -103,7 +106,7 @@ public abstract class AbstractSim implements SimAnalyzer {
 				return 0.0;
 			}
 			
-			Iterator<Object> c1IT = c1.iterator();
+			/*Iterator<Object> c1IT = c1.iterator();
 			double simSum = 0.0;
 			while (c1IT.hasNext()) {
 				Object co1 = c1IT.next();
@@ -114,9 +117,51 @@ public abstract class AbstractSim implements SimAnalyzer {
 					simSum += this.compareObject(co1, co2);
 				}
 			}
-			
+			System.out.println("Simsum: " + simSum);
 			double simRank = (CONSTANT * simSum)/(c1.size() * c2.size());
-			return simRank;
+			return simRank;*/
+			
+			//Start from greedy algorithm
+			List<Object> c1Copy = new ArrayList<Object>(c1);
+			List<Object> c2Copy = new ArrayList<Object>(c2);
+			int[] simRecord = new int[c2Copy.size()];
+			
+			double simSum = 0;
+			for (int i = 0; i < c1Copy.size(); i++) {
+				Object c1Obj = c1Copy.get(i);
+				double bestSim = 0.0;
+				int bestMatch = -1;
+				
+				for (int j = 0; j < c2Copy.size(); j++) {
+					if (simRecord[j] == 1) {
+						continue ;
+					}
+					
+					Object c2Obj = c2Copy.get(j);
+					double curSim = this.compareObject(c1Obj, c2Obj);
+					//System.out.println(c1Obj + " " + c2Obj + " " + curSim);
+					
+					BigDecimal cur = new BigDecimal(curSim);
+					BigDecimal best = new BigDecimal(bestSim);
+					if (cur.compareTo(best) == 1) {
+						bestSim = curSim;
+						bestMatch = j;
+					}
+				}
+				//System.out.println("Best match: " + bestMatch);
+				//System.out.println("Best sim: " + bestSim);
+				
+				if (bestMatch != -1) {
+					simRecord[bestMatch] = 1;
+					simSum += bestSim;
+				}
+			}
+			
+			//System.out.println("Sim sum: " + simSum);
+			int maxLen = Math.max(c1.size(), c2.size());
+			double sim = simSum/maxLen;
+			//System.out.println("Similarity: " + sim);
+			return sim;
 		} else if (Map.class.isAssignableFrom(clazz1) 
 				&& Map.class.isAssignableFrom(clazz2)) {
 			Map c1 = (Map) o1;
