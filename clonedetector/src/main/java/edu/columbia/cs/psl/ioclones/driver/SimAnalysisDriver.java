@@ -6,6 +6,8 @@ import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -22,6 +24,8 @@ import java.util.concurrent.Future;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
+import org.apache.commons.cli.Option;
+import org.apache.commons.cli.OptionBuilder;
 import org.apache.commons.cli.Options;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -38,15 +42,27 @@ public class SimAnalysisDriver {
 	
 	private static final String urlHeader = "jdbc:mysql://";
 	
+	private static final String urlTail = "?useServerPrepStmts=false&rewriteBatchedStatements=true&autoReconnect=true";
+	
 	private static final Class[] parameters = new Class[]{URL.class};
 	
 	private static Options options = new Options();
 	
+	private static int compCounter = 0;
+	
+	private static double simThresh = 0.5;
+	
 	static {
 		options.addOption("cb", true, "Codebase");
 		options.addOption("io", true, "IO Repo");
-		options.addOption("db", false, "DB URL");
-		options.addOption("user", false, "DB Username");
+		options.addOption("eName", true, "Export name");
+		options.addOption("db", true, "DB URL");
+		options.addOption("user", true, "DB Username");
+		/*Option codebase = Option.builder().argName("cb").desc("Codebase").build();
+		Option io = Option.builder().argName("io").desc("IO Repo").build();
+		Option eName = Option.builder().argName("eName").desc("Export name").build();
+		Option db = Option.builder().argName("db").desc("DB URL").build();
+		Option user = Option.builder().argName("user").desc("DB User").build();*/
 	}
 	
 	public static void main(String args[]) throws Exception {
@@ -72,8 +88,15 @@ public class SimAnalysisDriver {
 			logger.error("Invalid io repo: " + iorepoFile.getAbsolutePath());
 			System.exit(-1);
 		}
+		
+		String exportName = cmd.getOptionValue("eName");
+		if (exportName == null) {
+			exportName = "default";
+		}
+		
 		logger.info("Codebase: " + codebaseFile.getAbsolutePath());
 		logger.info("IO Repo: " + iorepoFile.getAbsolutePath());
+		logger.info("Export name: " + exportName);
 		
 		String db = null;
 		String userName = null;
@@ -81,7 +104,7 @@ public class SimAnalysisDriver {
 		
 		if (cmd.hasOption("db")) {
 			//db, username and pw should be together
-			db = urlHeader + cmd.getOptionValue("db");
+			db = urlHeader + cmd.getOptionValue("db") + urlTail;
 			userName = cmd.getOptionValue("user");
 			
 			logger.info("DB: " + db);
@@ -128,7 +151,8 @@ public class SimAnalysisDriver {
 		
 		ExecutorService es = 
 				Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
-		List<Future<List<IORecord>>> results = new ArrayList<Future<List<IORecord>>>(); 
+		List<Future<List<IORecord>>> results = new ArrayList<Future<List<IORecord>>>();
+		
 		zips.forEach(zip->{
 			logger.info("Zip file: " + zip);
 			Future<List<IORecord>> future = es.submit(new Callable<List<IORecord>>(){
@@ -162,6 +186,7 @@ public class SimAnalysisDriver {
 		
 		logger.info("Total IO records: " + allRecords.size());
 		
+		Instant start = Instant.now();
 		ExecutorService simEs = 
 				Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
 		List<Future<IOSim>> simFutures = new ArrayList<Future<IOSim>>();
@@ -173,33 +198,12 @@ public class SimAnalysisDriver {
 				if (control.getMethodKey().equals(test.getMethodKey())) {
 					continue ;
 				}
-				
-				Future<IOSim> simFuture = simEs.submit(new Callable<IOSim>() {
-
-					@Override
-					public IOSim call() throws Exception {
-						// TODO Auto-generated method stub
-						IOSim simObj = new IOSim(control.getMethodKey(), test.getMethodKey());
-						
-						logger.info("Executing: " + simObj.key);
-						
-						SimAnalyzer analyzer = new NoOrderAnalyzer();
-						//System.out.println("Control input: " + control.getInputs());
-						//System.out.println("Test input: " + test.getInputs());
-						double inSim = analyzer.similarity(control.getInputs(), test.getInputs());
-						double outSim = analyzer.similarity(control.getOutputs(), test.getOutputs());
-						double sim = AbstractSim.expo.correlation(inSim, outSim);
-						
-						simObj.sim = sim;
-						simObj.inSim = inSim;
-						simObj.outSim = outSim;
-						simObj.setMethodId(control, test);
-						
-						logger.info("End: " + simObj.key);
-						
-						return simObj;
-					}
-				});
+								
+				IOWorker worker = new IOWorker();
+				worker.control = control;
+				worker.test = test;
+				worker.invokeId = compCounter++;
+				Future<IOSim> simFuture = simEs.submit(worker);
 				
 				simFutures.add(simFuture);
 			}
@@ -212,26 +216,40 @@ public class SimAnalysisDriver {
 		simFutures.forEach(simF->{
 			try {
 				IOSim simObj = simF.get();
-				String key = simObj.key.toString();
-				if (toExport.containsKey(key)) {
-					IOSim curSim = toExport.get(key);
-					if ((simObj.sim - curSim.sim) > SimAnalyzer.TOLERANCE) {
+				if (simObj != null) {
+					String key = simObj.key.toString();
+					if (toExport.containsKey(key)) {
+						IOSim curSim = toExport.get(key);
+						if ((simObj.sim - curSim.sim) > SimAnalyzer.TOLERANCE) {
+							toExport.put(key, simObj);
+						}
+					} else {
 						toExport.put(key, simObj);
 					}
-				} else {
-					toExport.put(key, simObj);
+					logger.info("Comp. key: " + simObj.key);
+					logger.info("Mehtod keys: " + Arrays.toString(simObj.methodIds));
+					logger.info("Best sim.: " + simObj.sim);
+					logger.info("Input sim.:" + simObj.inSim);
+					logger.info("Output sim: " + simObj.outSim);
 				}
-				logger.info("Comp. key: " + simObj.key);
-				logger.info("Mehtod keys: " + Arrays.toString(simObj.methodIds));
-				logger.info("Best sim.: " + simObj.sim);
-				logger.info("Input sim.:" + simObj.inSim);
-				logger.info("Output sim: " + simObj.outSim);
 			} catch (Exception ex) {
 				logger.error("Error: ", ex);
 			}
 		});
-		IOUtils.exportIOSimilarity(toExport.values(), db, userName, pw);
 		
+		Instant end = Instant.now();
+		Duration duration = Duration.between(start, end);
+		long elapsed = duration.getSeconds();
+		logger.info("Total exeuction time: " + elapsed);
+				
+		IOUtils.exportIOSimilarity(toExport.values(), 
+				db, 
+				userName, 
+				pw, 
+				exportName, 
+				allRecords.size(), 
+				compCounter, 
+				elapsed);
 		/*File f1 = new File("/Users/mikefhsu/Desktop/code_repos/R5P1Y11.aditsu/R5P1Y11.aditsu.Cakes-get-389.xml");
 		File f2 = new File("/Users/mikefhsu/Desktop/code_repos/R5P1Y11.aditsu/R5P1Y11.aditsu.Cakes-get-390.xml");
 		
@@ -272,6 +290,47 @@ public class SimAnalysisDriver {
 			this.methodIds[controlIdx] = control.getId();
 			this.methodIds[testIdx] = test.getId();
 		}
+	}
+	
+	public static class IOWorker implements Callable<IOSim> {
+		
+		public int invokeId;
+		
+		public IORecord control;
+		
+		public IORecord test;
+
+		@Override
+		public IOSim call() throws Exception {
+			boolean show = (this.invokeId % 5000 == 0);
+			if (show) {
+				logger.info("Invoking #" + this.invokeId);
+			}
+			
+			IOSim simObj = new IOSim(control.getMethodKey(), test.getMethodKey());
+			SimAnalyzer analyzer = new NoOrderAnalyzer();
+			//System.out.println("Control input: " + control.getInputs());
+			//System.out.println("Test input: " + test.getInputs());
+			double inSim = analyzer.similarity(control.getInputs(), test.getInputs());
+			double outSim = analyzer.similarity(control.getOutputs(), test.getOutputs());
+			double sim = AbstractSim.expo.correlation(inSim, outSim);
+			
+			if (show) {
+				logger.info("End #" + this.invokeId);
+			}
+			
+			if (sim - simThresh > SimAnalyzer.TOLERANCE) {
+				simObj.sim = sim;
+				simObj.inSim = inSim;
+				simObj.outSim = outSim;
+				simObj.setMethodId(control, test);
+				
+				return simObj;
+			} else {
+				return null;
+			}
+		}
+		
 	}
 
 }

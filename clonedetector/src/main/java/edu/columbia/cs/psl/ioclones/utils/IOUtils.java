@@ -20,6 +20,8 @@ import java.nio.file.StandardOpenOption;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.Statement;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -67,7 +69,7 @@ public class IOUtils {
 	
 	private static Connection connection = null;
 	
-	private static final String csvHeader = "method_1, method_2, method_id1, method_id2, in_sim, out_sim, total_sim \n";
+	private static final String csvHeader = "method_1, method_id1, method_2, method_id2, in_sim, out_sim, total_sim \n";
 	
 	public static XStream getXStream() {
 		if (xstream == null) {
@@ -167,7 +169,13 @@ public class IOUtils {
 			try {
 				Class.forName("com.mysql.jdbc.Driver");
 				connection = DriverManager.getConnection(db, userName, pw);
-				return connection;
+				boolean isValid = connection.isValid(10);
+				if (isValid) {
+					return connection;
+				} else {
+					logger.warn("Fail to connect to database...");
+					return null;
+				}
 			} catch (Exception ex) {
 				logger.error("Error: ", ex);
 			}
@@ -518,8 +526,12 @@ public class IOUtils {
 	public static void exportIOSimilarity(Collection<IOSim> simObjs, 
 			String db, 
 			String userName, 
-			String pw) {
-		String fileName = "results/ioreport_" + (new Date()).getTime() + ".csv";
+			String pw, 
+			String codebase, 
+			int total_ios,
+			int comparisons,
+			long execTime) {
+		String fileName = "results/" + codebase + "_" + (new Date()).getTime() + ".csv";
 		File resultFile = new File(fileName);
 		if (!resultFile.exists()) {
 			try {
@@ -532,37 +544,64 @@ public class IOUtils {
 		StringBuilder sb = new StringBuilder();
 		sb.append(csvHeader);
 		
-		int counter = 0;
-		String query = "INSERT INTO hitoshio (method1, method2, id1, id2, inSim, outSim, sim) VALUES (?, ?, ?, ?, ?, ?)";
+		String totalQuery = "INSERT INTO hitoshio_summary (codebase, total_ios, comparisons, exec_time) VALUES(?, ?, ?, ?)";
+		PreparedStatement totalStmt = null;
+		
+		String query = "INSERT INTO hitoshio_row (comp_id, method1, m_id1, method2, m_id2, inSim, outSim, sim) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 		PreparedStatement stmt = null;
-		if (db != null && userName != null & pw != null) {
+		
+		if (db != null && userName != null && pw != null) {
 			try {
-				stmt = getConnection(db, userName, pw).prepareStatement(query);
+				Connection conn = getConnection(db, userName, pw);
+				
+				if (conn != null) {
+					totalStmt = conn.prepareStatement(totalQuery, Statement.RETURN_GENERATED_KEYS);
+					stmt = conn.prepareStatement(query);
+				}
+				
 			} catch (Exception ex) {
 				logger.error("Error: ", ex);
 			}
 		}
 		
+		int compKey = -1;
+		if (totalStmt != null) {
+			try {
+				totalStmt.setString(1, codebase);
+				totalStmt.setInt(2, total_ios);
+				totalStmt.setInt(3, comparisons);
+				totalStmt.setLong(4, execTime);
+				
+				totalStmt.execute();
+				ResultSet rs = totalStmt.getGeneratedKeys();
+				rs.next();
+				compKey = rs.getInt(1);
+				logger.info("Comp key: " + compKey);
+			} catch (Exception ex) {
+				logger.error("Error: ", ex);
+			}
+		}
+		
+		int counter = 0;		
 		for (IOSim simObj: simObjs) {
 			sb.append(simObj.key.get(0) + ",");
-			sb.append(simObj.key.get(1) + ",");
 			sb.append(simObj.methodIds[0] + ",");
+			sb.append(simObj.key.get(1) + ",");
 			sb.append(simObj.methodIds[1] + ",");
 			sb.append(simObj.inSim + ",");
 			sb.append(simObj.outSim + ",");
 			sb.append(simObj.sim + "\n");
 			
-			
-			
 			if (stmt != null) {
 				try {
-					stmt.setString(0, simObj.key.get(0));
-					stmt.setString(1, simObj.key.get(1));
-					stmt.setInt(2,  simObj.methodIds[0]);
-					stmt.setInt(3, simObj.methodIds[1]);
-					stmt.setDouble(4, simObj.inSim);
-					stmt.setDouble(5, simObj.outSim);
-					stmt.setDouble(6, simObj.sim);
+					stmt.setInt(1, compKey);
+					stmt.setString(2, simObj.key.get(0));
+					stmt.setInt(3, simObj.methodIds[0]);
+					stmt.setString(4, simObj.key.get(1));
+					stmt.setInt(5, simObj.methodIds[1]);
+					stmt.setDouble(6, simObj.inSim);
+					stmt.setDouble(7, simObj.outSim);
+					stmt.setDouble(8, simObj.sim);
 					
 					stmt.addBatch();
 				} catch (Exception ex) {
@@ -577,8 +616,10 @@ public class IOUtils {
 					sb = new StringBuilder();
 					counter = 0;
 					
-					stmt.executeBatch();
-					stmt.clearBatch();
+					if (stmt != null) {
+						stmt.executeBatch();
+						stmt.clearBatch();
+					}
 				} catch (Exception ex) {
 					logger.error("Error: ", ex);
 				}
@@ -588,7 +629,9 @@ public class IOUtils {
 		if (sb.length() > 0) {
 			try {
 				Files.write(resultFile.toPath(), sb.toString().getBytes(), StandardOpenOption.APPEND);
-				stmt.executeBatch();
+				if (stmt != null) {
+					stmt.executeBatch();
+				}
 			} catch (Exception ex) {
 				logger.error("Error: ", ex);
 			}
