@@ -86,6 +86,21 @@ public class XMLDiffer {
 		return d;
 	}
 	
+	public static Diff xmlDiff(Object obj1, Object obj2) {
+		DifferenceEvaluator chainedEvaluator = DifferenceEvaluators.chain(DifferenceEvaluators.Default, valEvaluator);
+		Diff d = DiffBuilder.compare(Input.from(obj1))
+				.withTest(Input.from(obj2))
+				.ignoreWhitespace()
+				.withDifferenceEvaluator(valEvaluator)
+				.build();
+		/*d.getDifferences().forEach(diff->{
+			System.out.println(diff.getComparison());
+			System.out.println(diff.getResult());
+		});*/
+		
+		return d;
+	}
+	
 	public static void xmlDiff(File f1, File f2) {
 		Diff d = DiffBuilder.compare(Input.fromFile(f1).build()).withTest(Input.fromFile(f2)).build();
 		d.getDifferences().forEach(diff->{

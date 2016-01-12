@@ -7,6 +7,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedList;
 
@@ -25,7 +26,11 @@ public class IORecord {
 	
 	private List<Object> inputs = new ArrayList<Object>();
 	
+	public transient Collection<Object> cleanInputs;
+	
 	private List<Object> outputs = new ArrayList<Object>();
+	
+	public transient Collection<Object> cleanOutputs;
 	
 	private boolean stopRecord = false;
 	

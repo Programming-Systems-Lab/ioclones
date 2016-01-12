@@ -10,6 +10,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -50,7 +51,7 @@ public class SimAnalysisDriver {
 	
 	private static int compCounter = 0;
 	
-	private static double simThresh = 0.5;
+	public static double simThresh = 0.7;
 	
 	static {
 		options.addOption("cb", true, "Codebase");
@@ -66,6 +67,7 @@ public class SimAnalysisDriver {
 	}
 	
 	public static void main(String args[]) throws Exception {
+		long beginMem = Runtime.getRuntime().freeMemory();
 		CommandLineParser parser = new DefaultParser();
 		CommandLine cmd = parser.parse(options, args);
 		
@@ -162,6 +164,13 @@ public class SimAnalysisDriver {
 					// TODO Auto-generated method stub
 					List<IORecord> ret = new ArrayList<IORecord>();
 					IOUtils.unzipIORecords(zip, ret);
+					ret.forEach(record->{
+						Set<Object> cleanInputs = NoOrderAnalyzer.cleanCollection(record.getInputs());
+						Set<Object> cleanOutputs = NoOrderAnalyzer.cleanCollection(record.getOutputs());
+						
+						record.cleanInputs = cleanInputs;
+						record.cleanOutputs = cleanOutputs;
+					});
 					return ret;
 				}
 			});
@@ -185,10 +194,15 @@ public class SimAnalysisDriver {
 		});
 		
 		logger.info("Total IO records: " + allRecords.size());
+		long afterLoading = Runtime.getRuntime().freeMemory();
+		long diffMem = afterLoading - beginMem;
+		logger.info("Loading memory: " + ((double)diffMem)/Math.pow(10, 6));
 		
 		Instant start = Instant.now();
+		/*ExecutorService simEs = 
+				Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());*/
 		ExecutorService simEs = 
-				Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+				Executors.newFixedThreadPool(1);
 		List<Future<IOSim>> simFutures = new ArrayList<Future<IOSim>>();
 		for (int i = 0; i < allRecords.size(); i++) {
 			IORecord control = allRecords.get(i);
@@ -198,7 +212,7 @@ public class SimAnalysisDriver {
 				if (control.getMethodKey().equals(test.getMethodKey())) {
 					continue ;
 				}
-								
+				
 				IOWorker worker = new IOWorker();
 				worker.control = control;
 				worker.test = test;
@@ -208,6 +222,8 @@ public class SimAnalysisDriver {
 				simFutures.add(simFuture);
 			}
 		}
+		
+		logger.info("Qualified comparisons: " + simFutures.size());
 		
 		simEs.shutdown();
 		while (!simEs.isTerminated());
@@ -307,16 +323,40 @@ public class SimAnalysisDriver {
 				logger.info("Invoking #" + this.invokeId);
 			}
 			
-			IOSim simObj = new IOSim(control.getMethodKey(), test.getMethodKey());
+			long beforeMem = Runtime.getRuntime().freeMemory();
+			
+			IOSim simObj = new IOSim(this.control.getMethodKey(), this.test.getMethodKey());
 			SimAnalyzer analyzer = new NoOrderAnalyzer();
 			//System.out.println("Control input: " + control.getInputs());
 			//System.out.println("Test input: " + test.getInputs());
-			double inSim = analyzer.similarity(control.getInputs(), test.getInputs());
-			double outSim = analyzer.similarity(control.getOutputs(), test.getOutputs());
+			double inSim = analyzer.similarity(this.control.cleanInputs, this.test.cleanInputs);
+			long afterIn = Runtime.getRuntime().freeMemory();
+			double outSim = analyzer.similarity(this.control.cleanOutputs, this.test.cleanOutputs);
+			long afterOut = Runtime.getRuntime().freeMemory();
 			double sim = AbstractSim.expo.correlation(inSim, outSim);
+			
+			long afterMem = Runtime.getRuntime().freeMemory();
+			double memDiff = ((double)(afterMem - beforeMem))/Math.pow(10, 6);
+			
+			if (memDiff > 100) {
+				logger.info("Large comp: " + this.control.getMethodKey() + " " + this.control.getId() + " " + this.test.getMethodKey() + " " + this.test.getId());
+				logger.info("Mem diff: " + memDiff);
+				logger.info("After in: " + ((double)(afterIn - beforeMem))/Math.pow(10, 6));
+				logger.info("Control in: " + this.control.cleanInputs);
+				logger.info("Test in: " + this.test.cleanInputs);
+				logger.info("After out: " + ((double)(afterOut - afterIn))/Math.pow(10, 6));
+				logger.info("Control out: " + this.control.cleanInputs);
+				logger.info("Test out: " + this.test.cleanOutputs);
+				this.control = null;
+				this.test = null;
+				System.gc();
+				
+				show = true;
+			}
 			
 			if (show) {
 				logger.info("End #" + this.invokeId);
+				logger.info("Used mem: " + memDiff);
 			}
 			
 			if (sim - simThresh > SimAnalyzer.TOLERANCE) {

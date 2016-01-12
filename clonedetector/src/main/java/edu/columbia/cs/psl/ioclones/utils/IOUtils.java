@@ -67,101 +67,107 @@ public class IOUtils {
 	
 	private static XStream xstream = null;
 	
+	private static Object streamLock = new Object();
+	
 	private static Connection connection = null;
 	
 	private static final String csvHeader = "method_1, method_id1, method_2, method_id2, in_sim, out_sim, total_sim \n";
 	
 	public static XStream getXStream() {
-		if (xstream == null) {
-			xstream = new XStream() {
-				@Override
-				protected MapperWrapper wrapMapper(MapperWrapper next) {
-					return new MapperWrapper(next) {
-						@Override
-						public boolean shouldSerializeMember(Class definedIn, 
-								String fieldName) {
-							if (definedIn == Object.class) {
-								return false;
-							}
-							
-							String fieldKey = ClassInfoUtils.genClassFieldKey(definedIn.getName(), fieldName);
-							synchronized(bfLock) {
-								if (blackFields.contains(fieldKey)) {
+		synchronized(streamLock) {
+			if (xstream == null) {
+				xstream = new XStream() {
+					@Override
+					protected MapperWrapper wrapMapper(MapperWrapper next) {
+						return new MapperWrapper(next) {
+							@Override
+							public boolean shouldSerializeMember(Class definedIn, 
+									String fieldName) {
+								if (definedIn == Object.class) {
 									return false;
 								}
-							}
-							
-							/*if (fieldName.equals("this$0")) {
+								
+								String fieldKey = ClassInfoUtils.genClassFieldKey(definedIn.getName(), fieldName);
 								synchronized(bfLock) {
-									System.out.println("Dont serialize: " + fieldKey);
-									blackFields.add(fieldKey);
-								}
-								return false;
-							}
-							return super.shouldSerializeMember(definedIn, fieldName);*/
-							
-							Field f = null;
-							LinkedList<Class> queue = new LinkedList<Class>();
-							queue.add(definedIn);
-							while (queue.size() > 0) {
-								Class clazz = queue.removeFirst();
-								try {
-									f = clazz.getDeclaredField(fieldName);
-								} catch (NoSuchFieldException ex) {									
-									if (clazz.getSuperclass() != null) {
-										queue.add(clazz.getSuperclass());
+									if (blackFields.contains(fieldKey)) {
+										return false;
 									}
 								}
-							}
-							
-							if (f == null) {
-								//Not in super classes;
-								logger.info(fieldName + " in interfaces");
-								for (Class inter: definedIn.getInterfaces()) {
-									queue.add(inter);
-								}
-							}
-							
-							while (queue.size() > 0) {
-								Class curInter = queue.removeFirst();
-								try {
-									f = curInter.getDeclaredField(fieldName);
-								} catch (NoSuchFieldException ex) {
-									for (Class superInter: curInter.getInterfaces()) {
-										queue.add(superInter);
-									}
-								}
-							}
-							
-							if (f == null) {
-								logger.error("Cannot find field: " + fieldKey);
-								return super.shouldSerializeMember(definedIn, fieldName);
-							} else {
-								if (f.isSynthetic()) {
-									logger.info("Synth. field: " + fieldKey);
+								
+								/*if (fieldName.equals("this$0")) {
 									synchronized(bfLock) {
+										System.out.println("Dont serialize: " + fieldKey);
 										blackFields.add(fieldKey);
 									}
 									return false;
-								} else {
+								}
+								return super.shouldSerializeMember(definedIn, fieldName);*/
+								
+								Field f = null;
+								LinkedList<Class> queue = new LinkedList<Class>();
+								queue.add(definedIn);
+								while (queue.size() > 0) {
+									Class clazz = queue.removeFirst();
+									try {
+										f = clazz.getDeclaredField(fieldName);
+									} catch (NoSuchFieldException ex) {									
+										if (clazz.getSuperclass() != null) {
+											queue.add(clazz.getSuperclass());
+										}
+									}
+								}
+								
+								if (f == null) {
+									//Not in super classes;
+									logger.info(fieldName + " in interfaces");
+									for (Class inter: definedIn.getInterfaces()) {
+										queue.add(inter);
+									}
+								}
+								
+								while (queue.size() > 0) {
+									Class curInter = queue.removeFirst();
+									try {
+										f = curInter.getDeclaredField(fieldName);
+									} catch (NoSuchFieldException ex) {
+										for (Class superInter: curInter.getInterfaces()) {
+											queue.add(superInter);
+										}
+									}
+								}
+								
+								if (f == null) {
+									logger.error("Cannot find field: " + fieldKey);
 									return super.shouldSerializeMember(definedIn, fieldName);
+								} else {
+									if (f.isSynthetic()) {
+										logger.info("Synth. field: " + fieldKey);
+										synchronized(bfLock) {
+											blackFields.add(fieldKey);
+										}
+										return false;
+									} else {
+										return super.shouldSerializeMember(definedIn, fieldName);
+									}
 								}
 							}
-						}
-					};
-				}
-			};
-			//xstream.setMode(XStream.NO_REFERENCES);
-			xstream.ignoreUnknownElements();
-			BlackConverter bc = new BlackConverter();
-			xstream.registerConverter(bc, XStream.PRIORITY_VERY_HIGH);
-			EnumMapConverter mec = new EnumMapConverter();
-			xstream.registerConverter(mec, XStream.PRIORITY_VERY_HIGH);
-			//InnerClassConverter ic = new InnerClassConverter(xstream);
-			//xstream.registerConverter(ic, XStream.PRIORITY_VERY_HIGH);
+						};
+					}
+				};
+				//xstream.setMode(XStream.NO_REFERENCES);
+				xstream.ignoreUnknownElements();
+				BlackConverter bc = new BlackConverter();
+				//System.out.println("BC object: " + bc);
+				xstream.registerConverter(bc, XStream.PRIORITY_VERY_HIGH);
+				EnumMapConverter mec = new EnumMapConverter();
+				//System.out.println("MEC object: " + mec);
+				xstream.registerConverter(mec, XStream.PRIORITY_VERY_HIGH);
+				//InnerClassConverter ic = new InnerClassConverter(xstream);
+				//xstream.registerConverter(ic, XStream.PRIORITY_VERY_HIGH);
+			}
+			
+			return xstream;
 		}
-		
-		return xstream;
 	}
 	
 	public static Connection getConnection(String db, String userName, String pw) {

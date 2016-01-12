@@ -13,6 +13,7 @@ import org.xmlunit.diff.ComparisonResult;
 import org.xmlunit.diff.Diff;
 import org.xmlunit.diff.Difference;
 
+import edu.columbia.cs.psl.ioclones.driver.SimAnalysisDriver;
 import edu.columbia.cs.psl.ioclones.pojo.XMLWrapper;
 import edu.columbia.cs.psl.ioclones.utils.XMLDiffer;
 
@@ -106,6 +107,13 @@ public abstract class AbstractSim implements SimAnalyzer {
 				return 0.0;
 			}
 			
+			int min = Math.min(c1.size(), c2.size());
+			int max = Math.min(c1.size(), c2.size());
+			double maxSim = ((double)min)/max;
+			if (Math.abs(maxSim - SimAnalysisDriver.simThresh) > SimAnalyzer.TOLERANCE) {
+				return 0.0;
+			}
+			
 			/*Iterator<Object> c1IT = c1.iterator();
 			double simSum = 0.0;
 			while (c1IT.hasNext()) {
@@ -125,6 +133,10 @@ public abstract class AbstractSim implements SimAnalyzer {
 			List<Object> c1Copy = new ArrayList<Object>(c1);
 			List<Object> c2Copy = new ArrayList<Object>(c2);
 			int[] simRecord = new int[c2Copy.size()];
+			
+			if (c1Copy.size() > 1000 || c2Copy.size() > 1000) {
+				logger.info("Detect large I/O: " + c1Copy.size() + " " + c2Copy.size());
+			}
 			
 			double simSum = 0;
 			for (int i = 0; i < c1Copy.size(); i++) {
@@ -187,7 +199,7 @@ public abstract class AbstractSim implements SimAnalyzer {
 			XMLWrapper xml1 = (XMLWrapper) o1;
 			XMLWrapper xml2 = (XMLWrapper) o2;
 			
-			Diff xmlDiff = XMLDiffer.xmlDiff(xml1.data, xml2.data);
+			Diff xmlDiff = XMLDiffer.xmlDiff(xml1.obj, xml2.obj);
 			
 			//Temporarily set a hard comparison for objects
 			Iterator<Difference> diffIT = xmlDiff.getDifferences().iterator();

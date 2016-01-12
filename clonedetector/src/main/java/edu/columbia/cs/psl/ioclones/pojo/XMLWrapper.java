@@ -1,8 +1,15 @@
 package edu.columbia.cs.psl.ioclones.pojo;
 
+import edu.columbia.cs.psl.ioclones.utils.IOUtils;
+
 public class XMLWrapper {
 	
-	public String data;
+	public Object obj;
+	
+	@Override
+	public String toString() {
+		return IOUtils.fromObj2XML(this.obj);
+	}
 	
 	@Override
 	public boolean equals(Object o) {
@@ -11,12 +18,12 @@ public class XMLWrapper {
 		}
 		
 		XMLWrapper tmp  = (XMLWrapper) o;
-		return tmp.data.equals(this.data);
+		return tmp.obj.equals(this.obj);
 	}
 	
 	@Override
 	public int hashCode() {
-		return this.data.hashCode();
+		return this.obj.hashCode();
 	}
 
 }
