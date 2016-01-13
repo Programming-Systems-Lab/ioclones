@@ -158,16 +158,36 @@ public class IORecord {
 			return false;
 		}
 		
-		String tmpInput = IOUtils.fromObj2XML(tmp.getInputs());
+		/*String tmpInput = IOUtils.fromObj2XML(tmp.getInputs());
 		String thisInput = IOUtils.fromObj2XML(this.inputs);
 		if (!tmpInput.equals(thisInput)) {
 			return false;
+		}*/
+		
+		if (tmp.getInputs().size() != this.inputs.size()) {
+			return false;
 		}
 		
-		String tmpOutput = IOUtils.fromObj2XML(tmp.getOutputs());
-		String thisOutput = IOUtils.fromObj2XML(this.outputs);
-		if (!tmpOutput.equals(thisOutput)) {
+		if (tmp.getOutputs().size() != this.outputs.size()) {
 			return false;
+		}
+		
+		for (int i = 0; i < this.inputs.size(); i++) {
+			Object myObj = this.inputs.get(i);
+			Object tmpObj = tmp.getInputs().get(i);
+			
+			if (myObj.equals(tmpObj)) {
+				return false;
+			}
+		}
+		
+		for (int i = 0; i < this.outputs.size(); i++) {
+			Object myObj = this.outputs.get(i);
+			Object tmpObj = tmp.getOutputs().get(i);
+			
+			if (myObj.equals(tmpObj)) {
+				return false;
+			}
 		}
 		
 		return true;
@@ -176,11 +196,23 @@ public class IORecord {
 	@Override
 	public int hashCode() {
 		int result = 17;
-		String inputString = IOUtils.fromObj2XML(this.inputs);
-		String outputString = IOUtils.fromObj2XML(this.outputs);
+		
+		int inHash = 0;
+		for (Object obj: this.inputs) {
+			inHash += obj.hashCode();
+		}
+		
+		int outHash = 0;
+		for (Object obj: this.outputs) {
+			outHash += obj.hashCode();
+		}
+		
+		//String inputString = IOUtils.fromObj2XML(this.inputs);
+		//String outputString = IOUtils.fromObj2XML(this.outputs);
+		
 		result = 31 * this.methodKey.hashCode();
-		result = 31 * result + inputString.hashCode();
-		result = 31 * result + outputString.hashCode();
+		result = 31 * result + inHash;
+		result = 31 * result + outHash;
 		return result;
 	}	
 }

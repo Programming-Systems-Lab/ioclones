@@ -161,14 +161,19 @@ public class NoOrderAnalyzer extends AbstractSim {
 		long curMem = Runtime.getRuntime().freeMemory();
 		System.out.println("Original input size: " + test.getInputs().size());
 		NoOrderAnalyzer noa = new NoOrderAnalyzer();
-		Set<Object> cleanInputs = noa.cleanCollection(test.getInputs());
+		Set<Object> cleanInputs = NoOrderAnalyzer.cleanCollection(test.getInputs());
+		Set<Object> cleanInput2 = NoOrderAnalyzer.cleanCollection(test2.getInputs());
 		long afterCleanInputs = Runtime.getRuntime().freeMemory();
 		long cleanDiff = afterCleanInputs - curMem;
 		System.out.println("Clean inputs mem: " + (double)cleanDiff/Math.pow(10, 6));
 		
-		System.out.println("Clean size: " + cleanInputs.size());
+		double simIn = noa.similarity(cleanInputs, cleanInput2);
+		
+		System.out.println("Similairty in: " + simIn);
+		
+		/*System.out.println("Clean size: " + cleanInputs.size());
 		for (Object o: cleanInputs) {
 			System.out.println(o);
-		}
+		}*/
 	}
 }

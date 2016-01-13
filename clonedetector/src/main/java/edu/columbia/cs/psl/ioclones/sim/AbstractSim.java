@@ -15,6 +15,7 @@ import org.xmlunit.diff.Difference;
 
 import edu.columbia.cs.psl.ioclones.driver.SimAnalysisDriver;
 import edu.columbia.cs.psl.ioclones.pojo.XMLWrapper;
+import edu.columbia.cs.psl.ioclones.utils.DeepHash;
 import edu.columbia.cs.psl.ioclones.utils.XMLDiffer;
 
 public abstract class AbstractSim implements SimAnalyzer {
@@ -80,19 +81,18 @@ public abstract class AbstractSim implements SimAnalyzer {
 		//System.out.println("O2 class: " + o2.getClass());
 		
 		//Try floatint point
-		try {
-			double d1 = Double.parseDouble(o1.toString());
-			double d2 = Double.parseDouble(o2.toString());
-			//System.out.println("d1: " + d1);
-			//System.out.println("d2: " + d2 + "\n");
+		if (Number.class.isAssignableFrom(o1.getClass()) 
+				&& Number.class.isAssignableFrom(o2.getClass())) {
+			Number n1 = (Number) o1;
+			Number n2 = (Number) o2;
+			double d1 = n1.doubleValue();
+			double d2 = n2.doubleValue();
 			
 			if (Math.abs(d1 - d2) < TOLERANCE) {
 				return 1.0;
 			} else {
 				return 0.0;
 			}
-		} catch (NumberFormatException ex) {
-			//do nothing
 		}
 		
 		Class clazz1 = o1.getClass();
@@ -100,6 +100,7 @@ public abstract class AbstractSim implements SimAnalyzer {
 		if (Collection.class.isAssignableFrom(clazz1) 
 				&& Collection.class.isAssignableFrom(clazz2)) {
 			//No array, since all arrays are converted to list
+			long before = Runtime.getRuntime().freeMemory();
 			Collection<Object> c1 = (Collection<Object>) o1;
 			Collection<Object> c2 = (Collection<Object>) o2;
 			
@@ -108,7 +109,7 @@ public abstract class AbstractSim implements SimAnalyzer {
 			}
 			
 			int min = Math.min(c1.size(), c2.size());
-			int max = Math.min(c1.size(), c2.size());
+			int max = Math.max(c1.size(), c2.size());
 			double maxSim = ((double)min)/max;
 			if (Math.abs(maxSim - SimAnalysisDriver.simThresh) > SimAnalyzer.TOLERANCE) {
 				return 0.0;
@@ -136,6 +137,11 @@ public abstract class AbstractSim implements SimAnalyzer {
 			
 			if (c1Copy.size() > 1000 || c2Copy.size() > 1000) {
 				logger.info("Detect large I/O: " + c1Copy.size() + " " + c2Copy.size());
+			}
+			long afterCopy = Runtime.getRuntime().freeMemory();
+			double diff = ((double)(afterCopy - before))/Math.pow(10, 6);
+			if (diff > 100) {
+				logger.info("Large copy: " + o1 + " " + o2);
 			}
 			
 			double simSum = 0;
@@ -168,6 +174,11 @@ public abstract class AbstractSim implements SimAnalyzer {
 					simSum += bestSim;
 				}
 			}
+			long afterCompare = Runtime.getRuntime().freeMemory();
+			double compareDiff = ((double)(afterCompare - afterCopy))/Math.pow(10, 6);
+			if (compareDiff > 100) {
+				logger.info("Large compare: " + o1 + " " + o2);
+			}
 			
 			//System.out.println("Sim sum: " + simSum);
 			int maxLen = Math.max(c1.size(), c2.size());
@@ -199,18 +210,33 @@ public abstract class AbstractSim implements SimAnalyzer {
 			XMLWrapper xml1 = (XMLWrapper) o1;
 			XMLWrapper xml2 = (XMLWrapper) o2;
 			
-			Diff xmlDiff = XMLDiffer.xmlDiff(xml1.obj, xml2.obj);
+			long before = Runtime.getRuntime().freeMemory();
+			//Diff xmlDiff = XMLDiffer.xmlDiff(xml1.obj, xml2.obj);
 			
 			//Temporarily set a hard comparison for objects
-			Iterator<Difference> diffIT = xmlDiff.getDifferences().iterator();
+			/*Iterator<Difference> diffIT = xmlDiff.getDifferences().iterator();
 			while (diffIT.hasNext()) {
 				Difference diff = diffIT.next();
 				
 				if (diff.getResult() == ComparisonResult.DIFFERENT) {
 					return 0.0;
 				}
+			}*/
+			
+			int dHash1 = DeepHash.deepHash(xml1.obj);
+			int dHash2 = DeepHash.deepHash(xml2.obj);
+			
+			long after = Runtime.getRuntime().freeMemory();
+			double diff = ((double)(after - before))/Math.pow(10, 6);
+			if (diff > 100) {
+				logger.info("Large xml diff: " + xml1.obj + " " + xml2.obj);
 			}
-			return 1.0;
+			
+			if (dHash1 == dHash2) {
+				return 1.0;
+			} else {
+				return 0.0;
+			}
 		} else {
 			//logger.error("Unidentified obj type: " + clazz1.getName() + " " + clazz2.getName());
 			return 0.0;

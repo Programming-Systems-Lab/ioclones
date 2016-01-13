@@ -131,6 +131,11 @@
 			<artifactId>mysql-connector-java</artifactId>
 			<version>5.1.38</version>
 		</dependency>
+		<dependency>
+			<groupId>com.cedarsoftware</groupId>
+			<artifactId>java-util</artifactId>
+			<version>1.19.3</version>
+		</dependency>
 	</dependencies>
 	<distributionManagement>
 		<snapshotRepository>

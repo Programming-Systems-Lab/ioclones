@@ -1,7 +1,10 @@
 package edu.columbia.cs.psl.ioclones.driver;
 
+import com.sun.management.HotSpotDiagnosticMXBean;
+
 import java.io.Console;
 import java.io.File;
+import java.lang.management.ManagementFactory;
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.net.URL;
@@ -21,6 +24,8 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+
+import javax.management.MBeanServer;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -199,10 +204,10 @@ public class SimAnalysisDriver {
 		logger.info("Loading memory: " + ((double)diffMem)/Math.pow(10, 6));
 		
 		Instant start = Instant.now();
-		/*ExecutorService simEs = 
-				Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());*/
 		ExecutorService simEs = 
-				Executors.newFixedThreadPool(1);
+				Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+		/*ExecutorService simEs = 
+				Executors.newFixedThreadPool(1);*/
 		List<Future<IOSim>> simFutures = new ArrayList<Future<IOSim>>();
 		for (int i = 0; i < allRecords.size(); i++) {
 			IORecord control = allRecords.get(i);
@@ -338,20 +343,30 @@ public class SimAnalysisDriver {
 			long afterMem = Runtime.getRuntime().freeMemory();
 			double memDiff = ((double)(afterMem - beforeMem))/Math.pow(10, 6);
 			
-			if (memDiff > 100) {
+			if (memDiff > 1000) {
 				logger.info("Large comp: " + this.control.getMethodKey() + " " + this.control.getId() + " " + this.test.getMethodKey() + " " + this.test.getId());
 				logger.info("Mem diff: " + memDiff);
 				logger.info("After in: " + ((double)(afterIn - beforeMem))/Math.pow(10, 6));
-				logger.info("Control in: " + this.control.cleanInputs);
-				logger.info("Test in: " + this.test.cleanInputs);
+				//logger.info("Control in: " + this.control.cleanInputs);
+				//logger.info("Test in: " + this.test.cleanInputs);
 				logger.info("After out: " + ((double)(afterOut - afterIn))/Math.pow(10, 6));
-				logger.info("Control out: " + this.control.cleanInputs);
-				logger.info("Test out: " + this.test.cleanOutputs);
+				//logger.info("Control out: " + this.control.cleanInputs);
+				//logger.info("Test out: " + this.test.cleanOutputs);
 				this.control = null;
 				this.test = null;
 				System.gc();
 				
 				show = true;
+				
+				/*MBeanServer server = ManagementFactory.getPlatformMBeanServer();
+				HotSpotDiagnosticMXBean diagBean = 
+						ManagementFactory.newPlatformMXBeanProxy(server, 
+								"com.sun.management:type=HotSpotDiagnostic", 
+								HotSpotDiagnosticMXBean.class);
+				File heapFile = new File("heap-test.hprof");
+				logger.info("Dumping information: " + heapFile.getAbsolutePath());
+				diagBean.dumpHeap(heapFile.getAbsolutePath(), true);
+				System.exit(-1);*/
 			}
 			
 			if (show) {
