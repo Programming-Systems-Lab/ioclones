@@ -111,7 +111,7 @@ public abstract class AbstractSim implements SimAnalyzer {
 			int min = Math.min(c1.size(), c2.size());
 			int max = Math.max(c1.size(), c2.size());
 			double maxSim = ((double)min)/max;
-			if (Math.abs(maxSim - SimAnalysisDriver.simThresh) > SimAnalyzer.TOLERANCE) {
+			if (maxSim - SimAnalysisDriver.simThresh < SimAnalyzer.TOLERANCE) {
 				return 0.0;
 			}
 			
@@ -139,9 +139,10 @@ public abstract class AbstractSim implements SimAnalyzer {
 				logger.info("Detect large I/O: " + c1Copy.size() + " " + c2Copy.size());
 			}
 			long afterCopy = Runtime.getRuntime().freeMemory();
+			
 			double diff = ((double)(afterCopy - before))/Math.pow(10, 6);
 			if (diff > 100) {
-				logger.info("Large copy: " + o1 + " " + o2);
+				logger.info("Large copy: " + c1Copy.size() + " " + c2Copy.size());
 			}
 			
 			double simSum = 0;
@@ -174,10 +175,11 @@ public abstract class AbstractSim implements SimAnalyzer {
 					simSum += bestSim;
 				}
 			}
+			
 			long afterCompare = Runtime.getRuntime().freeMemory();
 			double compareDiff = ((double)(afterCompare - afterCopy))/Math.pow(10, 6);
-			if (compareDiff > 100) {
-				logger.info("Large compare: " + o1 + " " + o2);
+			if (compareDiff > 1000) {
+				logger.info("Large compare: " + c1.size() + " " + c2.size());
 			}
 			
 			//System.out.println("Sim sum: " + simSum);
@@ -228,8 +230,8 @@ public abstract class AbstractSim implements SimAnalyzer {
 			
 			long after = Runtime.getRuntime().freeMemory();
 			double diff = ((double)(after - before))/Math.pow(10, 6);
-			if (diff > 100) {
-				logger.info("Large xml diff: " + xml1.obj + " " + xml2.obj);
+			if (diff > 1000) {
+				logger.info("Large xml compare: " + xml1.obj + " " + xml2.obj);
 			}
 			
 			if (dHash1 == dHash2) {

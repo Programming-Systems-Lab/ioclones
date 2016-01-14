@@ -61,9 +61,14 @@ public class SimAnalysisDriver {
 	static {
 		options.addOption("cb", true, "Codebase");
 		options.addOption("io", true, "IO Repo");
+		options.addOption("mode", true, "Exhaustive/Comparison mode");
 		options.addOption("eName", true, "Export name");
 		options.addOption("db", true, "DB URL");
 		options.addOption("user", true, "DB Username");
+		
+		options.getOption("cb").setRequired(true);
+		options.getOption("io").setRequired(true);
+		options.getOption("io").setArgs(Option.UNLIMITED_VALUES);
 		/*Option codebase = Option.builder().argName("cb").desc("Codebase").build();
 		Option io = Option.builder().argName("io").desc("IO Repo").build();
 		Option eName = Option.builder().argName("eName").desc("Export name").build();
@@ -89,11 +94,16 @@ public class SimAnalysisDriver {
 			System.exit(-1);
 		}
 		
-		String iorepo = cmd.getOptionValue("io");
-		File iorepoFile = new File(iorepo);
-		if (!iorepoFile.exists()) {
-			logger.error("Invalid io repo: " + iorepoFile.getAbsolutePath());
-			System.exit(-1);
+		String[] iorepos = cmd.getOptionValues("io");
+		List<File> iorepoFiles = new ArrayList<File>();
+		for (String iorepo: iorepos) {
+			File iorepoFile = new File(iorepo);
+			if (!iorepoFile.exists()) {
+				logger.warn("Invalid io repo: " + iorepoFile.getAbsolutePath());
+				continue ;
+			}
+			
+			iorepoFiles.add(iorepoFile);
 		}
 		
 		String exportName = cmd.getOptionValue("eName");
@@ -101,8 +111,25 @@ public class SimAnalysisDriver {
 			exportName = "default";
 		}
 		
+		String mode = cmd.getOptionValue("mode");
+		boolean exhaustive = false;
+		if (mode == null) {
+			exhaustive = true;
+		} else {
+			if (mode.equals("exhaustive")) {
+				exhaustive = true;
+			} else {
+				exhaustive = false;
+			}
+		}
+		
 		logger.info("Codebase: " + codebaseFile.getAbsolutePath());
-		logger.info("IO Repo: " + iorepoFile.getAbsolutePath());
+		StringBuilder sb = new StringBuilder();
+		for (File iorepoFile: iorepoFiles) {
+			sb.append(iorepoFile.getAbsolutePath() + " ");
+		}
+		logger.info("IO Repos: " + sb.toString());
+		logger.info("Exhaustive mode: " + exhaustive);
 		logger.info("Export name: " + exportName);
 		
 		String db = null;
@@ -151,54 +178,74 @@ public class SimAnalysisDriver {
 			logger.error("Error: ", ex);
 		}
 		
-		List<IORecord> directRecords = new ArrayList<IORecord>();
-		List<File> zips = new ArrayList<File>();
-		IOUtils.collectIORecords(iorepoFile, directRecords, zips);
-		List<IORecord> allRecords = new ArrayList<IORecord>();
+		Map<String, List<File>> allZips = new HashMap<String, List<File>>();
+		for (File iorepoFile: iorepoFiles) {
+			//Don't care direct records now...
+			List<IORecord> directRecords = new ArrayList<IORecord>();
+			List<File> zips = new ArrayList<File>();
+			IOUtils.collectIORecords(iorepoFile, directRecords, zips);
+			
+			allZips.put(iorepoFile.getAbsolutePath(), zips);
+		}
+		
+		Map<String, List<IORecord>> allRecords = new HashMap<String, List<IORecord>>();
 		
 		ExecutorService es = 
 				Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
-		List<Future<List<IORecord>>> results = new ArrayList<Future<List<IORecord>>>();
+		Map<String, List<Future<List<IORecord>>>> results = new HashMap<String, List<Future<List<IORecord>>>>();
 		
-		zips.forEach(zip->{
-			logger.info("Zip file: " + zip);
-			Future<List<IORecord>> future = es.submit(new Callable<List<IORecord>>(){
+		allZips.forEach((path, zips)->{
+			List<Future<List<IORecord>>> records = new ArrayList<Future<List<IORecord>>>();
+			zips.forEach(zip->{
+				Future<List<IORecord>> future = es.submit(new Callable<List<IORecord>>(){
 
-				@Override
-				public List<IORecord> call() throws Exception {
-					// TODO Auto-generated method stub
-					List<IORecord> ret = new ArrayList<IORecord>();
-					IOUtils.unzipIORecords(zip, ret);
-					ret.forEach(record->{
-						Set<Object> cleanInputs = NoOrderAnalyzer.cleanCollection(record.getInputs());
-						Set<Object> cleanOutputs = NoOrderAnalyzer.cleanCollection(record.getOutputs());
-						
-						record.cleanInputs = cleanInputs;
-						record.cleanOutputs = cleanOutputs;
-					});
-					return ret;
-				}
+					@Override
+					public List<IORecord> call() throws Exception {
+						// TODO Auto-generated method stub
+						List<IORecord> ret = new ArrayList<IORecord>();
+						IOUtils.unzipIORecords(zip, ret);
+						ret.forEach(record->{
+							Set<Object> cleanInputs = NoOrderAnalyzer.cleanCollection(record.getInputs());
+							Set<Object> cleanOutputs = NoOrderAnalyzer.cleanCollection(record.getOutputs());
+							
+							record.cleanInputs = cleanInputs;
+							record.cleanOutputs = cleanOutputs;
+						});
+						return ret;
+					}
+				});
+				records.add(future);
 			});
-			results.add(future);
-		});
-		
+			
+			results.put(path, records);
+		});		
 		es.shutdown();
 		while (!es.isTerminated());
 		
-		if (directRecords.size() > 0) {
+		/*if (directRecords.size() > 0) {
 			allRecords.addAll(directRecords);
-		}
+		}*/
 		
-		results.forEach(f->{
+		results.forEach((path, futureList)->{
 			try {
-				List<IORecord> r = f.get();
-				allRecords.addAll(r);
+				List<IORecord> pathRecords = new ArrayList<IORecord>();
+				for (Future<List<IORecord>> f: futureList) {
+					List<IORecord> r = f.get();
+					pathRecords.addAll(r);
+				}
+				
+				allRecords.put(path, pathRecords);
 			} catch (Exception ex) {
 				logger.error("Error: ", ex);
 			}
 		});
 		
-		logger.info("Total IO records: " + allRecords.size());
+		int totalRecords = 0;
+		for (List<IORecord> records: allRecords.values()) {
+			totalRecords += records.size();
+		}
+		logger.info("Total IO records: " + totalRecords);
+		
 		long afterLoading = Runtime.getRuntime().freeMemory();
 		long diffMem = afterLoading - beginMem;
 		logger.info("Loading memory: " + ((double)diffMem)/Math.pow(10, 6));
@@ -208,27 +255,70 @@ public class SimAnalysisDriver {
 				Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
 		/*ExecutorService simEs = 
 				Executors.newFixedThreadPool(1);*/
-		List<Future<IOSim>> simFutures = new ArrayList<Future<IOSim>>();
-		for (int i = 0; i < allRecords.size(); i++) {
-			IORecord control = allRecords.get(i);
-			for (int j = i + 1; j < allRecords.size(); j++) {
-				IORecord test = allRecords.get(j);
+		List<IOWorker> workers = new ArrayList<IOWorker>();
+		
+		if (exhaustive) {
+			List<IORecord> putAll = new ArrayList<IORecord>();
+			allRecords.values().forEach(records->{
+				putAll.addAll(records);
+			});
+			
+			for (int i = 0; i < putAll.size(); i++) {
+				IORecord control = putAll.get(i);
+				String controlClass = control.getMethodKey().split("-")[0];
+				int controlDot = controlClass.lastIndexOf(".");
+				String controlPkg = controlClass.substring(0, controlDot);
 				
-				if (control.getMethodKey().equals(test.getMethodKey())) {
-					continue ;
+				for (int j = i + 1; j < putAll.size(); j++) {
+					IORecord test = putAll.get(j);
+					if (control.getMethodKey().equals(test.getMethodKey())) {
+						continue ;
+					}
+					
+					String testClass = test.getMethodKey().split("-")[0];
+					int testDot = testClass.lastIndexOf(".");
+					String testPkg = testClass.substring(0, testDot);
+					if (controlPkg.equals(testPkg)) {
+						continue ;
+					}
+					
+					IOWorker worker = new IOWorker();
+					worker.control = control;
+					worker.test = test;
+					worker.invokeId = compCounter++;
+					
+					workers.add(worker);
 				}
+			}
+		} else {
+			List<String> paths = new ArrayList<String>(allRecords.keySet());
+			for (int i = 0; i < paths.size(); i++) {
+				String path1 = paths.get(i);
+				List<IORecord> records1 = allRecords.get(path1);
 				
-				IOWorker worker = new IOWorker();
-				worker.control = control;
-				worker.test = test;
-				worker.invokeId = compCounter++;
-				Future<IOSim> simFuture = simEs.submit(worker);
-				
-				simFutures.add(simFuture);
+				for (int j = i; j < paths.size(); j++) {
+					String path2 = paths.get(j);
+					List<IORecord> records2 = allRecords.get(path2);
+					
+					for (IORecord control: records1) {
+						for (IORecord test: records2) {
+							IOWorker worker = new IOWorker();
+							worker.control = control;
+							worker.test = test;
+							worker.invokeId = compCounter++;
+							workers.add(worker);
+						}
+					}
+				}
 			}
 		}
+		logger.info("Qualified comparisons: " + workers.size());
 		
-		logger.info("Qualified comparisons: " + simFutures.size());
+		List<Future<IOSim>> simFutures = new ArrayList<Future<IOSim>>();
+		for (IOWorker worker: workers) {
+			Future<IOSim> simFuture = simEs.submit(worker);
+			simFutures.add(simFuture);
+		}
 		
 		simEs.shutdown();
 		while (!simEs.isTerminated());
@@ -332,8 +422,7 @@ public class SimAnalysisDriver {
 			
 			IOSim simObj = new IOSim(this.control.getMethodKey(), this.test.getMethodKey());
 			SimAnalyzer analyzer = new NoOrderAnalyzer();
-			//System.out.println("Control input: " + control.getInputs());
-			//System.out.println("Test input: " + test.getInputs());
+			
 			double inSim = analyzer.similarity(this.control.cleanInputs, this.test.cleanInputs);
 			long afterIn = Runtime.getRuntime().freeMemory();
 			double outSim = analyzer.similarity(this.control.cleanOutputs, this.test.cleanOutputs);
