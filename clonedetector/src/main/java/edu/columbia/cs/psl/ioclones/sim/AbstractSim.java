@@ -13,6 +13,7 @@ import org.xmlunit.diff.ComparisonResult;
 import org.xmlunit.diff.Diff;
 import org.xmlunit.diff.Difference;
 
+import edu.columbia.cs.psl.ioclones.config.IOCloneConfig;
 import edu.columbia.cs.psl.ioclones.driver.SimAnalysisDriver;
 import edu.columbia.cs.psl.ioclones.pojo.XMLWrapper;
 import edu.columbia.cs.psl.ioclones.utils.DeepHash;
@@ -22,11 +23,17 @@ public abstract class AbstractSim implements SimAnalyzer {
 	
 	private static final Logger logger = LogManager.getLogger(AbstractSim.class);
 	
+	public static String DHASH = "deepHash";
+	
+	public static String XML_DIFF = "xmlDiff";
+	
 	private static final double CONSTANT = 1.0;
 	
 	public static final double EXP_CONSTANT = 2;
 	
 	public static final double WEIGHT = 0.5;
+	
+	public static String xmlAlg = null;
 	
 	public static final Correlation linear = new Correlation() {
 		public double correlation(double sim1, double sim2) {
@@ -196,6 +203,13 @@ public abstract class AbstractSim implements SimAnalyzer {
 				return 0.0;
 			}
 			
+			int min = Math.min(c1.size(), c2.size());
+			int max = Math.max(c1.size(), c2.size());
+			double maxSim = ((double)min)/max;
+			if (maxSim - SimAnalysisDriver.simThresh < SimAnalyzer.TOLERANCE) {
+				return 0.0;
+			}
+			
 			double simSum = 0.0;
 			for (Object key1: c1.keySet()) {
 				Object val1 = c1.get(key1);
@@ -213,30 +227,40 @@ public abstract class AbstractSim implements SimAnalyzer {
 			XMLWrapper xml2 = (XMLWrapper) o2;
 			
 			long before = Runtime.getRuntime().freeMemory();
-			//Diff xmlDiff = XMLDiffer.xmlDiff(xml1.obj, xml2.obj);
 			
-			//Temporarily set a hard comparison for objects
-			/*Iterator<Difference> diffIT = xmlDiff.getDifferences().iterator();
-			while (diffIT.hasNext()) {
-				Difference diff = diffIT.next();
+			if (xmlAlg.equals(DHASH)) {
+				if (xml1.deepHash == XMLWrapper.UNINITIALIZED) {
+					xml1.deepHash = DeepHash.deepHash(xml1.obj);
+				}
 				
-				if (diff.getResult() == ComparisonResult.DIFFERENT) {
+				if (xml2.deepHash == XMLWrapper.UNINITIALIZED) {
+					xml2.deepHash = DeepHash.deepHash(xml2.obj);
+				}
+				
+				long after = Runtime.getRuntime().freeMemory();
+				double diff = ((double)(after - before))/Math.pow(10, 6);
+				if (diff > 1000) {
+					logger.info("Large xml compare: " + xml1.obj + " " + xml2.obj);
+				}
+				
+				if (xml1.deepHash == xml2.deepHash) {
+					return 1.0;
+				} else {
 					return 0.0;
 				}
-			}*/
-			
-			int dHash1 = DeepHash.deepHash(xml1.obj);
-			int dHash2 = DeepHash.deepHash(xml2.obj);
-			
-			long after = Runtime.getRuntime().freeMemory();
-			double diff = ((double)(after - before))/Math.pow(10, 6);
-			if (diff > 1000) {
-				logger.info("Large xml compare: " + xml1.obj + " " + xml2.obj);
-			}
-			
-			if (dHash1 == dHash2) {
+			} else if (xmlAlg.equals(XML_DIFF)) {
+				Diff xmlDiff = XMLDiffer.xmlDiff(xml1.obj, xml2.obj);
+				Iterator<Difference> diffIT = xmlDiff.getDifferences().iterator();
+				while (diffIT.hasNext()) {
+					Difference diff = diffIT.next();
+					
+					if (diff.getResult() == ComparisonResult.DIFFERENT) {
+						return 0.0;
+					}
+				}
 				return 1.0;
 			} else {
+				logger.error("Invalid xml algorithm: " + xmlAlg);
 				return 0.0;
 			}
 		} else {

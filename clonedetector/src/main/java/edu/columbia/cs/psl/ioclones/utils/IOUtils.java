@@ -183,12 +183,15 @@ public class IOUtils {
 		}
 		
 		try {
-			boolean isValid = connection.isValid(10);
-			if (isValid) {
-				return connection;
-			} else {
-				logger.warn("Fail to connect to database...");
-				return null;
+			int counter = 0;
+			while (counter < 3) {
+				boolean isValid = connection.isValid(10);
+				if (isValid) {
+					return connection;
+				} else {
+					logger.warn("#" + counter++ + " connection fails");
+					connection = DriverManager.getConnection(db, userName, pw);
+				}
 			}
 		} catch (Exception ex) {
 			logger.error("Error: ", ex);

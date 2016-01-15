@@ -63,6 +63,7 @@ public class SimAnalysisDriver {
 	static {
 		options.addOption("cb", true, "Codebase");
 		options.addOption("io", true, "IO Repo");
+		options.addOption("alg", true, "XML algorithm");
 		options.addOption("mode", true, "Exhaustive/Comparison mode");
 		options.addOption("eName", true, "Export name");
 		options.addOption("db", true, "DB URL");
@@ -72,6 +73,7 @@ public class SimAnalysisDriver {
 		options.getOption("cb").setRequired(true);
 		options.getOption("io").setRequired(true);
 		options.getOption("io").setArgs(Option.UNLIMITED_VALUES);
+		options.getOption("alg").setRequired(true);
 		/*Option codebase = Option.builder().argName("cb").desc("Codebase").build();
 		Option io = Option.builder().argName("io").desc("IO Repo").build();
 		Option eName = Option.builder().argName("eName").desc("Export name").build();
@@ -84,7 +86,7 @@ public class SimAnalysisDriver {
 		CommandLineParser parser = new DefaultParser();
 		CommandLine cmd = parser.parse(options, args);
 		
-		if (!cmd.hasOption("cb") || !cmd.hasOption("io")) {
+		if (!cmd.hasOption("cb") || !cmd.hasOption("io") || !cmd.hasOption("alg")) {
 			logger.error("No codebase or io repo to process...");
 			System.exit(-1);
 		}
@@ -109,6 +111,12 @@ public class SimAnalysisDriver {
 			iorepoFiles.add(iorepoFile);
 		}
 		
+		String alg = cmd.getOptionValue("alg");
+		if (alg == null) {
+			alg = AbstractSim.DHASH;
+		}
+		AbstractSim.xmlAlg = alg;
+		
 		String exportName = cmd.getOptionValue("eName");
 		if (exportName == null) {
 			exportName = "default";
@@ -132,6 +140,7 @@ public class SimAnalysisDriver {
 			sb.append(iorepoFile.getAbsolutePath() + " ");
 		}
 		logger.info("IO Repos: " + sb.toString());
+		logger.info("XML alg: " + AbstractSim.xmlAlg);
 		logger.info("Exhaustive mode: " + exhaustive);
 		logger.info("Export name: " + exportName);
 		

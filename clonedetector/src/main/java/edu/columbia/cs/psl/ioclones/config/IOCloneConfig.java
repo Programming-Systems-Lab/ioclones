@@ -21,6 +21,8 @@ public class IOCloneConfig {
 	
 	private int callLimit;
 	
+	private String xmlAlg;
+	
 	private IOCloneConfig() {
 		
 	}
@@ -66,12 +68,21 @@ public class IOCloneConfig {
 		return this.callLimit;
 	}
 	
+	public void setXmlAlg(String xmlAlg) {
+		this.xmlAlg = xmlAlg;
+	}
+	
+	public String getXmlAlg() {
+		return this.xmlAlg;
+	}
+	
 	@Override
 	public String toString() {
 		StringBuilder sb = new StringBuilder();
 		sb.append("Debug: " + this.debug + "\n");
-		sb.append("Record obj dep: " + this.objDep);
-		sb.append("Call limit: " + this.callLimit);
+		sb.append("Record obj dep: " + this.objDep + "\n");
+		sb.append("Call limit: " + this.callLimit + "\n");
+		sb.append("XML alg: " + this.xmlAlg + "\n");
 		return sb.toString();
 	}
 	

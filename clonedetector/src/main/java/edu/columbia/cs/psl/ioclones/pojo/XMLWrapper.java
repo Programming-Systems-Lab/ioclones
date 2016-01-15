@@ -2,7 +2,11 @@ package edu.columbia.cs.psl.ioclones.pojo;
 
 public class XMLWrapper {
 	
+	public static final int UNINITIALIZED = Integer.MIN_VALUE;
+	
 	public Object obj;
+	
+	public transient int deepHash = Integer.MIN_VALUE;
 		
 	@Override
 	public boolean equals(Object o) {
