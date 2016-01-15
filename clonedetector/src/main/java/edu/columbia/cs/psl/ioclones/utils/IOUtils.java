@@ -176,18 +176,24 @@ public class IOUtils {
 			try {
 				Class.forName("com.mysql.jdbc.Driver");
 				connection = DriverManager.getConnection(db, userName, pw);
-				boolean isValid = connection.isValid(10);
-				if (isValid) {
-					return connection;
-				} else {
-					logger.warn("Fail to connect to database...");
-					return null;
-				}
 			} catch (Exception ex) {
 				logger.error("Error: ", ex);
 				logger.error("Reporting database and username: " + db + " " + userName);
 			}
 		}
+		
+		try {
+			boolean isValid = connection.isValid(10);
+			if (isValid) {
+				return connection;
+			} else {
+				logger.warn("Fail to connect to database...");
+				return null;
+			}
+		} catch (Exception ex) {
+			logger.error("Error: ", ex);
+		}
+		
 		return null;
 	}
 	
@@ -575,6 +581,8 @@ public class IOUtils {
 				if (conn != null) {
 					totalStmt = conn.prepareStatement(totalQuery, Statement.RETURN_GENERATED_KEYS);
 					stmt = conn.prepareStatement(query);
+				} else {
+					logger.error("Fail to get connection...");
 				}
 				
 			} catch (Exception ex) {
@@ -660,6 +668,8 @@ public class IOUtils {
 				logger.error("Error: ", ex);
 			}
 		}
+		
+		logger.info("Exporting ends");
 	}
 	
 	public static void main(String[] args) throws Exception {

@@ -159,7 +159,6 @@ public class SimAnalysisDriver {
 					Connection attempt = IOUtils.getConnection(db, userName, pw);
 					if (attempt == null) {
 						logger.warn("Connection fails...");
-						System.out.println("Fail to connect to database, try again?");
 						String retry = console.readLine("Fail to connect to database, try again?");
 						boolean retryVal = Boolean.valueOf(retry);
 						if (!retryVal) {
