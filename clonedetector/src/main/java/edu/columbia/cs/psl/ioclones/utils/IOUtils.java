@@ -22,6 +22,7 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
+import java.sql.Timestamp;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -184,6 +185,7 @@ public class IOUtils {
 				}
 			} catch (Exception ex) {
 				logger.error("Error: ", ex);
+				logger.error("Reporting database and username: " + db + " " + userName);
 			}
 		}
 		return null;
@@ -475,7 +477,12 @@ public class IOUtils {
 					}
 					
 					IORecord io = (IORecord) fromXML2Obj(sb.toString());
-					records.add(io);
+					
+					if (io.getMethodKey() == null) {
+						logger.error("Null method key: " + curEntry.getName());
+					} else {
+						records.add(io);
+					}
 				}
 			}
 		} catch (Exception ex) {
@@ -537,6 +544,11 @@ public class IOUtils {
 			int total_ios,
 			int comparisons,
 			long execTime) {
+		File resultDir = new File("results");
+		if (!resultDir.exists()) {
+			resultDir.mkdir();
+		}
+		
 		String fileName = "results/" + codebase + "_" + (new Date()).getTime() + ".csv";
 		File resultFile = new File(fileName);
 		if (!resultFile.exists()) {
@@ -550,7 +562,7 @@ public class IOUtils {
 		StringBuilder sb = new StringBuilder();
 		sb.append(csvHeader);
 		
-		String totalQuery = "INSERT INTO hitoshio_summary (codebase, total_ios, comparisons, exec_time) VALUES(?, ?, ?, ?)";
+		String totalQuery = "INSERT INTO hitoshio_summary (codebase, total_ios, comparisons, exec_time, timestamp) VALUES(?, ?, ?, ?, ?)";
 		PreparedStatement totalStmt = null;
 		
 		String query = "INSERT INTO hitoshio_row (comp_id, method1, m_id1, method2, m_id2, inSim, outSim, sim) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
@@ -573,10 +585,14 @@ public class IOUtils {
 		int compKey = -1;
 		if (totalStmt != null) {
 			try {
+				Date now = new Date();
+				Timestamp ts = new Timestamp(now.getTime());
+				
 				totalStmt.setString(1, codebase);
 				totalStmt.setInt(2, total_ios);
 				totalStmt.setInt(3, comparisons);
 				totalStmt.setLong(4, execTime);
+				totalStmt.setTimestamp(5, ts);
 				
 				totalStmt.execute();
 				ResultSet rs = totalStmt.getGeneratedKeys();
@@ -590,10 +606,12 @@ public class IOUtils {
 		
 		int counter = 0;		
 		for (IOSim simObj: simObjs) {
-			sb.append(simObj.key.get(0) + ",");
-			sb.append(simObj.methodIds[0] + ",");
-			sb.append(simObj.key.get(1) + ",");
-			sb.append(simObj.methodIds[1] + ",");
+			Entry<String, Integer> firstEntry = simObj.methods.firstEntry();
+			Entry<String, Integer> secondEntry = simObj.methods.lastEntry();
+			sb.append(firstEntry.getKey() + ",");
+			sb.append(firstEntry.getValue() + ",");
+			sb.append(secondEntry.getKey() + ",");
+			sb.append(secondEntry.getValue() + ",");
 			sb.append(simObj.inSim + ",");
 			sb.append(simObj.outSim + ",");
 			sb.append(simObj.sim + "\n");
@@ -601,10 +619,10 @@ public class IOUtils {
 			if (stmt != null) {
 				try {
 					stmt.setInt(1, compKey);
-					stmt.setString(2, simObj.key.get(0));
-					stmt.setInt(3, simObj.methodIds[0]);
-					stmt.setString(4, simObj.key.get(1));
-					stmt.setInt(5, simObj.methodIds[1]);
+					stmt.setString(2, firstEntry.getKey());
+					stmt.setInt(3, firstEntry.getValue());
+					stmt.setString(4, secondEntry.getKey());
+					stmt.setInt(5, secondEntry.getValue());
 					stmt.setDouble(6, simObj.inSim);
 					stmt.setDouble(7, simObj.outSim);
 					stmt.setDouble(8, simObj.sim);

@@ -9,6 +9,7 @@ import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.sql.Connection;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -20,6 +21,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -65,6 +67,7 @@ public class SimAnalysisDriver {
 		options.addOption("eName", true, "Export name");
 		options.addOption("db", true, "DB URL");
 		options.addOption("user", true, "DB Username");
+		options.addOption("pw", true, "DB Password");
 		
 		options.getOption("cb").setRequired(true);
 		options.getOption("io").setRequired(true);
@@ -144,9 +147,30 @@ public class SimAnalysisDriver {
 			logger.info("DB: " + db);
 			logger.info("Username: " + userName);
 			
-			Console console = System.console();
-			char[] pwArray = console.readPassword("Password: ");
-			pw = new String(pwArray);
+			if (cmd.hasOption("pw")) {
+				pw = cmd.getOptionValue("pw");
+			} else {
+				while (true) {
+					Console console = System.console();
+					char[] pwArray = console.readPassword("Password: ");
+					pw = new String(pwArray);
+					
+					logger.info("Try DB connection...");
+					Connection attempt = IOUtils.getConnection(db, userName, pw);
+					if (attempt == null) {
+						logger.warn("Connection fails...");
+						System.out.println("Fail to connect to database, try again?");
+						String retry = console.readLine("Fail to connect to database, try again?");
+						boolean retryVal = Boolean.valueOf(retry);
+						if (!retryVal) {
+							break ;
+						}
+					} else {
+						logger.info("Connection succeeds!");
+						break ;
+					}
+				}
+			}
 		}
 		
 		String[] myPaths = System.getProperty("java.class.path").split(":");
@@ -317,18 +341,24 @@ public class SimAnalysisDriver {
 		List<Future<IOSim>> simFutures = new ArrayList<Future<IOSim>>();
 		for (IOWorker worker: workers) {
 			Future<IOSim> simFuture = simEs.submit(worker);
-			simFutures.add(simFuture);
+			
+			if (simFuture == null) {
+				logger.warn("Null future: " + worker.control.getMethodKey() + " " + worker.control.getId() + " " + worker.test.getMethodKey() + " " + worker.test.getId());
+			} else {
+				simFutures.add(simFuture);
+			}
 		}
 		
 		simEs.shutdown();
 		while (!simEs.isTerminated());
 		
 		Map<String, IOSim> toExport = new HashMap<String, IOSim>();
-		simFutures.forEach(simF->{
+		int cloneCounter = 0;
+		for (Future<IOSim> simF: simFutures) {
 			try {
 				IOSim simObj = simF.get();
 				if (simObj != null) {
-					String key = simObj.key.toString();
+					String key = simObj.methodKeys;
 					if (toExport.containsKey(key)) {
 						IOSim curSim = toExport.get(key);
 						if ((simObj.sim - curSim.sim) > SimAnalyzer.TOLERANCE) {
@@ -336,9 +366,10 @@ public class SimAnalysisDriver {
 						}
 					} else {
 						toExport.put(key, simObj);
+						cloneCounter++;
 					}
-					logger.info("Comp. key: " + simObj.key);
-					logger.info("Mehtod keys: " + Arrays.toString(simObj.methodIds));
+					logger.info("Comp. key: " + simObj.methodKeys);
+					logger.info("Mehtod keys: " + simObj.methodIds);
 					logger.info("Best sim.: " + simObj.sim);
 					logger.info("Input sim.:" + simObj.inSim);
 					logger.info("Output sim: " + simObj.outSim);
@@ -346,12 +377,13 @@ public class SimAnalysisDriver {
 			} catch (Exception ex) {
 				logger.error("Error: ", ex);
 			}
-		});
+		}
 		
 		Instant end = Instant.now();
 		Duration duration = Duration.between(start, end);
 		long elapsed = duration.getSeconds();
 		logger.info("Total exeuction time: " + elapsed);
+		logger.info("Captured clones: " + cloneCounter);
 				
 		IOUtils.exportIOSimilarity(toExport.values(), 
 				db, 
@@ -378,9 +410,7 @@ public class SimAnalysisDriver {
 	
 	public static class IOSim {
 		
-		public List<String> key = new ArrayList<String>();
-		
-		public int[] methodIds = new int[2];
+		public TreeMap<String, Integer> methods = new TreeMap<String, Integer>();
 		
 		public double sim = 0.0;
 		
@@ -388,28 +418,48 @@ public class SimAnalysisDriver {
 		
 		public double outSim = 0.0;
 		
-		public IOSim(String control, String test) {
-			//Order does not matter
-			this.key.add(control);
-			this.key.add(test);
-			Collections.sort(key);
-		}
+		public String methodKeys;
 		
-		public void setMethodId(IORecord control, IORecord test) {
-			int controlIdx = this.key.indexOf(control.getMethodKey());
-			int testIdx = this.key.indexOf(test.getMethodKey());
-			this.methodIds[controlIdx] = control.getId();
-			this.methodIds[testIdx] = test.getId();
+		public String methodIds;
+		
+		public IOSim(IORecord control, IORecord test) {
+			//Order does not matter
+			this.methods.put(control.getMethodKey(), control.getId());
+			this.methods.put(test.getMethodKey(), test.getId());
+			
+			StringBuilder keys = new StringBuilder();
+			StringBuilder idx = new StringBuilder();
+			for (String key: this.methods.keySet()) {
+				Integer val = this.methods.get(key);
+				
+				keys.append(key + "@");
+				idx.append(val + "@");
+			}
+			
+			this.methodKeys = keys.toString().substring(0, keys.length() - 1);
+			this.methodIds = idx.toString().substring(0, idx.length() - 1);
 		}
 	}
 	
 	public static class IOWorker implements Callable<IOSim> {
 		
-		public int invokeId;
+		private int invokeId;
 		
-		public IORecord control;
+		private IORecord control;
 		
-		public IORecord test;
+		private IORecord test;
+		
+		public void setControl(IORecord control) {
+			this.control = control;
+		}
+		
+		public void setTest(IORecord test) {
+			this.test = test;
+		}
+		
+		public void setInvokeId(int invokeId) {
+			this.invokeId = invokeId;
+		}
 
 		@Override
 		public IOSim call() throws Exception {
@@ -420,7 +470,7 @@ public class SimAnalysisDriver {
 			
 			long beforeMem = Runtime.getRuntime().freeMemory();
 			
-			IOSim simObj = new IOSim(this.control.getMethodKey(), this.test.getMethodKey());
+			IOSim simObj = new IOSim(this.control, this.test);
 			SimAnalyzer analyzer = new NoOrderAnalyzer();
 			
 			double inSim = analyzer.similarity(this.control.cleanInputs, this.test.cleanInputs);
@@ -467,7 +517,6 @@ public class SimAnalysisDriver {
 				simObj.sim = sim;
 				simObj.inSim = inSim;
 				simObj.outSim = outSim;
-				simObj.setMethodId(control, test);
 				
 				return simObj;
 			} else {
