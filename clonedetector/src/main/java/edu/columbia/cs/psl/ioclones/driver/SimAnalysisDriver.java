@@ -253,7 +253,7 @@ public class SimAnalysisDriver {
 		});		
 		es.shutdown();
 		while (!es.isTerminated());
-		
+				
 		/*if (directRecords.size() > 0) {
 			allRecords.addAll(directRecords);
 		}*/
@@ -276,6 +276,13 @@ public class SimAnalysisDriver {
 		for (List<IORecord> records: allRecords.values()) {
 			totalRecords += records.size();
 		}
+		
+		logger.info("Reporting repo information");
+		allRecords.forEach((path, records)->{
+			logger.info("Repo: " + path);
+			logger.info("Records: " + records.size());
+		});
+		
 		logger.info("Total IO records: " + totalRecords);
 		
 		long afterLoading = Runtime.getRuntime().freeMemory();
@@ -290,6 +297,8 @@ public class SimAnalysisDriver {
 		List<IOWorker> workers = new ArrayList<IOWorker>();
 		
 		if (exhaustive) {
+			logger.info("Exhaustive mode");
+			
 			List<IORecord> putAll = new ArrayList<IORecord>();
 			allRecords.values().forEach(records->{
 				putAll.addAll(records);
@@ -323,12 +332,15 @@ public class SimAnalysisDriver {
 				}
 			}
 		} else {
+			logger.info("Comparison mode");
+			
 			List<String> paths = new ArrayList<String>(allRecords.keySet());
+			logger.info("Repos: " + paths);
 			for (int i = 0; i < paths.size(); i++) {
 				String path1 = paths.get(i);
 				List<IORecord> records1 = allRecords.get(path1);
 				
-				for (int j = i; j < paths.size(); j++) {
+				for (int j = i + 1; j < paths.size(); j++) {
 					String path2 = paths.get(j);
 					List<IORecord> records2 = allRecords.get(path2);
 					

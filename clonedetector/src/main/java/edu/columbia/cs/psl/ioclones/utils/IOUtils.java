@@ -630,9 +630,21 @@ public class IOUtils {
 			if (stmt != null) {
 				try {
 					stmt.setInt(1, compKey);
-					stmt.setString(2, firstEntry.getKey());
+					String firstKey = firstEntry.getKey();
+					if (firstKey.length() >= 250) {
+						logger.warn("Long first key: " + firstKey);
+						firstKey = firstKey.substring(0, 250);
+						logger.warn("Truncate to: " + firstKey);
+					}
+					stmt.setString(2, firstKey);
 					stmt.setInt(3, firstEntry.getValue());
-					stmt.setString(4, secondEntry.getKey());
+					String secondKey = secondEntry.getKey();
+					if (secondKey.length() >= 250) {
+						logger.warn("Long second key: " + secondKey);
+						secondKey = secondKey.substring(0, 250);
+						logger.warn("Truncate to: " + secondKey);
+					}
+					stmt.setString(4, secondKey);
 					stmt.setInt(5, secondEntry.getValue());
 					stmt.setDouble(6, simObj.inSim);
 					stmt.setDouble(7, simObj.outSim);
@@ -661,7 +673,7 @@ public class IOUtils {
 			}
 		}
 		
-		if (sb.length() > 0) {
+		if (counter > 0) {
 			try {
 				Files.write(resultFile.toPath(), sb.toString().getBytes(), StandardOpenOption.APPEND);
 				if (stmt != null) {
@@ -672,7 +684,7 @@ public class IOUtils {
 			}
 		}
 		
-		logger.info("Exporting ends");
+		logger.info("Exporting ends: " + codebase);
 	}
 	
 	public static void main(String[] args) throws Exception {
