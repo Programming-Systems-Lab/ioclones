@@ -115,7 +115,7 @@ public class SimAnalysisDriver {
 		if (alg == null) {
 			alg = AbstractSim.DHASH;
 		}
-		AbstractSim.xmlAlg = alg;
+		AbstractSim.XML_ALG = alg;
 		
 		String exportName = cmd.getOptionValue("eName");
 		if (exportName == null) {
@@ -140,7 +140,7 @@ public class SimAnalysisDriver {
 			sb.append(iorepoFile.getAbsolutePath() + " ");
 		}
 		logger.info("IO Repos: " + sb.toString());
-		logger.info("XML alg: " + AbstractSim.xmlAlg);
+		logger.info("XML alg: " + AbstractSim.XML_ALG);
 		logger.info("Exhaustive mode: " + exhaustive);
 		logger.info("Export name: " + exportName);
 		
@@ -493,7 +493,7 @@ public class SimAnalysisDriver {
 			IOSim simObj = new IOSim(this.control, this.test);
 			SimAnalyzer analyzer = new NoOrderAnalyzer();
 			
-			double inSim = analyzer.similarity(this.control.cleanInputs, this.test.cleanInputs);
+			double inSim = analyzer.similarity(this.control.cleanInputs, this.test.cleanInputs);			
 			long afterIn = Runtime.getRuntime().freeMemory();
 			double outSim = analyzer.similarity(this.control.cleanOutputs, this.test.cleanOutputs);
 			long afterOut = Runtime.getRuntime().freeMemory();

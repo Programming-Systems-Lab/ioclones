@@ -33,7 +33,7 @@ public abstract class AbstractSim implements SimAnalyzer {
 	
 	public static final double WEIGHT = 0.5;
 	
-	public static String xmlAlg = null;
+	public static String XML_ALG = null;
 	
 	public static final Correlation linear = new Correlation() {
 		public double correlation(double sim1, double sim2) {
@@ -228,7 +228,7 @@ public abstract class AbstractSim implements SimAnalyzer {
 			
 			long before = Runtime.getRuntime().freeMemory();
 			
-			if (xmlAlg.equals(DHASH)) {
+			if (XML_ALG.equals(DHASH)) {
 				if (xml1.deepHash == XMLWrapper.UNINITIALIZED) {
 					xml1.deepHash = DeepHash.deepHash(xml1.obj);
 				}
@@ -248,7 +248,7 @@ public abstract class AbstractSim implements SimAnalyzer {
 				} else {
 					return 0.0;
 				}
-			} else if (xmlAlg.equals(XML_DIFF)) {
+			} else if (XML_ALG.equals(XML_DIFF)) {
 				Diff xmlDiff = XMLDiffer.xmlDiff(xml1.obj, xml2.obj);
 				Iterator<Difference> diffIT = xmlDiff.getDifferences().iterator();
 				while (diffIT.hasNext()) {
@@ -260,7 +260,7 @@ public abstract class AbstractSim implements SimAnalyzer {
 				}
 				return 1.0;
 			} else {
-				logger.error("Invalid xml algorithm: " + xmlAlg);
+				logger.error("Invalid xml algorithm: " + XML_ALG);
 				return 0.0;
 			}
 		} else {
