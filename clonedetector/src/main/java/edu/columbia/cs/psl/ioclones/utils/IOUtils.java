@@ -2,6 +2,7 @@ package edu.columbia.cs.psl.ioclones.utils;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.Console;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileReader;
@@ -48,6 +49,7 @@ import com.thoughtworks.xstream.XStream;
 import com.thoughtworks.xstream.converters.enums.EnumToStringConverter;
 import com.thoughtworks.xstream.mapper.MapperWrapper;
 
+import edu.columbia.cs.psl.ioclones.driver.SimAnalysisDriver;
 import edu.columbia.cs.psl.ioclones.driver.SimAnalysisDriver.IOSim;
 import edu.columbia.cs.psl.ioclones.pojo.IORecord;
 import edu.columbia.cs.psl.ioclones.xmlconverter.BlackConverter;
@@ -558,6 +560,7 @@ public class IOUtils {
 			resultDir.mkdir();
 		}
 		
+		codebase = codebase.replace("/", "");
 		String fileName = "results/" + codebase + "_" + (new Date()).getTime() + ".csv";
 		File resultFile = new File(fileName);
 		if (!resultFile.exists()) {
@@ -565,6 +568,13 @@ public class IOUtils {
 				resultFile.createNewFile();
 			} catch (Exception ex) {
 				logger.error("Error, ", ex);
+				resultFile = new File((new Date()).getTime() + ".csv");
+				
+				try {
+					resultFile.createNewFile();
+				} catch (Exception ex2) {
+					logger.error("Error, ", ex2);
+				}
 			}
 		}
 		
@@ -688,74 +698,57 @@ public class IOUtils {
 	}
 	
 	public static void main(String[] args) throws Exception {
-		//File f = new File("iorepo/R5P1Y11.aditsu.Cakes.zip");
-		//List<IORecord> records = new ArrayList<IORecord>();
-		//unzipIORecords(f, records);
-		/*String codebase = "/Users/mikefhsu/Desktop/code_repos/hitoshi_container/code_repo/bin";
-		Class[] parameters = new Class[]{URL.class};
-		File codebaseFile = new File(codebase);
-		if (!codebaseFile.exists()) {
-			logger.error("Invalid codebase: " + codebaseFile.getAbsolutePath());
+		Console c = System.console();
+		String filePath = c.readLine("CSV file path: ");
+		File csvFile = new File(filePath);
+		if (!csvFile.exists()) {
+			System.err.println("CSV file does not exist");
 			System.exit(-1);
 		}
-		URLClassLoader sysloader = (URLClassLoader)ClassLoader.getSystemClassLoader();
-		Class sysClass = URLClassLoader.class;
-		Method method = sysClass.getDeclaredMethod("addURL", parameters);
-		method.setAccessible(true);
-		method.invoke(sysloader, new Object[]{codebaseFile.toURI().toURL()});*/
+		System.out.println("Confirm file path: " + csvFile.getAbsolutePath());
 		
-		String xmlString = 
-				"<R5P1Y11.vot.a_-Point-array>"
-				+ "<R5P1Y11.vot.a_-Point>"
-				+ "<x>0</x>"
-				+ "<y>10</y>"
-				+ "<outer-class>"
-				+ "<w>15</w>"
-				+ "<l>3</l>" 
-				+ "<u>3</u>" 
-				+ "<g>3</g>"
-				+ "<lower>"
-				+ "<R5P1Y11.vot.a_-Point>"
-				+ "<x>0</x>"
-				+ "<y>6</y>"
-				+ "<outer-class reference=\"../../..\"/>"
-				+ "</R5P1Y11.vot.a_-Point>"
-				+ "<R5P1Y11.vot.a_-Point>"
-				+ "<x>10</x>"
-				+ "<y>8</y>"
-				+ "<outer-class reference=\"../../..\"/>"
-				+ "</R5P1Y11.vot.a_-Point>"
-				+ "<R5P1Y11.vot.a_-Point>"
-				+ "<x>15</x>"
-				+ "<y>9</y>"
-				+ "<outer-class reference=\"../../..\"/>"
-				+ "</R5P1Y11.vot.a_-Point>"
-				+ "</lower>"
-				+ "<upper reference=\"../../..\"/>"
-				+ "<LOWER__Y>-2000.0</LOWER__Y>"
-				+ "<out/>"
-				+ "<in/>"
-				+ "<St/>"
-				+ "</outer-class>"
-				+ "</R5P1Y11.vot.a_-Point>"
-				+ "</R5P1Y11.vot.a_-Point-array>";
-		//XStream xstream = getXStream();
-		//Object obj = fromXML2Obj(xmlString);
+		char[] pwArray = c.readPassword("Password: ");
+		String pw = new String(pwArray);
+		String db = SimAnalysisDriver.urlHeader + "liberty.cs.columbia.edu:3306/hitoshio" + SimAnalysisDriver.urlTail;
+		String userName = "root";
+		Connection connect = getConnection(db, userName, pw);
 		
-		Test t = new Test("A_11");
-		t.run();
-		//String tString = fromObj2XML(t);
-		//System.out.println(tString);
-		String test = fromObj2XML(t.lower);
-		System.out.println("Test string: " + test);
-		//Object personObj = fromXML2Obj(tString);
-		//System.out.println(personObj);
-		Object newObj = fromXML2Obj(test);
-		/*for (int i = 0; i < t.upper.length; i++) {
-			String test = fromObj2XML(t.lower[i]);
-			Object newObj = fromXML2Obj(test);
-			System.out.println(test);
-			System.out.println(newObj);
-		}*/
+		if (connect == null) {
+			System.out.println("Fail to connect to database");
+			System.exit(-1);
+		}	
+		
+		String compString = c.readLine("Comp key: ");
+		int compKey = Integer.valueOf(compString);
+		System.out.println("Confirm compKey: " + compKey);
+		
+		String query = "INSERT INTO hitoshio_row (comp_id, method1, m_id1, method2, m_id2, inSim, outSim, sim) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+		PreparedStatement stmt = connect.prepareStatement(query);
+		try {
+			BufferedReader br = new BufferedReader(new FileReader(csvFile));
+			String buf = "";
+			
+			//Header
+			br.readLine();
+			
+			while ((buf = br.readLine()) != null) {
+				System.out.println("Data: " + buf);
+				String[] data = buf.split(",");
+				stmt.setInt(1, compKey);
+				stmt.setString(2, data[0]);
+				stmt.setInt(3, Integer.valueOf(data[1]));
+				stmt.setString(4, data[2]);
+				stmt.setInt(5, Integer.valueOf(data[3]));
+				stmt.setDouble(6, Double.valueOf(data[4]));
+				stmt.setDouble(7, Double.valueOf(data[5]));
+				stmt.setDouble(8, Double.valueOf(data[6]));
+				
+				stmt.addBatch();
+			}
+			
+			stmt.executeBatch();
+		} catch (Exception ex) {
+			ex.printStackTrace();
+		}
 	}
 }

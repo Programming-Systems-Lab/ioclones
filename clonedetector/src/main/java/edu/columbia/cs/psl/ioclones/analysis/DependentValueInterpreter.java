@@ -245,6 +245,9 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	        	
 	            ret = (DependentValue) newValue(Type.INT_TYPE);
 	            ret.owner = oriVal;
+	            if (this.params.containsKey(oriVal.id)) {
+	            	ret.addInSrc(insn);
+	            }
 	            this.convertMap.put(oriVal.id, ret);
 	            return ret;
 	        case FNEG:
@@ -322,6 +325,9 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				DependentValue cont = (DependentValue) value;
 				this.getSingleControls().put(insn, cont);
 				return null;
+			case CHECKCAST:
+				DependentValue checked = (DependentValue) value;
+				return checked;
 			default:
 				return super.unaryOperation(insn, value);
 		}
@@ -347,7 +353,11 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				if (this.objDep) {
 					ret.addDep(arrRef);
 				}
-				ret.addInSrc(insn);
+				
+				if (this.params.containsKey(arrRef.id)) {
+					ret.addInSrc(insn);
+				}
+				
 				return ret;
 			case IADD:
 			case ISUB:
@@ -372,10 +382,15 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				ret = new DependentValue(Type.FLOAT_TYPE);
 				ret.owner = arrRef;
 				ret.addDep(idx);
+				
 				if (this.objDep) {
 					ret.addDep(arrRef);
 				}
-				ret.addInSrc(insn);
+				
+				if (this.params.containsKey(arrRef.id)) {
+					ret.addInSrc(insn);
+				}
+				
 				return ret;
 			case FADD:
 			case FSUB:
@@ -392,10 +407,15 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				ret = new DependentValue(Type.LONG_TYPE);
 				ret.owner = arrRef;
 				ret.addDep(idx);
+				
 				if (this.objDep) {
 					ret.addDep(arrRef);
 				}
-				ret.addInSrc(insn);
+				
+				if (this.params.containsKey(arrRef.id)) {
+					ret.addInSrc(insn);
+				}
+				
 				return ret;
 			case LADD:
 			case LSUB:
@@ -418,10 +438,15 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				ret = new DependentValue(Type.DOUBLE_TYPE);
 				ret.owner = arrRef;
 				ret.addDep(idx);
+				
 				if (this.objDep) {
 					ret.addDep(arrRef);
 				}
-				ret.addInSrc(insn);
+				
+				if (this.params.containsKey(arrRef.id)) {
+					ret.addInSrc(insn);
+				}
+				
 				return ret;
 			case DADD:
 			case DSUB:
@@ -442,7 +467,11 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				if (this.objDep) {
 					ret.addDep(arrRef);
 				}
-				ret.addInSrc(insn);
+				
+				if (this.params.containsKey(arrRef.id)) {
+					ret.addInSrc(insn);
+				}
+				
 				//return BasicValue.REFERENCE_VALUE;
 				return ret;
 			case LCMP:
@@ -512,7 +541,8 @@ public class DependentValueInterpreter extends BasicInterpreter {
 		DependentValue idx = (DependentValue)val2;
 		DependentValue val = (DependentValue)val3;
 		
-		objRef.addDep(idx);
+		//objRef.addDep(idx);
+		//objRef.addDep(val);
 		boolean polluteInput = this.propagateDepToOwners(objRef, val);
 		if (polluteInput) {
 			val.addOutSink(insn);
@@ -528,7 +558,8 @@ public class DependentValueInterpreter extends BasicInterpreter {
 		//System.out.println("Nary op: " + insn + " " + values);
 		
 		List<DependentValue> dvs = (List<DependentValue>) values;
-		switch(insn.getOpcode()) {
+		int opcode = insn.getOpcode();
+		switch(opcode) {
 			case INVOKESTATIC:
 			case INVOKESPECIAL:
 			case INVOKEVIRTUAL:
@@ -538,14 +569,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				Type retType = Type.getReturnType(methodInst.desc);
 				
 				DependentValue ret = (DependentValue) newValue(retType);
-				/*if (methodInst.getOpcode() == INVOKESPECIAL 
-						&& methodInst.name.equals("<init>")) {
-					DependentValue objRef = dvs.get(0);
-					for (int i = 1; i < dvs.size(); i++) {
-						objRef.addDep(dvs.get(i));
-					}
-				}*/
-				
+								
 				if (ret == null || dvs == null || dvs.size() == 0) {
 					return ret; 
 				}
@@ -557,6 +581,17 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				} else {
 					for (int i = 1; i < dvs.size(); i++) {
 						ret.addDep(dvs.get(i));
+					}
+				}
+				
+				for (DependentValue dv: dvs) {
+					if (dv == null) {
+						//impossible
+						continue ;
+					}
+					
+					if (this.params.containsKey(dv.id) && dv.isReference()) {
+						dv.mightWritten = true;
 					}
 				}
 				return ret;

@@ -86,7 +86,7 @@ public class XMLDiffer {
 	
 	public static Diff xmlDiff(Object obj1, Object obj2) {
 		long before = Runtime.getRuntime().freeMemory();
-		DifferenceEvaluator chainedEvaluator = DifferenceEvaluators.chain(DifferenceEvaluators.Default, valEvaluator);
+		//DifferenceEvaluator chainedEvaluator = DifferenceEvaluators.chain(DifferenceEvaluators.Default, valEvaluator);
 		Diff d = DiffBuilder.compare(Input.from(obj1))
 				.withTest(Input.from(obj2))
 				.ignoreWhitespace()
@@ -101,6 +101,21 @@ public class XMLDiffer {
 		if (diff > 1000) {
 			logger.info("Suspicious xml diff: " + obj1 + " " + obj2);
 		}
+		
+		return d;
+	}
+	
+	public static Diff xmlDiff(String s1, String s2) {
+		//DifferenceEvaluator chainedEvaluator = DifferenceEvaluators.chain(DifferenceEvaluators.Default, valEvaluator);
+		Diff d = DiffBuilder.compare(Input.fromString(s1))
+				.withTest(Input.fromString(s2))
+				.ignoreWhitespace()
+				.withDifferenceEvaluator(valEvaluator)
+				.build();
+		/*d.getDifferences().forEach(diff->{
+			System.out.println(diff.getComparison());
+			System.out.println(diff.getResult());
+		});*/
 		
 		return d;
 	}

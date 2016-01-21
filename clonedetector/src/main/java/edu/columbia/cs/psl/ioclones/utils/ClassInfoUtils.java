@@ -1,7 +1,12 @@
 package edu.columbia.cs.psl.ioclones.utils;
 
 import java.io.File;
+import java.io.InputStream;
+import java.util.Enumeration;
+import java.util.List;
 import java.util.Set;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -126,5 +131,35 @@ public class ClassInfoUtils {
 			ptr = dv.owner;
 		}
 		return false;
+	}
+	
+	public static void collectClassesInJar(File jarFile, List<InputStream> container) {
+		try {
+			JarFile jarInstance = new JarFile(jarFile);
+			Enumeration<JarEntry> entries = jarInstance.entries();
+			while (entries.hasMoreElements()) {
+				JarEntry entry = entries.nextElement();
+				String entryName = entry.getName();
+				//logger.info("Entry: " + entryName);
+				
+				if (entry.isDirectory()) {
+					continue ;
+				}
+				
+				if (entryName.endsWith(".class")) {
+					InputStream entryStream = jarInstance.getInputStream(entry);
+					container.add(entryStream);
+					
+					//logger.info("Retrieve class: " + entry.getName());
+					
+					/*String className = entryName.replace("/", ".");
+					className = className.substring(0, className.lastIndexOf("."));
+					Class clazz = loader.loadClass(className);
+					System.out.println("Class name: " + clazz.getProtectionDomain().toString());*/
+				}
+			}
+		} catch (Exception ex) {
+			logger.error("Error: ", ex);
+		}
 	}
 }

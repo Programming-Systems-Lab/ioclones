@@ -1,38 +1,26 @@
 package edu.columbia.cs.psl.ioclones;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
-import java.util.List;
-import java.util.ListIterator;
 import java.util.Map;
 import java.util.Set;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
-import org.objectweb.asm.tree.FrameNode;
-import org.objectweb.asm.tree.JumpInsnNode;
-import org.objectweb.asm.tree.LabelNode;
 import org.objectweb.asm.tree.LdcInsnNode;
-import org.objectweb.asm.tree.LineNumberNode;
-import org.objectweb.asm.tree.LookupSwitchInsnNode;
 import org.objectweb.asm.tree.MethodNode;
-import org.objectweb.asm.tree.TableSwitchInsnNode;
 import org.objectweb.asm.tree.analysis.Analyzer;
 import org.objectweb.asm.tree.analysis.AnalyzerException;
 import org.objectweb.asm.tree.analysis.Frame;
 
 import edu.columbia.cs.psl.ioclones.analysis.DependentValue;
 import edu.columbia.cs.psl.ioclones.analysis.DependentValueInterpreter;
-import edu.columbia.cs.psl.ioclones.pojo.LabelInfo;
 import edu.columbia.cs.psl.ioclones.utils.ClassInfoUtils;
-import edu.columbia.cs.psl.ioclones.pojo.BlockInfo;
 
 public class DependencyAnalyzer extends MethodVisitor {
 	
@@ -184,13 +172,13 @@ public class DependencyAnalyzer extends MethodVisitor {
 							
 							//In case the input and output are the same value
 							if (o.getInSrcs() != null) {
-								//System.out.println("I is O: " + o);
-								o.getInSrcs().forEach(src->{
+								System.out.println("I is O: " + o);
+								/*o.getInSrcs().forEach(src->{
 									if (!visitedInInsns.contains(src)) {
 										this.instructions.insertBefore(src, new LdcInsnNode(INPUT_MSG));
 										visitedInInsns.add(src);
 									}
-								});
+								});*/
 							}
 							
 							if (inputs != null) {
@@ -214,34 +202,37 @@ public class DependencyAnalyzer extends MethodVisitor {
 						}
 					}
 					
-					//Need to analyze which control instruction should be recorded
-					//blockAnalyzer.insertGuide(controlTarget);
-					//Jumps will affect outputs
-					logger.info("Cand. single controls: " + dvi.getSingleControls().size());
-					dvi.getSingleControls().forEach((sc, val)->{
-						if (this.recordControl(val, touched)) {
-							this.instructions.insertBefore(sc, new LdcInsnNode(INPUT_MSG));
-						}
-					});
-					
-					logger.info("Cand. double controls: " + dvi.getDoubleControls().size());
-					dvi.getDoubleControls().forEach((dc, vals)->{
-						boolean[] record = {false, false};
-						for (int k = 0; k < vals.length; k++) {
-							DependentValue dVal = vals[k];
-							if (this.recordControl(dVal, touched)) {
-								record[k] = true;
+					//Include only when there is a output has been identified
+					if (ios.size() > 0) {
+						//Need to analyze which control instruction should be recorded
+						//blockAnalyzer.insertGuide(controlTarget);
+						//Jumps will affect outputs
+						logger.info("Cand. single controls: " + dvi.getSingleControls().size());
+						dvi.getSingleControls().forEach((sc, val)->{
+							if (this.recordControl(val, touched)) {
+								this.instructions.insertBefore(sc, new LdcInsnNode(INPUT_MSG));
 							}
-						}
+						});
 						
-						if (record[0] && record[1]) {
-							this.instructions.insertBefore(dc, new LdcInsnNode(INPUT_COPY_2_MSG));
-						} else if (record[0]) {
-							this.instructions.insertBefore(dc, new LdcInsnNode(INPUT_COPY_0_MSG));
-						} else if (record[1]) {
-							this.instructions.insertBefore(dc, new LdcInsnNode(INPUT_COPY_1_MSG));
-						}
-					});
+						logger.info("Cand. double controls: " + dvi.getDoubleControls().size());
+						dvi.getDoubleControls().forEach((dc, vals)->{
+							boolean[] record = {false, false};
+							for (int k = 0; k < vals.length; k++) {
+								DependentValue dVal = vals[k];
+								if (this.recordControl(dVal, touched)) {
+									record[k] = true;
+								}
+							}
+							
+							if (record[0] && record[1]) {
+								this.instructions.insertBefore(dc, new LdcInsnNode(INPUT_COPY_2_MSG));
+							} else if (record[0]) {
+								this.instructions.insertBefore(dc, new LdcInsnNode(INPUT_COPY_0_MSG));
+							} else if (record[1]) {
+								this.instructions.insertBefore(dc, new LdcInsnNode(INPUT_COPY_1_MSG));
+							}
+						});
+					}
 				} catch (AnalyzerException e) {
 					e.printStackTrace();
 				}
@@ -267,8 +258,8 @@ public class DependencyAnalyzer extends MethodVisitor {
 							locals += fn.getLocal(j) + " ";
 						}
 
-						//this.instructions.insertBefore(insn, new LdcInsnNode(stack));
-						//this.instructions.insertBefore(insn, new LdcInsnNode(locals));
+						this.instructions.insertBefore(insn, new LdcInsnNode(stack));
+						this.instructions.insertBefore(insn, new LdcInsnNode(locals));
 					}
 					i++;
 					insn = insn.getNext();

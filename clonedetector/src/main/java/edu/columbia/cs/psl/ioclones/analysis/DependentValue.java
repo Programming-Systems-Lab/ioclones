@@ -12,10 +12,14 @@ import org.objectweb.asm.tree.analysis.BasicValue;
 public class DependentValue extends BasicValue {
 	
 	public static final BasicValue NULL_VALUE = new BasicValue(Type.getType("Lnull;"));
+	
+	private static int idCounter;
 
 	private boolean flowsToOutput;
 	
 	public transient DependentValue owner;
+	
+	public transient boolean mightWritten = false;
 	
 	private HashSet<DependentValue> deps;
 	
@@ -24,8 +28,6 @@ public class DependentValue extends BasicValue {
 	private Set<AbstractInsnNode> inSrcs;
 	
 	private Set<AbstractInsnNode> outSinks;
-		
-	private static int idCounter;
 	
 	public int id;
 		

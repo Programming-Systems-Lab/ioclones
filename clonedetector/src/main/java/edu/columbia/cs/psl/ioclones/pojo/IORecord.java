@@ -2,9 +2,11 @@ package edu.columbia.cs.psl.ioclones.pojo;
 
 import java.util.List;
 import java.util.Set;
+import java.util.Stack;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.xmlunit.diff.Diff;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -13,6 +15,7 @@ import java.util.LinkedList;
 
 import edu.columbia.cs.psl.ioclones.utils.GlobalInfoRecorder;
 import edu.columbia.cs.psl.ioclones.utils.IOUtils;
+import edu.columbia.cs.psl.ioclones.utils.XMLDiffer;
 
 public class IORecord {
 	
@@ -31,6 +34,8 @@ public class IORecord {
 	private List<Object> outputs = new ArrayList<Object>();
 	
 	public transient Collection<Object> cleanOutputs;
+	
+	private transient Stack<String> needCheck = new Stack<String>();
 	
 	private boolean stopRecord = false;
 	
@@ -128,6 +133,27 @@ public class IORecord {
 		//System.out.println("Register output: " + insert);
 		this.outputs.add(insert);
 	}
+	
+	public void insertCheck(Object c) {
+		String objString = IOUtils.fromObj2XML(c);
+		this.needCheck.push(objString);
+	}
+	
+	public void checkDiff(Object after) {
+		String beforeMethod = this.needCheck.pop();
+		String afterMethod = IOUtils.fromObj2XML(after);
+		Diff d = XMLDiffer.xmlDiff(beforeMethod, afterMethod);
+		d.getDifferences().forEach(detail->{
+			Object controlVal = detail.getComparison().getControlDetails().getValue();
+			Object testVal = detail.getComparison().getTestDetails().getValue();
+			
+			System.out.println(controlVal);
+			System.out.println(testVal);
+			
+			this.registerInput(controlVal, false);
+			this.registerOutput(testVal, false);
+		});
+	}
 			
 	public List<Object> getInputs() {
 		return this.inputs;
@@ -176,7 +202,7 @@ public class IORecord {
 			Object myObj = this.inputs.get(i);
 			Object tmpObj = tmp.getInputs().get(i);
 			
-			if (myObj.equals(tmpObj)) {
+			if (!myObj.equals(tmpObj)) {
 				return false;
 			}
 		}
@@ -185,7 +211,7 @@ public class IORecord {
 			Object myObj = this.outputs.get(i);
 			Object tmpObj = tmp.getOutputs().get(i);
 			
-			if (myObj.equals(tmpObj)) {
+			if (!myObj.equals(tmpObj)) {
 				return false;
 			}
 		}
@@ -214,5 +240,29 @@ public class IORecord {
 		result = 31 * result + inHash;
 		result = 31 * result + outHash;
 		return result;
-	}	
+	}
+	
+	public static void main(String[] args) {
+		//int[] before = {1, 2, 3};
+		//int[] after = {2, 1, 3};
+		P before = new P();
+		before.i = 1;
+		before.j = 2;
+		
+		P after = new P();
+		after.i = 1;
+		after.j = 9;
+		
+		P[] beforeArr = new P[]{before};
+		P[] afterArr = new P[]{after};
+		
+		IORecord ir = new IORecord("123");
+		ir.insertCheck(beforeArr);
+		ir.checkDiff(afterArr);
+	}
+	
+	public static class P {
+		public int i;
+		public int j;
+	}
 }

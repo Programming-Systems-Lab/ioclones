@@ -48,9 +48,9 @@ public class SimAnalysisDriver {
 	
 	private static final Logger logger = LogManager.getLogger(SimAnalysisDriver.class);
 	
-	private static final String urlHeader = "jdbc:mysql://";
+	public static final String urlHeader = "jdbc:mysql://";
 	
-	private static final String urlTail = "?useServerPrepStmts=false&rewriteBatchedStatements=true&autoReconnect=true";
+	public static final String urlTail = "?useServerPrepStmts=false&rewriteBatchedStatements=true&autoReconnect=true";
 	
 	private static final Class[] parameters = new Class[]{URL.class};
 	

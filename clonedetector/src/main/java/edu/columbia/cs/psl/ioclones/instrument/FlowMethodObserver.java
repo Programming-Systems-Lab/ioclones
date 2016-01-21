@@ -112,11 +112,12 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 			this.mv.visitInsn(opcode);
 			return ;
 		}*/
-		
+		System.out.println(opcode);
 		if (this.recordInput) {
 			this.mv.visitInsn(opcode);
 			
 			this.recordInput = false;
+			System.out.println("End record input: " + opcode);
 			boolean ser = false;
 			switch(opcode) {
 				case IALOAD:
@@ -165,6 +166,7 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 			return ;
 		} else if (this.recordOutput) {
 			this.recordOutput = false;
+			System.out.println("End record output: " + opcode);
 			boolean ser = false;
 			switch(opcode) {
 				case IASTORE:
@@ -184,8 +186,10 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 					this.handlePrimitive(Double.class);
 					break ;
 				case AASTORE:
+					System.out.println("----------Test123AASTORE---------");
 				case ARETURN:
 					ser = true;
+					System.out.println("----------Test123AReturn---------");
 					this.mv.visitInsn(DUP);
 					break ;
 				case BASTORE:
@@ -231,6 +235,7 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 		
 	@Override
 	public void visitIntInsn(int opcode, int operand) {
+		System.out.println(opcode);
 		this.mv.visitIntInsn(opcode, operand);
 		/*if (this.recordInput) {
 			this.recordInput = false;
@@ -244,8 +249,12 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 	
 	@Override
 	public void visitVarInsn(int opcode, int var) {
+		System.out.println(opcode);
 		this.mv.visitVarInsn(opcode, var);
-		if (this.recordInput || this.recordOutput) {			
+		if (this.recordInput) {
+			this.recordInput = false;
+			System.out.println("End output: " + opcode + " " + var);
+			
 			boolean ser = false;
 			switch(opcode) {
 				case ILOAD:
@@ -278,25 +287,11 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 			}
 			this.convertToInst(var);
 			
-			if (this.recordInput) {
-				this.mv.visitMethodInsn(INVOKEVIRTUAL, 
-						Type.getInternalName(IORecord.class), 
-						"registerInput", 
-						"(Ljava/lang/Object;ZI)V", 
-						false);
-			} else {
-				this.mv.visitMethodInsn(INVOKEVIRTUAL, 
-						Type.getInternalName(IORecord.class), 
-						"registerOutput", 
-						"(Ljava/lang/Object;ZI)V", 
-						false);
-			}
-			
-			if (this.recordInput) {
-				this.recordInput = false;
-			} else {
-				this.recordOutput = false;
-			}
+			this.mv.visitMethodInsn(INVOKEVIRTUAL, 
+					Type.getInternalName(IORecord.class), 
+					"registerInput", 
+					"(Ljava/lang/Object;ZI)V", 
+					false);
 		}
 		
 		//We don't actually need this guard...
@@ -313,10 +308,12 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 	
 	@Override
 	public void visitFieldInsn(int opcode, String owner, String name, String desc) {
+		System.out.println(opcode);
 		if (this.recordInput) {
 			this.mv.visitFieldInsn(opcode, owner, name, desc);
 			
 			this.recordInput = false;
+			System.out.println("End record input: " + opcode + " " + owner);
 			Type type = Type.getType(desc);
 			boolean ser = this.handleType(type);
 			
@@ -335,6 +332,7 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 					false);
 		} else if (this.recordOutput){
 			this.recordOutput = false;
+			System.out.println("End record output: " + opcode + " " + owner);
 			
 			Type type = Type.getType(desc);
 			boolean ser = this.handleType(type);
@@ -361,8 +359,10 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 	
 	@Override
 	public void visitJumpInsn(int opcode, Label label) {
+		System.out.println(opcode);
 		if (this.recordInput) {
 			this.recordInput = false;
+			System.out.println("End record input: " + opcode);
 			
 			switch(opcode) {
 				case IFEQ:
@@ -467,8 +467,10 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 	
 	@Override
 	public void visitLookupSwitchInsn(Label dflt, int[] keys, Label[] labels) {
+		System.out.println(LOOKUPSWITCH);
 		if (this.recordInput) {
 			this.recordInput = false;
+			System.out.println("End record input: lookup");
 			
 			this.handlePrimitive(Integer.class);
 			this.mv.visitVarInsn(ALOAD, this.recordId);
@@ -485,8 +487,10 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 	
 	@Override
 	public void visitTableSwitchInsn(int min, int max, Label dflt, Label... labels) {
+		System.out.println(TABLESWITCH);
 		if (this.recordInput) {
 			this.recordInput = false;
+			System.out.println("End record input: table");
 			
 			this.handlePrimitive(Integer.class);
 			this.mv.visitVarInsn(ALOAD, this.recordId);
@@ -503,21 +507,27 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 		
 	@Override
 	public void visitLdcInsn(Object cst) {
+		System.out.println(LDC);
 		if (cst instanceof String) {
 			String literal = (String) cst;
 			if (literal.equals(DependencyAnalyzer.INPUT_MSG)) {
 				this.recordInput = true;
+				System.out.println("Start record input: inputmsg");
 			} else if (literal.equals(DependencyAnalyzer.INPUT_COPY_0_MSG)) {
 				this.recordInput = true;
 				this.copySignal = 0;
+				System.out.println("Start record input: inputcopy0");
 			} else if (literal.equals(DependencyAnalyzer.INPUT_COPY_1_MSG)) {
 				this.recordInput = true;
 				this.copySignal = 1;
+				System.out.println("Start record input: inputcopy1");
 			} else if (literal.equals(DependencyAnalyzer.INPUT_COPY_2_MSG)) {
 				this.recordInput = true;
 				this.copySignal = 2;
+				System.out.println("Start record input: inputcopy");
 			} else if (literal.equals(DependencyAnalyzer.OUTPUT_MSG)) {
 				this.recordOutput = true;
+				System.out.println("Start record output: outputmsg");
 			} else {
 				this.mv.visitLdcInsn(cst);
 			}
@@ -528,7 +538,11 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 	
 	@Override
 	public void visitIincInsn(int var, int increment) {
+		System.out.println(IINC);
 		if (this.recordInput) {
+			this.recordInput = false;
+			System.out.println("End input: iince");
+			
 			//Record input and then stop the recording of this var
 			this.mv.visitVarInsn(ALOAD, this.recordId);
 			this.mv.visitVarInsn(ILOAD, var);
