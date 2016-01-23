@@ -19,7 +19,7 @@ public class DependentValue extends BasicValue {
 	
 	public transient DependentValue owner;
 	
-	public transient boolean mightWritten = false;
+	public transient boolean written = false;
 	
 	private HashSet<DependentValue> deps;
 	

@@ -18,6 +18,7 @@ import org.apache.logging.log4j.Logger;
 
 import com.google.gson.reflect.TypeToken;
 
+import edu.columbia.cs.psl.ioclones.analysis.JVMAnalyzer.ClassInfo;
 import edu.columbia.cs.psl.ioclones.config.IOCloneConfig;
 import edu.columbia.cs.psl.ioclones.pojo.IORecord;
 
@@ -37,11 +38,15 @@ public class GlobalInfoRecorder {
 	
 	private static final Map<String, HashSet<IORecord>> ioRecords = new HashMap<String, HashSet<IORecord>>();
 	
+	private static final Map<String, ClassInfo> classInfo = new HashMap<String, ClassInfo>();
+	
 	private static final Set<String> reachLimit = new HashSet<String>();
 	
 	private static int callLimit = IOCloneConfig.getInstance().getCallLimit();
 	
 	private static Object recordLock = new Object();
+	
+	private static Object classLock = new Object();
 	
 	private static int recordCounter = 0;
 	
@@ -158,5 +163,21 @@ public class GlobalInfoRecorder {
 			}
 			return 0;
 		}
+	}
+	
+	public static void registerClassInfo(ClassInfo info) {
+		synchronized(classLock) {
+			classInfo.put(info.getClassName(), info);
+		}
+	}
+	
+	public static ClassInfo queryClassInfo(String className) {
+		synchronized(classLock) {
+			return classInfo.get(className);
+		}
+	}
+	
+	public static Map<String, ClassInfo> getClassInfo() {
+		return classInfo;
 	}
 }

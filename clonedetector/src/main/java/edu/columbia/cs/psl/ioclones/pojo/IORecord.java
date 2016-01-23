@@ -1,21 +1,15 @@
 package edu.columbia.cs.psl.ioclones.pojo;
 
 import java.util.List;
-import java.util.Set;
-import java.util.Stack;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.xmlunit.diff.Diff;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashSet;
-import java.util.LinkedList;
 
 import edu.columbia.cs.psl.ioclones.utils.GlobalInfoRecorder;
 import edu.columbia.cs.psl.ioclones.utils.IOUtils;
-import edu.columbia.cs.psl.ioclones.utils.XMLDiffer;
 
 public class IORecord {
 	
@@ -25,17 +19,21 @@ public class IORecord {
 	
 	private int id = -1;
 	
-	private Set<Integer> stopVar = new HashSet<Integer>();
+	//private Set<Integer> stopVar = new HashSet<Integer>();
 	
 	private List<Object> inputs = new ArrayList<Object>();
 	
-	public transient Collection<Object> cleanInputs;
-	
 	private List<Object> outputs = new ArrayList<Object>();
+	
+	public transient Collection<Object> cleanInputs;
 	
 	public transient Collection<Object> cleanOutputs;
 	
-	private transient Stack<String> needCheck = new Stack<String>();
+	private transient Object retVal = null;
+	
+	private transient List<Object> controls = new ArrayList<Object>();
+	
+	private transient List<Object> sideEffects = new ArrayList<Object>();
 	
 	private boolean stopRecord = false;
 	
@@ -58,15 +56,34 @@ public class IORecord {
 		return this.id;
 	}
 	
-	public void registerInput(Object i, boolean ser, int varId) {
+	public void setRetVal(Object retVal, boolean ser) {
 		if (this.stopRecord) {
 			return ;
 		}
 		
-		if (this.stopVar.contains(varId)) {
-			return ;
+		if (retVal == null) {
+			ser = false;
 		}
 		
+		Object insert = null;
+		if (ser) {
+			insert = IOUtils.newObject(retVal);
+		} else {
+			insert = retVal;
+		}
+		
+		this.retVal = insert;
+	}
+		
+	public Object getRetVal() {
+		return this.retVal;
+	}
+	
+	public void registerControl(Object i, boolean ser) {
+		if (this.stopRecord) {
+			return ;
+		}
+				
 		if (i == null) {
 			ser = false;
 		}
@@ -78,83 +95,54 @@ public class IORecord {
 			insert = i;
 		}
 		
-		//System.out.println("Register in: " + insert);
-		this.inputs.add(insert);
-		//System.out.println("After register: " + this.inputs);
+		this.controls.add(insert);
 	}
-	
-	public void registerInput(Object i, boolean ser) {
-		if (this.stopRecord) {
-			return ;
-		}
-		
-		this.registerInput(i, ser, -1);
-	}
-		
+			
 	public void swapLastTwo() {
 		if (this.stopRecord) {
 			return ;
 		}
 		
 		//System.out.println("Before swap2: " + this.inputs);
-		Object last = this.inputs.get(this.inputs.size() - 1);
-		Object last2 = this.inputs.get(this.inputs.size() - 2);
-		this.inputs.set(this.inputs.size() - 2, last);
-		this.inputs.set(this.inputs.size() - 1, last2);
+		Object last = this.controls.get(this.inputs.size() - 1);
+		Object last2 = this.controls.get(this.inputs.size() - 2);
+		this.controls.set(this.controls.size() - 2, last);
+		this.controls.set(this.controls.size() - 1, last2);
 		//System.out.println("After swap2: " + this.inputs);
 	}
-	
-	public void stopRegisterInput(int varId) {
-		if (this.stopRecord) {
-			return ;
-		}
 		
-		this.stopVar.add(varId);
+	public void registerInput(Object o, boolean ser) {
+		this.registerObj(o, ser, true);
 	}
 	
-	public void registerOutput(Object o, boolean ser) {
-		if (this.stopRecord) {
-			return ;
-		}
-		
-		//logger.info(this.methodKey + ": " + o);
+	public void registerSideEffect(Object o) {
+		this.registerObj(o, true, true);
+	}
+	
+	private void registerObj(Object o, boolean ser, boolean input) {
 		if (o == null) {
 			ser = false;
 		}
 		
-		Object insert = null;
+		Object insert = o;
 		if (ser) {
-			//System.out.println("Check o: " + methodKey + " " + o);
 			insert = IOUtils.newObject(o);
-		} else {
-			insert = o;
 		}
 		
-		//System.out.println("Register output: " + insert);
-		this.outputs.add(insert);
+		if (input) {
+			this.inputs.add(insert);
+		} else {
+			this.sideEffects.add(insert);
+		}
 	}
 	
-	public void insertCheck(Object c) {
-		String objString = IOUtils.fromObj2XML(c);
-		this.needCheck.push(objString);
+	public void summarizeIO() {
+		//Summarize inputs
+		this.inputs.addAll(this.controls);
+		this.outputs.addAll(this.sideEffects);
+		this.outputs.add(this.retVal);
 	}
-	
-	public void checkDiff(Object after) {
-		String beforeMethod = this.needCheck.pop();
-		String afterMethod = IOUtils.fromObj2XML(after);
-		Diff d = XMLDiffer.xmlDiff(beforeMethod, afterMethod);
-		d.getDifferences().forEach(detail->{
-			Object controlVal = detail.getComparison().getControlDetails().getValue();
-			Object testVal = detail.getComparison().getTestDetails().getValue();
-			
-			System.out.println(controlVal);
-			System.out.println(testVal);
-			
-			this.registerInput(controlVal, false);
-			this.registerOutput(testVal, false);
-		});
-	}
-			
+				
 	public List<Object> getInputs() {
 		return this.inputs;
 	}
@@ -240,29 +228,5 @@ public class IORecord {
 		result = 31 * result + inHash;
 		result = 31 * result + outHash;
 		return result;
-	}
-	
-	public static void main(String[] args) {
-		//int[] before = {1, 2, 3};
-		//int[] after = {2, 1, 3};
-		P before = new P();
-		before.i = 1;
-		before.j = 2;
-		
-		P after = new P();
-		after.i = 1;
-		after.j = 9;
-		
-		P[] beforeArr = new P[]{before};
-		P[] afterArr = new P[]{after};
-		
-		IORecord ir = new IORecord("123");
-		ir.insertCheck(beforeArr);
-		ir.checkDiff(afterArr);
-	}
-	
-	public static class P {
-		public int i;
-		public int j;
 	}
 }

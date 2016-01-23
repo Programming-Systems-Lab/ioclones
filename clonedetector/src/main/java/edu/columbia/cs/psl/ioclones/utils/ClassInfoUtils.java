@@ -5,14 +5,18 @@ import java.io.InputStream;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.junit.internal.MethodSorter;
 import org.objectweb.asm.Type;
 
 import edu.columbia.cs.psl.ioclones.analysis.DependentValue;
+import edu.columbia.cs.psl.ioclones.analysis.JVMAnalyzer.ClassInfo;
+import edu.columbia.cs.psl.ioclones.analysis.JVMAnalyzer.MethodInfo;
 
 public class ClassInfoUtils {
 	

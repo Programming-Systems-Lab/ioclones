@@ -1,5 +1,6 @@
 package edu.columbia.cs.psl.ioclones.analysis;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -14,6 +15,7 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.FieldInsnNode;
 import org.objectweb.asm.tree.IincInsnNode;
+import org.objectweb.asm.tree.InvokeDynamicInsnNode;
 import org.objectweb.asm.tree.LdcInsnNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MultiANewArrayInsnNode;
@@ -40,6 +42,8 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	//private Set<Integer> params = new HashSet<Integer>();
 	private Map<Integer, DependentValue> params = new HashMap<Integer, DependentValue>();
 	
+	private List<DependentValue> paramList = new ArrayList<DependentValue>();
+	
 	private Map<Integer, DependentValue> convertMap = new HashMap<Integer, DependentValue>();
 	
 	private Map<AbstractInsnNode, DependentValue[]> doubleControls = new HashMap<AbstractInsnNode, DependentValue[]>();
@@ -54,11 +58,26 @@ public class DependentValueInterpreter extends BasicInterpreter {
 		this.allTypes = args;
 	}
 	
-	public boolean propagateDepToOwners(DependentValue owner, DependentValue written) {
+	public boolean propagateDepToOwners(DependentValue owner, 
+			DependentValue written, 
+			Set<Integer> visited) {
 		boolean fromInputParams = this.params.containsKey(owner.id);
+		
+		//Prevent loop relations between objects...
+		if (visited.contains(owner.id)) {
+			return fromInputParams;
+		}
+		
 		owner.addDep(written);
+		visited.add(owner.id);
+		
+		if (fromInputParams) {
+			this.params.get(owner.id).written = true;
+			return true;
+		}
+		
 		if (owner.owner != null) {
-			fromInputParams = propagateDepToOwners(owner.owner, written) || fromInputParams;
+			fromInputParams = propagateDepToOwners(owner.owner, written, visited) || fromInputParams;
 		}
 		
 		return fromInputParams;
@@ -66,6 +85,10 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	
 	public Map<Integer, DependentValue> getParams() {
 		return this.params;
+	}
+	
+	public List<DependentValue> getParamList() {
+		return this.paramList;
 	}
 	
 	public Map<AbstractInsnNode, DependentValue[]> getDoubleControls() {
@@ -93,6 +116,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 			Type curType = this.allTypes[this.initValCount++];
 			if (curType.equals(dv.getType())) {
 				this.params.put(dv.id, dv);
+				this.paramList.add(dv);
 			} else {
 				logger.error("Incompatible type: " + curType + " " + dv.getType());
 			}
@@ -193,7 +217,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 			case Opcodes.ALOAD:
 				//For capturing xloads that might be input
 				if (this.params.containsKey(dv.id)) {
-					System.out.println("Input load: " + insn + " " + dv);
+					//System.out.println("Input load: " + insn + " " + dv);
 					dv.addInSrc(insn);
 				}
 			default:
@@ -303,7 +327,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 					ret.addDep(owner);
 				}
 				
-				System.out.println("Getfield: " + insn + " " + ret);
+				//System.out.println("Getfield: " + insn + " " + ret);
 				return ret;
 			case NEWARRAY:
 			case ANEWARRAY:
@@ -321,13 +345,16 @@ public class DependentValueInterpreter extends BasicInterpreter {
 			case IFNULL:
 			case IFNONNULL:
 			case TABLESWITCH:
-			case LOOKUPSWITCH:
+			case LOOKUPSWITCH:				
 				DependentValue cont = (DependentValue) value;
 				this.getSingleControls().put(insn, cont);
 				return null;
 			case CHECKCAST:
 				DependentValue checked = (DependentValue) value;
 				return checked;
+			case INSTANCEOF:
+				DependentValue instanceVal = (DependentValue) value;
+				return instanceVal;
 			default:
 				return super.unaryOperation(insn, value);
 		}
@@ -495,8 +522,8 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				DependentValue cont1 = (DependentValue) value1;
 				DependentValue cont2 = (DependentValue) value2;
 				
-				System.out.println("Val1: " + value1);
-				System.out.println("Val2: " + value2);
+				//System.out.println("Val1: " + value1);
+				//System.out.println("Val2: " + value2);
 				
 				/*boolean[] record = new boolean[2];
 				if (cont1.getInSrcs() == null || cont1.getInSrcs().size() == 0) {
@@ -517,7 +544,8 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				
 				DependentValue objRef = (DependentValue) value1;
 				DependentValue written = (DependentValue) value2;
-				boolean polluteInput = propagateDepToOwners(objRef, written);
+				Set<Integer> visited = new HashSet<Integer>();
+				boolean polluteInput = propagateDepToOwners(objRef, written, visited);
 				if (polluteInput) {
 					written.addOutSink(insn);
 				}
@@ -543,10 +571,11 @@ public class DependentValueInterpreter extends BasicInterpreter {
 		
 		//objRef.addDep(idx);
 		//objRef.addDep(val);
-		boolean polluteInput = this.propagateDepToOwners(objRef, val);
+		Set<Integer> visited = new HashSet<Integer>();
+		boolean polluteInput = this.propagateDepToOwners(objRef, val, visited);
 		if (polluteInput) {
 			val.addOutSink(insn);
-		} 
+		}
 		val.owner = objRef;
 		
 		return super.ternaryOperation(insn, val1, val2, val3);
@@ -564,7 +593,6 @@ public class DependentValueInterpreter extends BasicInterpreter {
 			case INVOKESPECIAL:
 			case INVOKEVIRTUAL:
 			case INVOKEINTERFACE:
-			case INVOKEDYNAMIC:
 				MethodInsnNode methodInst = (MethodInsnNode) insn;
 				Type retType = Type.getReturnType(methodInst.desc);
 				
@@ -583,18 +611,29 @@ public class DependentValueInterpreter extends BasicInterpreter {
 						ret.addDep(dvs.get(i));
 					}
 				}
-				
-				for (DependentValue dv: dvs) {
-					if (dv == null) {
-						//impossible
-						continue ;
-					}
-					
-					if (this.params.containsKey(dv.id) && dv.isReference()) {
-						dv.mightWritten = true;
-					}
-				}
+				/*
+				 * For each parameter of the method we are calling,
+				 * are any of the parameters outputs?
+				 * If so, then mark the value that flows into that parameter slot
+				 * as an output!
+				 */
 				return ret;
+			case INVOKEDYNAMIC:
+				//System.out.println("Capture invokedynamic");
+				InvokeDynamicInsnNode dynamicInsn = (InvokeDynamicInsnNode) insn;
+				//System.out.println("Name: " + dynamicInsn.name);
+				//System.out.println("Desc: " + dynamicInsn.desc);
+				//System.out.println("Bootstrap method: " + dynamicInsn.bsm);
+				//System.out.println("Args for bootstrapper");
+				/*for (Object o: dynamicInsn.bsmArgs) {
+					System.out.println(o.getClass() + " " + o);
+				}*/
+				Type dynRetType = Type.getReturnType(dynamicInsn.desc);
+				DependentValue dynRet = (DependentValue) newValue(dynRetType);
+				for (DependentValue dv: dvs) {
+					dynRet.addDep(dv);
+				}
+				return dynRet;
 			case MULTIANEWARRAY:
 				DependentValue mulArr = (DependentValue) newValue(Type.getType(((MultiANewArrayInsnNode) insn).desc));
 				dvs.forEach(dv->{
@@ -677,7 +716,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 			return v;
 		
 		BasicValue r = new DependentValue(Type.getType(Object.class));
-		System.out.println();
+		//System.out.println();
 		return r;
 	}
 }

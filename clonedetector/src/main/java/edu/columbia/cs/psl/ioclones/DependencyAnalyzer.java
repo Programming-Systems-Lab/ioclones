@@ -68,11 +68,6 @@ public class DependencyAnalyzer extends MethodVisitor {
 					}
 				}
 				Type returnType = Type.getReturnType(desc);
-				/*System.out.println("Args:");
-				for (Type t: args) {
-					System.out.println(t);
-				}
-				System.out.println("Return: " + returnType);*/
 				
 				DependentValueInterpreter dvi = new DependentValueInterpreter(args, returnType);
 				Analyzer a = new Analyzer(dvi);
@@ -128,7 +123,7 @@ public class DependencyAnalyzer extends MethodVisitor {
 					
 					Map<Integer, DependentValue> params = dvi.getParams();
 					System.out.println("Input param: " + params);
-					params.forEach((id, val)->{
+					params.forEach((id, val)->{						
 						if (val.getDeps() != null && val.getDeps().size() > 0) {
 							//This means that the input is an object that has been written
 							System.out.println("Dirty input val: " + val);
@@ -145,12 +140,6 @@ public class DependencyAnalyzer extends MethodVisitor {
 								} else {
 									logger.info("Visited value: " + d);
 								}
-								
-								/*if (d.getSrcs() != null && d.getSrcs().size() > 0) {
-									d.getSrcs().forEach(src-> {
-										this.instructions.insertBefore(src, new LdcInsnNode(OUTPUT_MSG));
-									});
-								}*/
 							});
 						}
 					});

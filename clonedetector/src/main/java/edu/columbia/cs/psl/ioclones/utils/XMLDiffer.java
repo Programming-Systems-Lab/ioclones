@@ -27,11 +27,11 @@ public class XMLDiffer {
 	private static final DifferenceEvaluator valEvaluator = new DifferenceEvaluator() {
 		@Override
 		public ComparisonResult evaluate(Comparison comparison, ComparisonResult outcome) {
-			//System.out.println("Check: " + outcome + " " + comparison.getType());
-			//System.out.println("Outcome: " + outcome);
-			//System.out.println("Comp. type: " + comparison.getType());
-			//System.out.println("Control: " + comparison.getControlDetails().getTarget());
-			//System.out.println("Test: " + comparison.getTestDetails().getTarget());
+			/*System.out.println("Check: " + outcome + " " + comparison.getType());
+			System.out.println("Outcome: " + outcome);
+			System.out.println("Comp. type: " + comparison.getType());
+			System.out.println("Control: " + comparison.getControlDetails().getTarget());
+			System.out.println("Test: " + comparison.getTestDetails().getTarget());*/
 			if (outcome == ComparisonResult.DIFFERENT) {
 				switch(comparison.getType()) {
 					case TEXT_VALUE:
