@@ -166,4 +166,92 @@ public class ClassInfoUtils {
 			logger.error("Error: ", ex);
 		}
 	}
+	
+	public static Set<Integer> summarizeMethod(String className, 
+			String methodKey, 
+			boolean isStatic, 
+			int level) {
+		Set<Integer> writtenParams = new TreeSet<Integer>();
+		ClassInfo ci = GlobalInfoRecorder.queryClassInfo(className);
+		if (ci == null) {
+			logger.error("Missed class: " + className);
+			System.exit(-1);
+		}
+		
+		if (isStatic) {
+			MethodInfo mi = ci.getMethods().get(methodKey);
+			if (mi != null) {
+				if (mi.getWriteParams() != null) {
+					writtenParams.addAll(mi.getWriteParams());
+				}
+			} else {
+				writtenParams.addAll(summarizeMethod(ci.getParent(), methodKey, isStatic, level));
+			}
+			return writtenParams;
+		}
+		
+		MethodInfo mi = ci.getMethods().get(methodKey);
+		if (mi != null) {
+			writtenParams.addAll(mi.getWriteParams());
+			level = mi.getLevel();
+		}
+		
+		//Climb up
+		if (ci.getParent() != null) {
+			writtenParams.addAll(searchUp(ci.getParent(), methodKey, level));
+		}
+		
+		//Go down
+		for (String child: ci.getChildren()) {
+			writtenParams.addAll(searchDown(child, methodKey, level));
+		}
+				
+		return writtenParams;
+	}
+	
+	public static Set<Integer> searchUp(String className, 
+			String methodKey, 
+			int level) {
+		ClassInfo ci = GlobalInfoRecorder.queryClassInfo(className);
+		MethodInfo mi = ci.getMethods().get(methodKey);
+		Set<Integer> ret = new TreeSet<Integer>();
+		if (mi != null && mi.getLevel() <= level && !mi.isFinal()) {
+			ret.addAll(mi.getWriteParams());
+		}
+		
+		if (ci.getParent() != null) {
+			if (mi == null)
+				ret.addAll(searchUp(ci.getParent(), methodKey, level));
+			else
+				ret.addAll(searchUp(ci.getParent(), methodKey, mi.getLevel()));
+		}
+		
+		return ret;
+	}
+	
+	public static Set<Integer> searchDown(String className, 
+			String methodKey, 
+			int level) {
+		ClassInfo ci = GlobalInfoRecorder.queryClassInfo(className);
+		MethodInfo mi = ci.getMethods().get(methodKey);
+		Set<Integer> ret = new TreeSet<Integer>();
+		if (mi != null && mi.getLevel() >= level) {
+			ret.addAll(mi.getWriteParams());
+		}
+		
+		if (mi != null) {
+			if (!mi.isFinal()) {
+				ci.getChildren().forEach(child->{
+					ret.addAll(searchDown(child, methodKey, mi.getLevel()));
+				});
+			}
+			
+		} else {
+			ci.getChildren().forEach(child->{
+				ret.addAll(searchDown(child, methodKey, level));
+			});
+		}
+		
+		return ret;
+	}
 }

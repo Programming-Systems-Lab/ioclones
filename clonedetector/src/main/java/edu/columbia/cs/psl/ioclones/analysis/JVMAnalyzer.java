@@ -18,8 +18,11 @@ import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
+import org.objectweb.asm.tree.AbstractInsnNode;
+import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.analysis.Analyzer;
+import org.objectweb.asm.tree.analysis.Frame;
 
 import edu.columbia.cs.psl.ioclones.utils.ClassInfoUtils;
 import edu.columbia.cs.psl.ioclones.utils.GlobalInfoRecorder;
@@ -69,18 +72,36 @@ public class JVMAnalyzer {
 						
 						this.className = ClassInfoUtils.cleanType(name);
 						logger.info("Name: " + this.className);
-						this.classInfo = new ClassInfo(this.className);
+						
+						this.classInfo = GlobalInfoRecorder.queryClassInfo(this.className);
+						if (this.classInfo == null) {
+							this.classInfo = new ClassInfo(this.className);
+							GlobalInfoRecorder.registerClassInfo(this.classInfo);
+						}
+						
 						if (superName != null) {
 							this.superName = ClassInfoUtils.cleanType(superName);
-							this.classInfo.addParent(this.superName);
+							ClassInfo superClass = GlobalInfoRecorder.queryClassInfo(this.superName);
+							if (superClass == null) {
+								superClass = new ClassInfo(this.superName);
+								GlobalInfoRecorder.registerClassInfo(superClass);
+							}
+							
+							this.classInfo.setParent(this.superName);
+							superClass.addChild(this.className);
 						}
 						
 						for (String inter: interfaces) {
 							inter = ClassInfoUtils.cleanType(inter);
-							this.classInfo.addParent(inter);
+							ClassInfo interClass = GlobalInfoRecorder.queryClassInfo(inter);
+							if (interClass == null) {
+								interClass = new ClassInfo(inter);
+								GlobalInfoRecorder.registerClassInfo(interClass);
+							}
+							
+							this.classInfo.addInterface(inter);
+							interClass.addChild(this.className);
 						}
-						
-						GlobalInfoRecorder.registerClassInfo(this.classInfo);
 					}
 					
 					@Override
@@ -92,19 +113,18 @@ public class JVMAnalyzer {
 						boolean isSynthetic = ClassInfoUtils.checkAccess(access, Opcodes.ACC_SYNTHETIC);
 						boolean isInterface = ClassInfoUtils.checkAccess(access, Opcodes.ACC_INTERFACE);
 						boolean isAbstract = ClassInfoUtils.checkAccess(access, Opcodes.ACC_ABSTRACT);
-						MethodVisitor mv = super.visitMethod(access, name, desc, signature, exceptions);
 						
-						if (isSynthetic) {
-							return mv;
-						} else if (name.equals("toString") && desc.equals("()Ljava/lang/String;")) {
+						MethodVisitor mv = super.visitMethod(access, name, desc, signature, exceptions);
+						if (name.equals("toString") && desc.equals("()Ljava/lang/String;")) {
 							return mv;
 						} else if (name.equals("equals") && desc.equals("(Ljava/lang/Object;)Z")) {
 							return mv;
 						} else if (name.equals("hashCode") && desc.equals("()I")) {
 							return mv;
-						} else if (isInterface || isAbstract) {
+						} else if (isSynthetic || isInterface || isAbstract) {
 							String[] parsed = ClassInfoUtils.genMethodKey(this.className, name, desc);
 							MethodInfo mi = new MethodInfo(parsed[0]);
+							mi.setLevel(MethodInfo.NO_CHECK);
 							this.classInfo.addMethod(mi);
 							return mv;
 						} else {
@@ -129,14 +149,22 @@ public class JVMAnalyzer {
 		Map<String, ClassInfo> allClasses = GlobalInfoRecorder.getClassInfo();
 		allClasses.forEach((name, clazz)->{
 			System.out.println("Class name: " + clazz.getClassName());
-			clazz.getMethods().forEach((mName, m)->{
-				TreeSet<Integer> writtenParam = m.getWriteParams();
-				if (writtenParam != null && writtenParam.size() > 0) {
-					System.out.println("Direct writer: " + m.getMethodName());
-					System.out.println("Written params: " + m.getWriteParams());
+			
+			Map<String, MethodInfo> methods = clazz.getMethods();
+			for (MethodInfo method: methods.values()) {
+				if (method.summarized) {
+					continue ;
 				}
-			});
-		}); 
+				
+				TreeSet<Integer> writtenParam = method.getWriteParams();
+				if (writtenParam != null && writtenParam.size() > 0) {
+					System.out.println("Direct writer: " + method.getMethodKey());
+					System.out.println("Written params: " + method.getWriteParams());
+				}
+			}
+		});
+		
+		//Start to summarize the methods with their callees...
 	}
 	
 	public static class WriterExplorer extends MethodVisitor {
@@ -149,7 +177,7 @@ public class JVMAnalyzer {
 		
 		public String desc;
 		
-		public Map<Integer, Boolean> paramMap = new HashMap<Integer, Boolean>();
+		//public Map<Integer, Boolean> paramMap = new HashMap<Integer, Boolean>();
 		
 		public WriterExplorer(MethodVisitor mv, 
 				int access, 
@@ -157,7 +185,7 @@ public class JVMAnalyzer {
 				String methodName, 
 				String desc, 
 				String signature, 
-				String[] exceptions, 
+				String[] exceptions,
 				ClassInfo ownerClass) {
 			super(Opcodes.ASM5, new MethodNode(Opcodes.ASM5, 
 					access, 
@@ -167,11 +195,49 @@ public class JVMAnalyzer {
 					exceptions) {
 				
 				@Override
+				public void visitMethodInsn(int opcode, 
+						String owner, 
+						String name, 
+						String desc, 
+						boolean itf) {
+					super.visitMethodInsn(opcode, owner, methodName, desc, itf);
+					if (owner.equals("java.lang.Object") && name.equals("<init>")) {
+						return ;
+					}
+					
+					if (opcode == Opcodes.INVOKESTATIC) {
+						
+					}
+				}
+				
+				@Override
 				public void visitEnd() {
 					String[] parsed = ClassInfoUtils.genMethodKey(className, methodName, this.desc);
 					String methodKey = parsed[0];
+					
+					boolean isFinal = ClassInfoUtils.checkAccess(access, Opcodes.ACC_FINAL);
+					int level = -1;
+					boolean isPublic = ClassInfoUtils.checkAccess(access, Opcodes.ACC_PUBLIC);
+					if (!isPublic) {
+						boolean isProtected = ClassInfoUtils.checkAccess(access, Opcodes.ACC_PROTECTED);
+						if (!isProtected) {
+							boolean isPrivate = ClassInfoUtils.checkAccess(access, Opcodes.ACC_PRIVATE);
+							if (!isPrivate) {
+								level = MethodInfo.DEFAULT;
+							} else {
+								level = MethodInfo.PRIVATE;
+							}
+						} else {
+							level = MethodInfo.PROTECTED;
+						}
+					} else {
+						level = MethodInfo.PUBLIC;
+					}
+					
 					logger.info("Method key: " + methodKey);
 					MethodInfo info = new MethodInfo(methodKey);
+					info.setLevel(level);
+					info.setFinal(isFinal);
 					ownerClass.addMethod(info);
 					
 					boolean isStatic = ClassInfoUtils.checkAccess(this.access, Opcodes.ACC_STATIC);
@@ -191,12 +257,31 @@ public class JVMAnalyzer {
 					DependentValueInterpreter dvi = new DependentValueInterpreter(args, returnType);
 					Analyzer a = new Analyzer(dvi);
 					try {
-						a.analyze(className, this);
+						Frame[] fr = a.analyze(className, this);
 						for (int i = 0; i < dvi.getParamList().size(); i++) {
 							DependentValue val = dvi.getParamList().get(i);
 							if (val.written) {
 								info.addWriteParams(i);
 							}
+						}
+						
+						AbstractInsnNode insn = this.instructions.getFirst();
+						while (insn != null) {
+							if (insn instanceof MethodInsnNode) {
+								MethodInsnNode methodInsn = (MethodInsnNode) insn;
+								List<String> callee = new ArrayList<String>();
+								callee.add(methodInsn.owner);
+								callee.add(methodInsn.name);
+								callee.add(methodInsn.desc);
+								
+								if (methodInsn.getOpcode() == Opcodes.INVOKESTATIC) {
+									info.addStaticCallee(callee);
+								} else {
+									info.addCallee(callee);
+								}
+							}
+							
+							insn = insn.getNext();
 						}
 					} catch (Exception ex) {
 						logger.info("Error: ", ex);
@@ -210,7 +295,9 @@ public class JVMAnalyzer {
 		
 		private String className;
 		
-		private List<String> parents = new ArrayList<String>();
+		private String parent;
+		
+		private List<String> interfaces = new ArrayList<String>();
 		
 		private List<String> children = new ArrayList<String>();
 		
@@ -224,12 +311,20 @@ public class JVMAnalyzer {
 			return this.className;
 		}
 		
-		public void addParent(String parent) {
-			this.parents.add(parent);
+		public void setParent(String parent) {
+			this.parent = parent;
 		}
 		
-		public List<String> getParents() {
-			return parents;
+		public String getParent() {
+			return this.parent;
+		}
+		
+		public void addInterface(String inter) {
+			this.interfaces.add(inter);
+		}
+		
+		public List<String> getInterfaces() {
+			return this.interfaces;
 		}
 		
 		public void addChild(String child) {
@@ -241,7 +336,7 @@ public class JVMAnalyzer {
 		}
 		
 		public void addMethod(MethodInfo method) {
-			this.methods.put(method.getMethodName(), method);
+			this.methods.put(method.getMethodKey(), method);
 		}
 		
 		public Map<String, MethodInfo> getMethods() {
@@ -251,27 +346,39 @@ public class JVMAnalyzer {
 	
 	public static class MethodInfo {
 		
-		public transient boolean visited = false;
+		public static final int NO_CHECK = 0;
 		
-		private String methodName;
+		public static final int PUBLIC = 1;
 		
-		private TreeSet<Integer> writeParams;
+		public static final int PROTECTED = 2;
 		
-		private Set<String> callees;
+		public static final int DEFAULT = 3;
 		
-		public MethodInfo(String methodName) {
-			this.methodName = methodName;
+		public static final int PRIVATE = 4;
+		
+		public transient boolean summarized = false;
+		
+		private String methodKey;
+		
+		private TreeSet<Integer> writeParams = new TreeSet<Integer>();
+		
+		private Set<List<String>> staticCallees = new HashSet<List<String>>();
+		
+		private Set<List<String>> callees = new HashSet<List<String>>();
+		
+		private int level = -1;
+		
+		private boolean isFinal = false;
+		
+		public MethodInfo(String methodKey) {
+			this.methodKey = methodKey;
 		}
 		
-		public String getMethodName() {
-			return this.methodName;
+		public String getMethodKey() {
+			return this.methodKey;
 		}
 		
-		public void addWriteParams(int paramId) {
-			if (this.writeParams == null) {
-				this.writeParams = new TreeSet<Integer>();
-			}
-			
+		public void addWriteParams(int paramId) {			
 			this.writeParams.add(paramId);
 		}
 		
@@ -279,15 +386,36 @@ public class JVMAnalyzer {
 			return this.writeParams;
 		}
 		
-		public void addCallee(String callee) {
-			if (this.callees == null) {
-				this.callees = new HashSet<String>();
-			}
+		public void addStaticCallee(List<String> staticCallee) {
+			this.staticCallees.add(staticCallee);
+		}
+		
+		public Set<List<String>> getStaticCallees() {
+			return this.staticCallees;
+		}
+		
+		public void addCallee(List<String> callee) {
 			this.callees.add(callee);
 		}
 		
-		public Set<String> getCallees() {
+		public Set<List<String>> getCallees() {
 			return this.callees;
+		}
+		
+		public void setLevel(int level) {
+			this.level = level;
+		}
+		
+		public int getLevel() {
+			return this.level;
+		}
+		
+		public void setFinal(boolean isFinal) {
+			this.isFinal = isFinal;
+		}
+		
+		public boolean isFinal() {
+			return isFinal;
 		}
 	}
 }
