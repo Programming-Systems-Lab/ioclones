@@ -24,6 +24,8 @@ import org.objectweb.asm.tree.analysis.AnalyzerException;
 import org.objectweb.asm.tree.analysis.BasicInterpreter;
 import org.objectweb.asm.tree.analysis.BasicValue;
 
+import edu.columbia.cs.psl.ioclones.pojo.CalleeRecord;
+import edu.columbia.cs.psl.ioclones.pojo.MethodInfo;
 import edu.columbia.cs.psl.ioclones.utils.ClassInfoUtils;
 
 
@@ -38,8 +40,9 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	private boolean initParams = false;
 	
 	private boolean objDep = false;
-		
-	//private Set<Integer> params = new HashSet<Integer>();
+	
+	private MethodInfo mi;
+	
 	private Map<Integer, DependentValue> params = new HashMap<Integer, DependentValue>();
 	
 	private List<DependentValue> paramList = new ArrayList<DependentValue>();
@@ -50,12 +53,13 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	
 	private Map<AbstractInsnNode, DependentValue> singelControls = new HashMap<AbstractInsnNode, DependentValue>();
 	
-	public DependentValueInterpreter(Type[] args, Type retType) {
+	public DependentValueInterpreter(Type[] args, Type retType, MethodInfo mi) {
 		if (retType.getSort() == Type.VOID) {
 			this.initParams = true;
 		}
 		
 		this.allTypes = args;
+		this.mi = mi;
 	}
 	
 	public boolean propagateDepToOwners(DependentValue owner, 
@@ -97,6 +101,17 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	
 	public Map<AbstractInsnNode, DependentValue> getSingleControls() {
 		return this.singelControls;
+	}
+	
+	public int queryInputParamIndex(int symbolicId) {
+		for (int i = 0; i < this.paramList.size(); i++) {
+			DependentValue dv = this.paramList.get(i);
+			if (dv.id == symbolicId) {
+				return i;
+			}
+		}
+		
+		return -1;
 	}
 		
 	@Override
@@ -522,17 +537,6 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				DependentValue cont1 = (DependentValue) value1;
 				DependentValue cont2 = (DependentValue) value2;
 				
-				//System.out.println("Val1: " + value1);
-				//System.out.println("Val2: " + value2);
-				
-				/*boolean[] record = new boolean[2];
-				if (cont1.getInSrcs() == null || cont1.getInSrcs().size() == 0) {
-					record[0] = true;
-				}
-				
-				if (cont2.getInSrcs() == null || cont2.getInSrcs().size() == 0) {
-					record[1] = false;
-				}*/
 				DependentValue[] record = {cont1, cont2};
 				this.doubleControls.put(insn, record);
 				
@@ -601,7 +605,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				if (ret == null || dvs == null || dvs.size() == 0) {
 					return ret; 
 				}
-				
+								
 				if (this.objDep || insn.getOpcode() == INVOKESTATIC) {
 					for (DependentValue dv: dvs) {
 						ret.addDep(dv);
@@ -611,23 +615,55 @@ public class DependentValueInterpreter extends BasicInterpreter {
 						ret.addDep(dvs.get(i));
 					}
 				}
+				
+				if (methodInst.owner.equals("java/lang/Object") && methodInst.name.equals("<init>")) {
+					return ret;
+				} else if (methodInst.name.equals("toString") && methodInst.desc.equals("()Ljava/lang/String;")) {
+					return ret;
+				} else if (methodInst.name.equals("equals") && methodInst.desc.equals("(Ljava/lang/Object;)Z")) {
+					return ret;
+				} else if (methodInst.name.equals("hashCode") && methodInst.desc.equals("()I")) {
+					return ret;
+				}
+				
 				/*
 				 * For each parameter of the method we are calling,
 				 * are any of the parameters outputs?
 				 * If so, then mark the value that flows into that parameter slot
 				 * as an output!
 				 */
+				
+				Map<Integer, DependentValue> bridge = null;
+				for (int i = 0; i < dvs.size(); i++) {
+					DependentValue dv = dvs.get(i);
+					if (dv.isReference() && this.params.containsKey(dv.id)) {
+						Type dvType = dv.getType();
+						if (!ClassInfoUtils.isImmutable(dvType)) {
+							//Which param?
+							//int callerParam = this.queryInputParamIndex(dv.id);
+							if (bridge == null) {
+								bridge = new HashMap<Integer, DependentValue>();
+							}
+							bridge.put(i, dv);
+						}
+					}
+				}
+				
+				if (bridge != null) {
+					String calleeKey = ClassInfoUtils.genMethodKey(methodInst.owner, methodInst.name, methodInst.desc)[0];
+					CalleeRecord cr = new CalleeRecord(calleeKey);
+					cr.setCalleeCallerBridge(bridge);
+					
+					if (opcode == INVOKESPECIAL || opcode == INVOKESTATIC) {
+						mi.addFixedCallee(cr);
+					} else {
+						mi.addFloatingCallee(cr);
+					}
+				}
+				
 				return ret;
 			case INVOKEDYNAMIC:
-				//System.out.println("Capture invokedynamic");
 				InvokeDynamicInsnNode dynamicInsn = (InvokeDynamicInsnNode) insn;
-				//System.out.println("Name: " + dynamicInsn.name);
-				//System.out.println("Desc: " + dynamicInsn.desc);
-				//System.out.println("Bootstrap method: " + dynamicInsn.bsm);
-				//System.out.println("Args for bootstrapper");
-				/*for (Object o: dynamicInsn.bsmArgs) {
-					System.out.println(o.getClass() + " " + o);
-				}*/
 				Type dynRetType = Type.getReturnType(dynamicInsn.desc);
 				DependentValue dynRet = (DependentValue) newValue(dynRetType);
 				for (DependentValue dv: dvs) {

@@ -18,8 +18,8 @@ import org.apache.logging.log4j.Logger;
 
 import com.google.gson.reflect.TypeToken;
 
-import edu.columbia.cs.psl.ioclones.analysis.JVMAnalyzer.ClassInfo;
 import edu.columbia.cs.psl.ioclones.config.IOCloneConfig;
+import edu.columbia.cs.psl.ioclones.pojo.ClassInfo;
 import edu.columbia.cs.psl.ioclones.pojo.IORecord;
 
 public class GlobalInfoRecorder {

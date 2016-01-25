@@ -1,0 +1,186 @@
+package edu.columbia.cs.psl.ioclones.analysis;
+
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.Map;
+import java.util.Set;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.tree.AbstractInsnNode;
+import org.objectweb.asm.tree.InsnList;
+import org.objectweb.asm.tree.LdcInsnNode;
+import org.objectweb.asm.tree.analysis.Frame;
+
+import edu.columbia.cs.psl.ioclones.DependencyAnalyzer;
+
+public class SymbolicValueAnalyzer {
+	
+	private static final Logger logger = LogManager.getLogger(SymbolicValueAnalyzer.class);
+	
+	public static void analyzeValue(Frame[] frames, 
+			InsnList insts, 
+			DependentValueInterpreter dvi) {
+		
+		//1st round, collect vals relevant to outputs
+		Map<DependentValue, LinkedList<DependentValue>> ios = 
+				new HashMap<DependentValue, LinkedList<DependentValue>>();
+		AbstractInsnNode insn = insts.getFirst();
+		int i = 0;					
+		while(insn != null) {
+			Frame fn = frames[i];
+			if(fn != null) {							
+				//does this insn create output?
+				switch(insn.getOpcode()) {
+					//The outputs are values exit after the method ends
+					//Include return value and values written to input objs
+					case Opcodes.IRETURN:
+					case Opcodes.LRETURN:
+					case Opcodes.FRETURN:
+					case Opcodes.DRETURN:
+					case Opcodes.ARETURN:
+					case Opcodes.PUTSTATIC:
+						//What are we returning?
+						DependentValue retVal = (DependentValue)fn.getStack(fn.getStackSize() - 1);
+						LinkedList<DependentValue> toOutput = retVal.tag();
+						retVal.addOutSink(insn);
+						
+						//The first will be the ret itself
+						if (toOutput.size() == 0) {
+							//This means that this output has been analyzed before (merge)
+							logger.warn("Visited val: " + retVal);
+							logger.warn("Corresponding inst: " + insn);
+						} else {
+							toOutput.removeFirst();
+							ios.put(retVal, toOutput);
+						}
+						
+						System.out.println("Output val with inst: " + retVal + " " + insn);
+						System.out.println("Dependent val: " + toOutput);
+						break;									
+				}
+			}
+			i++;
+			insn = insn.getNext();
+		}
+		
+		Map<Integer, DependentValue> params = dvi.getParams();
+		System.out.println("Input param: " + params);
+		params.forEach((id, val)->{						
+			if (val.getDeps() != null && val.getDeps().size() > 0) {
+				//This means that the input is an object that has been written
+				System.out.println("Dirty input val: " + val);
+				
+				val.getDeps().forEach(d->{
+					System.out.println("Written to input (output): " + d + " " + d.getInSrcs());
+					LinkedList<DependentValue> toOutput = d.tag();
+					
+					if (toOutput.size() > 0) {
+						//The first will be d itself
+						toOutput.removeFirst();
+						ios.put(d, toOutput);
+						System.out.println("Dependent val: " + toOutput);
+					} else {
+						logger.info("Visited value: " + d);
+					}
+				});
+			}
+		});
+		
+		Set<Integer> touched = new HashSet<Integer>();
+		Set<AbstractInsnNode> visitedInInsns = new HashSet<AbstractInsnNode>();
+							
+		System.out.println("Output number: " + ios.size());
+		for (DependentValue o: ios.keySet()) {
+			System.out.println("Output: " + o);
+			LinkedList<DependentValue> inputs = ios.get(o);
+			
+			//If o's out sinks are null, something wrong
+			if (o.getOutSinks() != null) {
+				o.getOutSinks().forEach(sink->{
+					insts.insertBefore(sink, new LdcInsnNode(DependencyAnalyzer.OUTPUT_MSG));
+				});
+				touched.add(o.id);
+				
+				//In case the input and output are the same value
+				if (o.getInSrcs() != null) {
+					System.out.println("I is O: " + o);
+					/*o.getInSrcs().forEach(src->{
+						if (!visitedInInsns.contains(src)) {
+							this.instructions.insertBefore(src, new LdcInsnNode(INPUT_MSG));
+							visitedInInsns.add(src);
+						}
+					});*/
+				}
+				
+				if (inputs != null) {
+					for (DependentValue input: inputs) {
+						if (input.getInSrcs() == null 
+								|| input.getInSrcs().size() == 0) {
+							continue ;
+						}
+						
+						input.getInSrcs().forEach(src->{
+							if (!visitedInInsns.contains(src)) {
+								insts.insertBefore(src, new LdcInsnNode(DependencyAnalyzer.OUTPUT_MSG));
+								visitedInInsns.add(src);
+							}
+						});
+						touched.add(input.id);
+					}
+				}
+			} else {
+				logger.warn("Empty inst for output: " + o);
+			}
+		}
+		
+		//Include only when there is a output has been identified
+		if (ios.size() > 0) {
+			//Need to analyze which control instruction should be recorded
+			//blockAnalyzer.insertGuide(controlTarget);
+			//Jumps will affect outputs
+			logger.info("Cand. single controls: " + dvi.getSingleControls().size());
+			dvi.getSingleControls().forEach((sc, val)->{
+				if (recordControl(val, touched)) {
+					insts.insertBefore(sc, new LdcInsnNode(DependencyAnalyzer.INPUT_MSG));
+				}
+			});
+			
+			logger.info("Cand. double controls: " + dvi.getDoubleControls().size());
+			dvi.getDoubleControls().forEach((dc, vals)->{
+				boolean[] record = {false, false};
+				for (int k = 0; k < vals.length; k++) {
+					DependentValue dVal = vals[k];
+					if (recordControl(dVal, touched)) {
+						record[k] = true;
+					}
+				}
+				
+				if (record[0] && record[1]) {
+					insts.insertBefore(dc, new LdcInsnNode(DependencyAnalyzer.INPUT_COPY_2_MSG));
+				} else if (record[0]) {
+					insts.insertBefore(dc, new LdcInsnNode(DependencyAnalyzer.INPUT_COPY_0_MSG));
+				} else if (record[1]) {
+					insts.insertBefore(dc, new LdcInsnNode(DependencyAnalyzer.INPUT_COPY_1_MSG));
+				}
+			});
+		}
+	}
+	
+	public static boolean recordControl(DependentValue val, Set<Integer> touched) {
+		//if val has no src, leave it to control
+		if (val.getInSrcs() == null || val.getInSrcs().size() == 0) {
+			return true;
+		}
+		
+		//If val is relevant to output, it will be recorded...
+		if (!touched.contains(val.id)) {
+			return true;
+		}
+		
+		return false;
+	}
+
+}

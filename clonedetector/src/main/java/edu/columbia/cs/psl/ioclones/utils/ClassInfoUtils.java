@@ -3,7 +3,10 @@ package edu.columbia.cs.psl.ioclones.utils;
 import java.io.File;
 import java.io.InputStream;
 import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.jar.JarEntry;
@@ -15,8 +18,9 @@ import org.junit.internal.MethodSorter;
 import org.objectweb.asm.Type;
 
 import edu.columbia.cs.psl.ioclones.analysis.DependentValue;
-import edu.columbia.cs.psl.ioclones.analysis.JVMAnalyzer.ClassInfo;
-import edu.columbia.cs.psl.ioclones.analysis.JVMAnalyzer.MethodInfo;
+import edu.columbia.cs.psl.ioclones.pojo.CalleeRecord;
+import edu.columbia.cs.psl.ioclones.pojo.ClassInfo;
+import edu.columbia.cs.psl.ioclones.pojo.MethodInfo;
 
 public class ClassInfoUtils {
 	
@@ -29,6 +33,31 @@ public class ClassInfoUtils {
 	private static final Set<String> BLACK_PREFIX = IOUtils.blackPrefix();
 	
 	private static final File libDir = new File(System.getProperty("user.home") + "/.m2");
+	
+	private static final Set<Type> immutables = new HashSet<Type>();
+	
+	private static final Map<String, Set<Integer>> paramCache = new HashMap<String, Set<Integer>>();
+	
+	static {
+		Type stringType = Type.getType(String.class);
+		immutables.add(stringType);
+		Type intType = Type.getType(Integer.class);
+		immutables.add(intType);
+		Type doubleType = Type.getType(Double.class);
+		immutables.add(doubleType);
+		Type floatType = Type.getType(Float.class);
+		immutables.add(floatType);
+		Type longType = Type.getType(Long.class);
+		immutables.add(longType);
+		Type shortType = Type.getType(Short.class);
+		immutables.add(shortType);
+		Type byteType = Type.getType(Byte.class);
+		immutables.add(byteType);
+		Type booleanType = Type.getType(Boolean.class);
+		immutables.add(booleanType);
+		Type charType = Type.getType(Character.class);
+		immutables.add(charType);
+	}
 	
 	public static String genClassFieldKey(String className, String fieldName) {
 		return className + DELIM + fieldName;
@@ -167,10 +196,40 @@ public class ClassInfoUtils {
 		}
 	}
 	
-	public static Set<Integer> summarizeMethod(String className, 
+	public static boolean isImmutable(Type t) {
+		return immutables.contains(t);
+	}
+	
+	public static void stabelizeMethod(MethodInfo method) {
+		method.stabelized = true;
+		
+		for (CalleeRecord ci: method.getFixedCallees()) {
+			String calleeKey = ci.getMethodKey();
+			String className = calleeKey.split(ClassInfoUtils.RE_SLASH)[0];
+			
+			Map<Integer, DependentValue> calleeCallerBridge = ci.getCalleeCallerBridge(); 
+			
+			//level here does not matter
+			Set<Integer> writtenParams = ClassInfoUtils.queryMethod(className, 
+					calleeKey, 
+					true, MethodInfo.PUBLIC);
+			
+			calleeCallerBridge.forEach((ce, cr)->{
+				if (writtenParams.contains(ce)) {
+					
+				}
+			});
+		}
+	}
+	
+	public static Set<Integer> queryMethod(String className, 
 			String methodKey, 
-			boolean isStatic, 
+			boolean isFixed, 
 			int level) {
+		if (paramCache.containsKey(methodKey)) {
+			return paramCache.get(methodKey);
+		}
+		
 		Set<Integer> writtenParams = new TreeSet<Integer>();
 		ClassInfo ci = GlobalInfoRecorder.queryClassInfo(className);
 		if (ci == null) {
@@ -178,20 +237,30 @@ public class ClassInfoUtils {
 			System.exit(-1);
 		}
 		
-		if (isStatic) {
+		if (isFixed) {
 			MethodInfo mi = ci.getMethods().get(methodKey);
 			if (mi != null) {
-				if (mi.getWriteParams() != null) {
+				if (!mi.stabelized) {
+					stabelizeMethod(mi);
+				}
+				
+				if (mi.getWriteParams().size() > 0) {
 					writtenParams.addAll(mi.getWriteParams());
 				}
 			} else {
-				writtenParams.addAll(summarizeMethod(ci.getParent(), methodKey, isStatic, level));
+				writtenParams.addAll(queryMethod(ci.getParent(), methodKey, isFixed, level));
 			}
+			paramCache.put(methodKey, writtenParams);
+			
 			return writtenParams;
 		}
 		
 		MethodInfo mi = ci.getMethods().get(methodKey);
 		if (mi != null) {
+			if (!mi.stabelized) {
+				stabelizeMethod(mi);
+			}
+			
 			writtenParams.addAll(mi.getWriteParams());
 			level = mi.getLevel();
 		}
@@ -205,17 +274,23 @@ public class ClassInfoUtils {
 		for (String child: ci.getChildren()) {
 			writtenParams.addAll(searchDown(child, methodKey, level));
 		}
-				
+		paramCache.put(methodKey, writtenParams);
+		
 		return writtenParams;
 	}
 	
 	public static Set<Integer> searchUp(String className, 
 			String methodKey, 
-			int level) {
+			int level) {	
 		ClassInfo ci = GlobalInfoRecorder.queryClassInfo(className);
 		MethodInfo mi = ci.getMethods().get(methodKey);
+				
 		Set<Integer> ret = new TreeSet<Integer>();
 		if (mi != null && mi.getLevel() <= level && !mi.isFinal()) {
+			if (!mi.stabelized) {
+				stabelizeMethod(mi);
+			}
+			
 			ret.addAll(mi.getWriteParams());
 		}
 		
@@ -236,6 +311,10 @@ public class ClassInfoUtils {
 		MethodInfo mi = ci.getMethods().get(methodKey);
 		Set<Integer> ret = new TreeSet<Integer>();
 		if (mi != null && mi.getLevel() >= level) {
+			if (!mi.stabelized) {
+				stabelizeMethod(mi);
+			}
+			
 			ret.addAll(mi.getWriteParams());
 		}
 		

@@ -14,12 +14,12 @@ public class DependentValue extends BasicValue {
 	public static final BasicValue NULL_VALUE = new BasicValue(Type.getType("Lnull;"));
 	
 	private static int idCounter;
-
+	
+	public transient boolean written = false;
+	
 	private boolean flowsToOutput;
 	
 	public transient DependentValue owner;
-	
-	public transient boolean written = false;
 	
 	private HashSet<DependentValue> deps;
 	

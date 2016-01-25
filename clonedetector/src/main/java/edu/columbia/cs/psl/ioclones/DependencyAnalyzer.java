@@ -69,13 +69,12 @@ public class DependencyAnalyzer extends MethodVisitor {
 				}
 				Type returnType = Type.getReturnType(desc);
 				
-				DependentValueInterpreter dvi = new DependentValueInterpreter(args, returnType);
+				DependentValueInterpreter dvi = new DependentValueInterpreter(args, returnType, null);
 				Analyzer a = new Analyzer(dvi);
 				try {				
 					Frame[] fr = a.analyze(className, this);
 															
 					//1st round, collect vals relevant to outputs
-					//LinkedList<DependentValue> inputs = new LinkedList<DependentValue>();
 					Map<DependentValue, LinkedList<DependentValue>> ios = 
 							new HashMap<DependentValue, LinkedList<DependentValue>>();
 					AbstractInsnNode insn = this.instructions.getFirst();
