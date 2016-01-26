@@ -2,6 +2,7 @@ package edu.columbia.cs.psl.ioclones.pojo;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -24,13 +25,15 @@ public class MethodInfo {
 	
 	public transient boolean stabelized = false;
 	
+	public TreeSet<Integer> flowToRet;
+	
+	public TreeSet<Integer> flowToStatic;
+	
+	public Map<Integer, TreeSet<Integer>> writtenToInputs;
+	
 	private String methodKey;
 	
-	private TreeSet<Integer> writeParams = new TreeSet<Integer>();
-	
-	private Set<CalleeRecord> fixedCallees = new HashSet<CalleeRecord>();
-	
-	private Set<CalleeRecord> floatingCallees = new HashSet<CalleeRecord>();
+	private Set<CalleeRecord> callees = new HashSet<CalleeRecord>();
 	
 	public transient InsnList insts;
 	
@@ -50,28 +53,12 @@ public class MethodInfo {
 		return this.methodKey;
 	}
 	
-	public void addWriteParams(int paramId) {			
-		this.writeParams.add(paramId);
+	public void addCallee(CalleeRecord callee) {
+		this.callees.add(callee);
 	}
 	
-	public TreeSet<Integer> getWriteParams() {
-		return this.writeParams;
-	}
-	
-	public void addFixedCallee(CalleeRecord fixedCallee) {
-		this.fixedCallees.add(fixedCallee);
-	}
-	
-	public Set<CalleeRecord> getFixedCallees() {
-		return this.fixedCallees;
-	}
-	
-	public void addFloatingCallee(CalleeRecord floatingCallee) {
-		this.floatingCallees.add(floatingCallee);
-	}
-	
-	public Set<CalleeRecord> getFloatingCallees() {
-		return this.floatingCallees;
+	public Set<CalleeRecord> getCallees() {
+		return this.callees;
 	}
 	
 	public void setLevel(int level) {

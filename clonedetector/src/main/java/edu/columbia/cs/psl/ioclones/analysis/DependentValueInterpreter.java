@@ -6,6 +6,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -25,33 +26,35 @@ import org.objectweb.asm.tree.analysis.BasicInterpreter;
 import org.objectweb.asm.tree.analysis.BasicValue;
 
 import edu.columbia.cs.psl.ioclones.pojo.CalleeRecord;
+import edu.columbia.cs.psl.ioclones.pojo.ClassInfo;
 import edu.columbia.cs.psl.ioclones.pojo.MethodInfo;
 import edu.columbia.cs.psl.ioclones.utils.ClassInfoUtils;
+import edu.columbia.cs.psl.ioclones.utils.GlobalInfoRecorder;
 
 
 public class DependentValueInterpreter extends BasicInterpreter {
 		
 	private static Logger logger = LogManager.getLogger(DependentValueInterpreter.class);
 		
-	private Type[] allTypes;
+	protected Type[] allTypes;
 	
-	private int initValCount = 0;
+	protected int initValCount = 0;
 	
-	private boolean initParams = false;
+	protected boolean initParams = false;
 	
-	private boolean objDep = false;
+	protected boolean objDep = false;
 	
-	private MethodInfo mi;
+	protected MethodInfo mi;
 	
-	private Map<Integer, DependentValue> params = new HashMap<Integer, DependentValue>();
+	protected Map<Integer, DependentValue> params = new HashMap<Integer, DependentValue>();
 	
-	private List<DependentValue> paramList = new ArrayList<DependentValue>();
+	protected List<DependentValue> paramList = new ArrayList<DependentValue>();
 	
-	private Map<Integer, DependentValue> convertMap = new HashMap<Integer, DependentValue>();
+	protected Map<Integer, DependentValue> convertMap = new HashMap<Integer, DependentValue>();
 	
-	private Map<AbstractInsnNode, DependentValue[]> doubleControls = new HashMap<AbstractInsnNode, DependentValue[]>();
+	protected Map<AbstractInsnNode, DependentValue[]> doubleControls = new HashMap<AbstractInsnNode, DependentValue[]>();
 	
-	private Map<AbstractInsnNode, DependentValue> singelControls = new HashMap<AbstractInsnNode, DependentValue>();
+	protected Map<AbstractInsnNode, DependentValue> singelControls = new HashMap<AbstractInsnNode, DependentValue>();
 	
 	public DependentValueInterpreter(Type[] args, Type retType, MethodInfo mi) {
 		if (retType.getSort() == Type.VOID) {
@@ -76,7 +79,6 @@ public class DependentValueInterpreter extends BasicInterpreter {
 		visited.add(owner.id);
 		
 		if (fromInputParams) {
-			this.params.get(owner.id).written = true;
 			return true;
 		}
 		
@@ -112,6 +114,24 @@ public class DependentValueInterpreter extends BasicInterpreter {
 		}
 		
 		return -1;
+	}
+	
+	public void inferInputParamIndices(DependentValue dv, TreeSet<Integer> record) {
+		if (dv == null) {
+			return ;
+		}
+		
+		if (this.params.containsKey(dv.id)) {
+			record.add(this.queryInputParamIndex(dv.id));
+		}
+		
+		if (dv.getDeps() == null) {
+			return ;
+		}
+		
+		for (DependentValue dep: dv.getDeps()) {
+			inferInputParamIndices(dep, record);
+		}
 	}
 		
 	@Override
@@ -601,11 +621,55 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				Type retType = Type.getReturnType(methodInst.desc);
 				
 				DependentValue ret = (DependentValue) newValue(retType);
-								
+				
+				if (methodInst.owner.equals("java/lang/Object") && methodInst.name.equals("<init>")) {
+					return ret;
+				} else if (methodInst.name.equals("toString") && methodInst.desc.equals("()Ljava/lang/String;")) {
+					if (this.objDep) {
+						ret.addDep(dvs.get(0));
+					}
+					return ret;
+				} else if (methodInst.name.equals("equals") && methodInst.desc.equals("(Ljava/lang/Object;)Z")) {
+					if (this.objDep) {
+						ret.addDep(dvs.get(0));
+						ret.addDep(dvs.get(1));
+					} else {
+						ret.addDep(dvs.get(1));
+					}
+					return ret;
+				} else if (methodInst.name.equals("hashCode") && methodInst.desc.equals("()I")) {
+					if (this.objDep) {
+						ret.addDep(dvs.get(0));
+					}
+					
+					return ret;
+				}
+				
+				String className = ClassInfoUtils.cleanType(methodInst.owner);
+				String methodKey = ClassInfoUtils.genMethodKey(methodInst.owner, methodInst.name, methodInst.desc)[0];
+				Map<Integer, TreeSet<Integer>> writtenRelations = null;
+				if (opcode == INVOKESTATIC || opcode == INVOKESPECIAL) {
+					writtenRelations = ClassInfoUtils.queryMethod(className, methodKey, true, MethodInfo.PUBLIC);
+				} else {
+					writtenRelations = ClassInfoUtils.queryMethod(className, methodKey, false, MethodInfo.PUBLIC);
+				}
+				
+				if (writtenRelations.size() > 0) {
+					for (Integer writtenIdx: writtenRelations.keySet()) {
+						DependentValue written = dvs.get(writtenIdx);
+						
+						TreeSet<Integer> flowToWritten = writtenRelations.get(writtenIdx);
+						flowToWritten.forEach(fw->{
+							DependentValue dep = dvs.get(fw);
+							written.addDep(dep);
+						});
+					}
+				}
+				
 				if (ret == null || dvs == null || dvs.size() == 0) {
 					return ret; 
 				}
-								
+				
 				if (this.objDep || insn.getOpcode() == INVOKESTATIC) {
 					for (DependentValue dv: dvs) {
 						ret.addDep(dv);
@@ -615,52 +679,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 						ret.addDep(dvs.get(i));
 					}
 				}
-				
-				if (methodInst.owner.equals("java/lang/Object") && methodInst.name.equals("<init>")) {
-					return ret;
-				} else if (methodInst.name.equals("toString") && methodInst.desc.equals("()Ljava/lang/String;")) {
-					return ret;
-				} else if (methodInst.name.equals("equals") && methodInst.desc.equals("(Ljava/lang/Object;)Z")) {
-					return ret;
-				} else if (methodInst.name.equals("hashCode") && methodInst.desc.equals("()I")) {
-					return ret;
-				}
-				
-				/*
-				 * For each parameter of the method we are calling,
-				 * are any of the parameters outputs?
-				 * If so, then mark the value that flows into that parameter slot
-				 * as an output!
-				 */
-				
-				Map<Integer, DependentValue> bridge = null;
-				for (int i = 0; i < dvs.size(); i++) {
-					DependentValue dv = dvs.get(i);
-					if (dv.isReference() && this.params.containsKey(dv.id)) {
-						Type dvType = dv.getType();
-						if (!ClassInfoUtils.isImmutable(dvType)) {
-							//Which param?
-							//int callerParam = this.queryInputParamIndex(dv.id);
-							if (bridge == null) {
-								bridge = new HashMap<Integer, DependentValue>();
-							}
-							bridge.put(i, dv);
-						}
-					}
-				}
-				
-				if (bridge != null) {
-					String calleeKey = ClassInfoUtils.genMethodKey(methodInst.owner, methodInst.name, methodInst.desc)[0];
-					CalleeRecord cr = new CalleeRecord(calleeKey);
-					cr.setCalleeCallerBridge(bridge);
-					
-					if (opcode == INVOKESPECIAL || opcode == INVOKESTATIC) {
-						mi.addFixedCallee(cr);
-					} else {
-						mi.addFloatingCallee(cr);
-					}
-				}
-				
+								
 				return ret;
 			case INVOKEDYNAMIC:
 				InvokeDynamicInsnNode dynamicInsn = (InvokeDynamicInsnNode) insn;

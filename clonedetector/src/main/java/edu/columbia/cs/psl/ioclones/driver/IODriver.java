@@ -18,7 +18,7 @@ public class IODriver {
 	
 	private static final Logger logger = LogManager.getLogger(IODriver.class);
 	
-	private static final String iorepoDir = "iorepo";
+	public static final String iorepoDir = "iorepo";
 	
 	public static void main(String args[]) {
 		/*for (int i = 0; i < args.length; i++) {

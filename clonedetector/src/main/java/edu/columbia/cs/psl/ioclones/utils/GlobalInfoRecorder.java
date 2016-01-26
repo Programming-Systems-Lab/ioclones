@@ -100,6 +100,11 @@ public class GlobalInfoRecorder {
 	public static int reportIOs(String baseDir, String zipName) {
 		synchronized(recordLock) {
 			try {
+				File checkBase = new File(baseDir);
+				if (!checkBase.exists()) {
+					checkBase.mkdirs();
+				}
+				
 				String zipFilePath = baseDir + "/" + zipName + ".zip";
 				FileOutputStream zipFile = new FileOutputStream(zipFilePath);
 				ZipOutputStream zipStream = new ZipOutputStream(new BufferedOutputStream(zipFile));
@@ -179,5 +184,40 @@ public class GlobalInfoRecorder {
 	
 	public static Map<String, ClassInfo> getClassInfo() {
 		return classInfo;
+	}
+	
+	public static void reportClassProfiles(String baseDir) {
+		synchronized(classLock) {
+			File checkBase = new File(baseDir);
+			if (!checkBase.exists()) {
+				checkBase.mkdirs();
+			}
+			
+			try {
+				String fileName = checkBase.getAbsolutePath() + "/profile.zip";
+				FileOutputStream zipFile = new FileOutputStream(fileName);
+				ZipOutputStream zipStream = new ZipOutputStream(new BufferedOutputStream(zipFile));
+				
+				classInfo.values().forEach(cInfo->{
+					try {
+						String zipEntryName = cInfo.getClassName() + ".xml";
+						String xmlString = IOUtils.fromObj2XML(cInfo);
+						
+						ZipEntry entry = new ZipEntry(zipEntryName);
+						zipStream.putNextEntry(entry);
+						
+						byte[] data = xmlString.getBytes();
+						zipStream.write(data, 0, data.length);
+						zipStream.closeEntry();
+					} catch (Exception ex) {
+						logger.error("Error: ", ex);
+					}
+				});;
+				zipStream.close();
+			} catch (Exception ex) {
+				logger.error("Error: ", ex);
+			}
+			
+		}
 	}
 }

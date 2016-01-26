@@ -20,33 +20,47 @@ import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.analysis.Analyzer;
 import org.objectweb.asm.tree.analysis.Frame;
 
+import edu.columbia.cs.psl.ioclones.driver.IODriver;
 import edu.columbia.cs.psl.ioclones.pojo.ClassInfo;
 import edu.columbia.cs.psl.ioclones.pojo.MethodInfo;
 import edu.columbia.cs.psl.ioclones.utils.ClassInfoUtils;
 import edu.columbia.cs.psl.ioclones.utils.GlobalInfoRecorder;
 
-public class CalleeAnalyzer {
+public class PreAnalyzer {
 	
-	private static final Logger logger = LogManager.getLogger(CalleeAnalyzer.class);
+	private static final Logger logger = LogManager.getLogger(PreAnalyzer.class);
 	
 	public static void main(String[] args) {
-		String jreLibPath = System.getProperty("sun.boot.class.path");
-		String[] jreLibs = jreLibPath.split(":");
-		
 		List<InputStream> container = new ArrayList<InputStream>();
-		
-		for (String s: jreLibs) {
-			System.out.println(s);
+		if (args.length == 0) {
+			logger.info("JVM profiling mode");
 			
-			File jarFile = new File(s);
-			if (!jarFile.exists()) {
-				logger.warn("Invalid jar path: " + s);
-				continue ;
+			String jreLibPath = System.getProperty("sun.boot.class.path");
+			String[] jreLibs = jreLibPath.split(":");
+			
+			for (String s: jreLibs) {
+				System.out.println(s);
+				
+				File jarFile = new File(s);
+				if (!jarFile.exists()) {
+					logger.warn("Invalid jar path: " + s);
+					continue ;
+				}
+				
+				ClassInfoUtils.collectClassesInJar(jarFile, container);
+			}
+			logger.info("Total collected jvm class file: " + container.size());
+		} else {
+			File codebase = new File(args[0]);
+			if (!codebase.exists()) {
+				logger.error("Invalid codebase: " + codebase.getAbsolutePath());
+				System.exit(-1);
 			}
 			
-			ClassInfoUtils.collectClassesInJar(jarFile, container);
+			logger.info("Profiling: " + codebase.getAbsolutePath());;
+			ClassInfoUtils.collectClassesInRepo(codebase, container);
+			logger.info("Total collected classes in codebase: " + container.size());
 		}
-		logger.info("Total collected jvm class file: " + container.size());
 		
 		try {
 			for (InputStream is: container) {
@@ -119,8 +133,9 @@ public class CalleeAnalyzer {
 							String signature, 
 							String[] exceptions) {
 						boolean isSynthetic = ClassInfoUtils.checkAccess(access, Opcodes.ACC_SYNTHETIC);
-						boolean isInterface = ClassInfoUtils.checkAccess(access, Opcodes.ACC_INTERFACE);
-						boolean isAbstract = ClassInfoUtils.checkAccess(access, Opcodes.ACC_ABSTRACT);
+						boolean isNative = ClassInfoUtils.checkAccess(access, Opcodes.ACC_NATIVE);
+						//boolean isInterface = ClassInfoUtils.checkAccess(access, Opcodes.ACC_INTERFACE);
+						//boolean isAbstract = ClassInfoUtils.checkAccess(access, Opcodes.ACC_ABSTRACT);
 						
 						MethodVisitor mv = super.visitMethod(access, name, desc, signature, exceptions);
 						if (name.equals("toString") && desc.equals("()Ljava/lang/String;")) {
@@ -129,12 +144,7 @@ public class CalleeAnalyzer {
 							return mv;
 						} else if (name.equals("hashCode") && desc.equals("()I")) {
 							return mv;
-						} else if (isSynthetic || isInterface || isAbstract) {
-							String[] parsed = ClassInfoUtils.genMethodKey(this.className, name, desc);
-							MethodInfo mi = new MethodInfo(parsed[0]);
-							mi.setLevel(MethodInfo.NO_CHECK);
-							
-							this.classInfo.addMethod(mi);
+						} else if (isSynthetic || isNative) {
 							return mv;
 						} else {
 							WriterExplorer we = new WriterExplorer(mv, 
@@ -158,40 +168,44 @@ public class CalleeAnalyzer {
 		Map<String, ClassInfo> allClasses = GlobalInfoRecorder.getClassInfo();
 		List<MethodInfo> notStable = new ArrayList<MethodInfo>();
 		allClasses.forEach((name, clazz)->{
-			System.out.println("Class name: " + clazz.getClassName());
+			//System.out.println("Class name: " + clazz.getClassName());
 			
 			Map<String, MethodInfo> methods = clazz.getMethods();
-			for (MethodInfo method: methods.values()) {				
-				TreeSet<Integer> writtenParam = method.getWriteParams();
-				if (writtenParam != null && writtenParam.size() > 0) {
-					System.out.println("Direct writer: " + method.getMethodKey());
-					System.out.println("Written params: " + method.getWriteParams());
-				}
-				
-				int callSize = method.getFixedCallees().size() + method.getFloatingCallees().size();
+			for (MethodInfo method: methods.values()) {
+				//Identify which methods are already stable (no callees)
+				int callSize = method.getCallees().size();
 				if (callSize > 0) {
 					//System.out.println("Not fixed: " + method.methodKey + " " + callSize + " " + method.getRefSize());
 					notStable.add(method);
 				} else {
 					method.stabelized = true;
+					SymbolicValueAnalyzer.analyzeValue(method);
 				}
 			}
 		});
 		
-		//Start to summarize the methods with their callees...
-		System.out.println("Not fixed methods");
-		notStable.forEach(n->{
-			System.out.println(n.getMethodKey());
-			System.out.println("Fixed callee");
-			n.getFixedCallees().forEach(f->{
-				System.out.println(f.getMethodKey() + " " + f.getCalleeCallerBridge());
-			});
-			
-			System.out.println("Not fixed callees");
-			n.getFloatingCallees().forEach(f->{
-				System.out.println(f.getMethodKey() + " " + f.getCalleeCallerBridge());
+		logger.info("Review profiling results of methods");
+		allClasses.forEach((name, clazz)->{
+			System.out.println("Class: " + clazz.getClassName());
+			clazz.getMethods().forEach((key, m)->{
+				System.out.println("Method: " + m.getMethodKey());
+				System.out.println("Stabelized: " + m.stabelized);
+				m.getCallees().forEach(c->{
+					System.out.println("Callee: " + c.getMethodKey());
+					System.out.println("Potential inputs: " + c.getPotentialInputs());
+					System.out.println("Potential outputs: " + c.getPotentialOutputs());
+				});
 			});
 		});
+		
+		GlobalInfoRecorder.reportClassProfiles(IODriver.iorepoDir);
+		
+		//Start to summarize the methods with their callees...
+		/*System.out.println("Not stabelize methods");
+		notStable.forEach(n->{
+			System.out.println(n.getMethodKey());
+			ClassInfoUtils.stabelizeMethod(n);
+		});*/
 	}
 	
 	public static class WriterExplorer extends MethodVisitor {
@@ -265,20 +279,15 @@ public class CalleeAnalyzer {
 					}
 					Type returnType = Type.getReturnType(this.desc);
 					
-					DependentValueInterpreter dvi = new DependentValueInterpreter(args, returnType, info);
-					Analyzer a = new Analyzer(dvi);
+					//DependentValueInterpreter dvi = new DependentValueInterpreter(args, returnType, info);
+					ExploreValueInterpreter fvi = new ExploreValueInterpreter(args, returnType, info);
+					Analyzer a = new Analyzer(fvi);
 					try {
+						//Analyze callee here
 						Frame[] fr = a.analyze(className, this);
-						for (int i = 0; i < dvi.getParamList().size(); i++) {
-							DependentValue val = dvi.getParamList().get(i);
-							if (val.written) {
-								info.addWriteParams(i);
-							}
-						}
-						
 						info.insts = this.instructions;
 						info.frames = fr;
-						info.dvi = dvi;
+						info.dvi = fvi;
 					} catch (Exception ex) {
 						logger.info("Error: ", ex);
 					}

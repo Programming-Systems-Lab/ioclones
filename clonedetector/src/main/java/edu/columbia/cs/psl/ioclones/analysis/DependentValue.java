@@ -15,8 +15,6 @@ public class DependentValue extends BasicValue {
 	
 	private static int idCounter;
 	
-	public transient boolean written = false;
-	
 	private boolean flowsToOutput;
 	
 	public transient DependentValue owner;

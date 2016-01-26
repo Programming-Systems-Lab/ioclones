@@ -1,0 +1,124 @@
+package edu.columbia.cs.psl.ioclones.analysis;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeSet;
+
+import org.objectweb.asm.Type;
+import org.objectweb.asm.tree.AbstractInsnNode;
+import org.objectweb.asm.tree.InvokeDynamicInsnNode;
+import org.objectweb.asm.tree.MethodInsnNode;
+import org.objectweb.asm.tree.MultiANewArrayInsnNode;
+import org.objectweb.asm.tree.analysis.AnalyzerException;
+import org.objectweb.asm.tree.analysis.BasicValue;
+
+import edu.columbia.cs.psl.ioclones.pojo.CalleeRecord;
+import edu.columbia.cs.psl.ioclones.pojo.MethodInfo;
+import edu.columbia.cs.psl.ioclones.utils.ClassInfoUtils;
+
+public class ExploreValueInterpreter extends DependentValueInterpreter {
+	
+	public ExploreValueInterpreter(Type[] args, Type retType, MethodInfo mi) {
+		super(args, retType, mi);
+		System.out.println("Explore: " + mi.getMethodKey());
+	}
+	
+	@Override
+	public BasicValue naryOperation(AbstractInsnNode insn,
+            List values) throws AnalyzerException {
+		List<DependentValue> dvs = (List<DependentValue>) values;
+		int opcode = insn.getOpcode();
+		switch(opcode) {
+			case INVOKESTATIC:
+			case INVOKESPECIAL:
+			case INVOKEVIRTUAL:
+			case INVOKEINTERFACE:
+				MethodInsnNode methodInst = (MethodInsnNode) insn;
+				Type retType = Type.getReturnType(methodInst.desc);
+				
+				DependentValue ret = (DependentValue) newValue(retType);
+								
+				if (dvs == null || dvs.size() == 0) {
+					return ret; 
+				}
+								
+				if (methodInst.owner.equals("java/lang/Object") && methodInst.name.equals("<init>")) {
+					return ret;
+				} else if (methodInst.name.equals("toString") && methodInst.desc.equals("()Ljava/lang/String;")) {
+					return ret;
+				} else if (methodInst.name.equals("equals") && methodInst.desc.equals("(Ljava/lang/Object;)Z")) {
+					return ret;
+				} else if (methodInst.name.equals("hashCode") && methodInst.desc.equals("()I")) {
+					return ret;
+				}
+				
+				/*
+				 * For each parameter of the method we are calling,
+				 * are any of the parameters outputs?
+				 * If so, then mark the value that flows into that parameter slot
+				 * as an output!
+				 */
+				
+				Map<Integer, Integer> potentialOutputs = null;
+				for (int i = 0; i < dvs.size(); i++) {
+					DependentValue dv = dvs.get(i);
+					if (dv.isReference() && this.params.containsKey(dv.id)) {
+						Type dvType = dv.getType();
+						if (!ClassInfoUtils.isImmutable(dvType)) {
+							//Which param?
+							int callerParam = this.queryInputParamIndex(dv.id);
+							if (potentialOutputs == null) {
+								potentialOutputs = new HashMap<Integer, Integer>();
+							}
+							potentialOutputs.put(i, callerParam);
+						}
+					}
+				}
+				System.out.println("Potential outputs: " + potentialOutputs);
+				
+				if (potentialOutputs != null) {
+					Map<Integer, TreeSet<Integer>> potentialInputs = new HashMap<Integer, TreeSet<Integer>>();
+					for (int i = 0; i < dvs.size(); i++) {
+						if (!potentialOutputs.containsKey(i)) {
+							DependentValue dv = dvs.get(i);
+							
+							TreeSet<Integer> recorder = new TreeSet<Integer>();
+							this.inferInputParamIndices(dv, recorder);
+							potentialInputs.put(i, recorder);
+						}
+					}
+					
+					String calleeKey = ClassInfoUtils.genMethodKey(methodInst.owner, methodInst.name, methodInst.desc)[0];
+					CalleeRecord cr = new CalleeRecord(calleeKey);
+					cr.setPotentialOutputs(potentialOutputs);
+					cr.setPotentialInputs(potentialInputs);
+					
+					if (opcode != INVOKESPECIAL && opcode != INVOKESTATIC) {
+						cr.fixed = true;
+					}
+					mi.addCallee(cr);
+				}
+				
+				return ret;
+			case INVOKEDYNAMIC:
+				InvokeDynamicInsnNode dynamicInsn = (InvokeDynamicInsnNode) insn;
+				Type dynRetType = Type.getReturnType(dynamicInsn.desc);
+				DependentValue dynRet = (DependentValue) newValue(dynRetType);
+				for (DependentValue dv: dvs) {
+					dynRet.addDep(dv);
+				}
+				return dynRet;
+			case MULTIANEWARRAY:
+				DependentValue mulArr = (DependentValue) newValue(Type.getType(((MultiANewArrayInsnNode) insn).desc));
+				dvs.forEach(dv->{
+					mulArr.addDep(dv);
+				});
+				//mulArr.addSrc(insn);
+				return mulArr;
+			default:
+				return super.naryOperation(insn, values);
+		}
+	}
+
+}
