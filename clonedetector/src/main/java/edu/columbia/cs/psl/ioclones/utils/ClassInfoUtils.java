@@ -170,7 +170,8 @@ public class ClassInfoUtils {
 		return false;
 	}
 	
-	public static void collectClassesInJar(File jarFile, List<InputStream> container) {
+	public static void collectClassesInJar(File jarFile, 
+			List<InputStream> container) {
 		try {
 			JarFile jarInstance = new JarFile(jarFile);
 			Enumeration<JarEntry> entries = jarInstance.entries();
@@ -188,7 +189,6 @@ public class ClassInfoUtils {
 					container.add(entryStream);
 					
 					//logger.info("Retrieve class: " + entry.getName());
-					
 					/*String className = entryName.replace("/", ".");
 					className = className.substring(0, className.lastIndexOf("."));
 					Class clazz = loader.loadClass(className);
@@ -200,14 +200,44 @@ public class ClassInfoUtils {
 		}
 	}
 	
-	public static void collectClassesInRepo(File file, List<InputStream> container) {
+	public static void genJVMLookupTable(File jarFile, Map<String, InputStream> lookup) {
+		try {
+			JarFile jarInstance = new JarFile(jarFile);
+			Enumeration<JarEntry> entries = jarInstance.entries();
+			while (entries.hasMoreElements()) {
+				JarEntry entry = entries.nextElement();
+				String entryName = entry.getName();
+				
+				if (entry.isDirectory()) {
+					continue ;
+				}
+				
+				if (entryName.endsWith(".class")) {
+					//String className = entryName.replace("/", ".");
+					String className = entryName.substring(0, entryName.lastIndexOf("."));
+					className = className.replace("/", ".");
+					InputStream entryStream = jarInstance.getInputStream(entry);
+					lookup.put(className, entryStream);
+					
+					//logger.info("Retrieve class: " + entry.getName());
+					/*
+					Class clazz = loader.loadClass(className);
+					System.out.println("Class name: " + clazz.getProtectionDomain().toString());*/
+				}
+			}
+		} catch (Exception ex) {
+			logger.error("Error: ", ex);
+		}
+	}
+	
+	public static void genRepoClasses(File file, List<InputStream> container) {
 		if (file.getName().startsWith(".")) {
 			return ;
 		}
 		
 		if (file.isDirectory()) {
 			for (File f: file.listFiles()) {
-				collectClassesInRepo(f, container);
+				genRepoClasses(f, container);
 			}
 		} else {
 			if (file.getName().endsWith(".class")) {

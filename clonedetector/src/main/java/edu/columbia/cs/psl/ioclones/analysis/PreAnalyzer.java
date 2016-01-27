@@ -3,9 +3,12 @@ package edu.columbia.cs.psl.ioclones.analysis;
 import java.io.File;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.TreeSet;
+import java.util.Set;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -30,10 +33,14 @@ public class PreAnalyzer {
 	
 	private static final Logger logger = LogManager.getLogger(PreAnalyzer.class);
 	
+	private static final String rtJarPath = "/Library/Java/JavaVirtualMachines/jdk1.8.0_65.jdk/Contents/Home/jre/lib/rt.jar";
+	
 	public static void main(String[] args) {
 		List<InputStream> container = new ArrayList<InputStream>();
+		String profileName = null;
 		if (args.length == 0) {
 			logger.info("JVM profiling mode");
+			profileName = "jvm_profile";
 			
 			String jreLibPath = System.getProperty("sun.boot.class.path");
 			String[] jreLibs = jreLibPath.split(":");
@@ -52,160 +59,110 @@ public class PreAnalyzer {
 			logger.info("Total collected jvm class file: " + container.size());
 		} else {
 			File codebase = new File(args[0]);
+			profileName = "normal_profile";
+			
 			if (!codebase.exists()) {
 				logger.error("Invalid codebase: " + codebase.getAbsolutePath());
 				System.exit(-1);
 			}
 			
 			logger.info("Profiling: " + codebase.getAbsolutePath());;
-			ClassInfoUtils.collectClassesInRepo(codebase, container);
+			ClassInfoUtils.genRepoClasses(codebase, container);
 			logger.info("Total collected classes in codebase: " + container.size());
-		}
-		
-		try {
-			for (InputStream is: container) {
-				ClassReader cr = new ClassReader(is);
-				ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS);
-				cr.accept(new ClassVisitor(Opcodes.ASM5, cw) {
-					@Override
-					public MethodVisitor visitMethod(int access, String name, String desc, String signature, String[] exceptions) {
-						// TODO Auto-generated method stub
-						return new JSRInlinerAdapter(super.visitMethod(access, name, desc, signature, exceptions), access, name, desc, signature, exceptions);
-					}
-				}, ClassReader.EXPAND_FRAMES);
-				
-				ClassReader analysisReader = new ClassReader(cw.toByteArray());
-				ClassWriter analysisWriter = new ClassWriter(ClassWriter.COMPUTE_MAXS);
-				ClassVisitor cv = new ClassVisitor(Opcodes.ASM5, analysisWriter) {
-					String className;
-					
-					String superName;
-					
-					ClassInfo classInfo;
-					
-					@Override
-					public void visit(int version, 
-							int access, 
-							String name, 
-							String signature, 
-							String superName, 
-							String[] interfaces) {
-						this.cv.visit(version, access, name, signature, superName, interfaces);
-						
-						this.className = ClassInfoUtils.cleanType(name);
-						//logger.info("Name: " + this.className);
-						
-						this.classInfo = GlobalInfoRecorder.queryClassInfo(this.className);
-						if (this.classInfo == null) {
-							this.classInfo = new ClassInfo(this.className);
-							GlobalInfoRecorder.registerClassInfo(this.classInfo);
-						}
-						
-						if (superName != null) {
-							this.superName = ClassInfoUtils.cleanType(superName);
-							ClassInfo superClass = GlobalInfoRecorder.queryClassInfo(this.superName);
-							if (superClass == null) {
-								superClass = new ClassInfo(this.superName);
-								GlobalInfoRecorder.registerClassInfo(superClass);
-							}
-							
-							this.classInfo.setParent(this.superName);
-							superClass.addChild(this.className);
-						}
-						
-						for (String inter: interfaces) {
-							inter = ClassInfoUtils.cleanType(inter);
-							ClassInfo interClass = GlobalInfoRecorder.queryClassInfo(inter);
-							if (interClass == null) {
-								interClass = new ClassInfo(inter);
-								GlobalInfoRecorder.registerClassInfo(interClass);
-							}
-							
-							this.classInfo.addInterface(inter);
-							interClass.addChild(this.className);
-						}
-					}
-					
-					@Override
-					public MethodVisitor visitMethod(int access, 
-							String name, 
-							String desc, 
-							String signature, 
-							String[] exceptions) {
-						boolean isSynthetic = ClassInfoUtils.checkAccess(access, Opcodes.ACC_SYNTHETIC);
-						boolean isNative = ClassInfoUtils.checkAccess(access, Opcodes.ACC_NATIVE);
-						//boolean isInterface = ClassInfoUtils.checkAccess(access, Opcodes.ACC_INTERFACE);
-						//boolean isAbstract = ClassInfoUtils.checkAccess(access, Opcodes.ACC_ABSTRACT);
-						
-						MethodVisitor mv = super.visitMethod(access, name, desc, signature, exceptions);
-						if (name.equals("toString") && desc.equals("()Ljava/lang/String;")) {
-							return mv;
-						} else if (name.equals("equals") && desc.equals("(Ljava/lang/Object;)Z")) {
-							return mv;
-						} else if (name.equals("hashCode") && desc.equals("()I")) {
-							return mv;
-						} else if (isSynthetic || isNative) {
-							return mv;
-						} else {
-							WriterExplorer we = new WriterExplorer(mv, 
-									access, 
-									this.className, 
-									name, 
-									desc, 
-									signature, 
-									exceptions, 
-									this.classInfo);
-							return we;
-						}
-					}
-				};
-				analysisReader.accept(cv, ClassReader.EXPAND_FRAMES);
-			}
-		} catch (Exception ex) {
-			logger.error("Error: ", ex);
-		}
-		
-		Map<String, ClassInfo> allClasses = GlobalInfoRecorder.getClassInfo();
-		List<MethodInfo> notStable = new ArrayList<MethodInfo>();
-		allClasses.forEach((name, clazz)->{
-			//System.out.println("Class name: " + clazz.getClassName());
 			
-			Map<String, MethodInfo> methods = clazz.getMethods();
-			for (MethodInfo method: methods.values()) {
-				//Identify which methods are already stable (no callees)
-				int callSize = method.getCallees().size();
-				if (callSize > 0) {
-					//System.out.println("Not fixed: " + method.methodKey + " " + callSize + " " + method.getRefSize());
-					notStable.add(method);
-				} else {
-					method.stabelized = true;
-					SymbolicValueAnalyzer.analyzeValue(method);
+			//Map<String, InputStream> classLookup = new HashMap<String, InputStream>();
+			Map<String, byte[]> classLookup = new HashMap<String, byte[]>();
+			for (InputStream is: container) {
+				try {
+					ClassReader cr = new ClassReader(is);
+					ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS);
+					cr.accept(cw, ClassReader.EXPAND_FRAMES);
+					
+					byte[] classData = cw.toByteArray();
+					String className = ClassInfoUtils.cleanType(cr.getClassName());
+					classLookup.put(className, classData);
+				} catch (Exception ex) {
+					logger.error("Error: ", ex);
 				}
 			}
-		});
-		
-		logger.info("Review profiling results of methods");
-		allClasses.forEach((name, clazz)->{
-			System.out.println("Class: " + clazz.getClassName());
-			clazz.getMethods().forEach((key, m)->{
-				System.out.println("Method: " + m.getMethodKey());
-				System.out.println("Stabelized: " + m.stabelized);
-				m.getCallees().forEach(c->{
-					System.out.println("Callee: " + c.getMethodKey());
-					System.out.println("Potential inputs: " + c.getPotentialInputs());
-					System.out.println("Potential outputs: " + c.getPotentialOutputs());
-				});
-			});
-		});
-		
-		GlobalInfoRecorder.reportClassProfiles(IODriver.iorepoDir);
-		
-		//Start to summarize the methods with their callees...
-		/*System.out.println("Not stabelize methods");
-		notStable.forEach(n->{
-			System.out.println(n.getMethodKey());
-			ClassInfoUtils.stabelizeMethod(n);
-		});*/
+			System.out.println("Classes from codebase: " + classLookup.keySet());
+					
+			LinkedList<String> requiredJVM = new LinkedList<String>();
+			for (byte[] classData: classLookup.values()) {
+				try {					
+					ClassReader computeReader = new ClassReader(classData);
+					ClassWriter computeWriter = new ClassWriter(ClassWriter.COMPUTE_MAXS);
+					
+					ClassVisitor cv = new ClassVisitor(Opcodes.ASM5, computeWriter) {
+						@Override
+						public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
+							super.visit(version, access, name, signature, superName, interfaces);
+						}
+						
+						@Override
+						public MethodVisitor visitMethod(int access, 
+								String name, 
+								String desc, 
+								String signature, 
+								String[] exceptions) {
+							MethodVisitor mv = super.visitMethod(access, name, desc, signature, exceptions);
+							ObjInitCollector objCollector = new ObjInitCollector(mv, 
+									requiredJVM, 
+									classLookup.keySet());
+							
+							return objCollector;
+						} 
+					};
+					computeReader.accept(cv, ClassReader.EXPAND_FRAMES);
+				} catch (Exception ex) {
+					logger.error("Error: ", ex);
+				}
+			}
+			System.out.println("Required classes from JVM: " + requiredJVM);
+									
+			//Grab the sub class trees from JVM, focus on rt.jar
+			Map<String, InputStream> jvmClasses = new HashMap<String, InputStream>();
+			if (requiredJVM.size() > 0) {
+				File rtJar = new File(rtJarPath);
+				ClassInfoUtils.genJVMLookupTable(rtJar, jvmClasses);
+			}
+			
+			while (requiredJVM.size() > 0) {
+				try {
+					String jvmClassName = requiredJVM.removeFirst();
+					InputStream classStream = jvmClasses.get(jvmClassName);
+					
+					ClassReader cr = new ClassReader(classStream);
+					ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS);
+					cr.accept(cw, ClassReader.EXPAND_FRAMES);
+					
+					byte[] classData = cw.toByteArray();
+					classLookup.put(jvmClassName, classData);
+					
+					ClassReader computeReader = new ClassReader(classData);
+					ClassWriter computeWriter = new ClassWriter(ClassWriter.COMPUTE_MAXS);
+					
+					ClassVisitor cv = new ClassVisitor(Opcodes.ASM5, computeWriter) {						
+						@Override
+						public MethodVisitor visitMethod(int access, 
+								String name, 
+								String desc, 
+								String signature, 
+								String[] exceptions) {
+							MethodVisitor mv = super.visitMethod(access, name, desc, signature, exceptions);
+							ObjInitCollector objCollector = new ObjInitCollector(mv, 
+									requiredJVM, 
+									classLookup.keySet());
+							
+							return objCollector;
+						} 
+					};
+					computeReader.accept(cv, ClassReader.EXPAND_FRAMES);
+				} catch (Exception ex) {
+					logger.error("Error: ", ex);
+				}
+			}
+		}
 	}
 	
 	public static class WriterExplorer extends MethodVisitor {
@@ -291,8 +248,66 @@ public class PreAnalyzer {
 					} catch (Exception ex) {
 						logger.info("Error: ", ex);
 					}
+					this.mv.visitEnd();
 				}
 			});
+		}
+	}
+	
+	public static class ObjInitCollector extends MethodVisitor {
+		
+		public LinkedList<String> recorder = null;
+		
+		public Set<String> constraints = null;
+		
+		public ObjInitCollector(MethodVisitor mv, 
+				LinkedList<String> recorder, 
+				Set<String> constraints) {
+			super(Opcodes.ASM5, mv);
+			this.recorder = recorder;
+			this.constraints = constraints;
+		}
+		
+		@Override
+		public void visitTypeInsn(int opcode, String type) {
+			this.mv.visitTypeInsn(opcode, type);
+			
+			if (opcode == Opcodes.NEW) {
+				if (this.constraints != null) {
+					if (!this.constraints.contains(type) && !this.recorder.contains(type)) {
+						this.recorder.add(type);
+					}
+				} else  {
+					if (!this.recorder.contains(type)) {
+						this.recorder.add(type);
+					}
+				}
+			}
+		}
+		
+		@Override
+		public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
+			this.mv.visitMethodInsn(opcode, owner, name, desc, itf);
+			
+			if (name.equals("<init>")) {
+				return ;
+			} else if (name.equals("toString") && desc.equals("()Ljava/lang/String;")) {
+				return ;
+			} else if (name.equals("equals") && desc.equals("(Ljava/lang/Object;)Z")) {
+				return ;
+			} else if (name.equals("hashCode") && desc.equals("()I")) {
+				return ;
+			}
+			
+			String cleanOwner = ClassInfoUtils.cleanType(owner);
+			if (this.constraints != null) {
+				if (!this.constraints.contains(cleanOwner) && !this.recorder.contains(cleanOwner)) {
+					this.recorder.add(cleanOwner);
+				}
+			} else {
+				if (!this.recorder.contains(cleanOwner))
+					this.recorder.add(cleanOwner);
+			}
 		}
 	}
 }

@@ -186,7 +186,7 @@ public class GlobalInfoRecorder {
 		return classInfo;
 	}
 	
-	public static void reportClassProfiles(String baseDir) {
+	public static void reportClassProfiles(String baseDir, String profileName) {
 		synchronized(classLock) {
 			File checkBase = new File(baseDir);
 			if (!checkBase.exists()) {
@@ -194,7 +194,7 @@ public class GlobalInfoRecorder {
 			}
 			
 			try {
-				String fileName = checkBase.getAbsolutePath() + "/profile.zip";
+				String fileName = checkBase.getAbsolutePath() + "/" + profileName + ".zip";
 				FileOutputStream zipFile = new FileOutputStream(fileName);
 				ZipOutputStream zipStream = new ZipOutputStream(new BufferedOutputStream(zipFile));
 				

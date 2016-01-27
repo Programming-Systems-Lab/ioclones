@@ -1,15 +1,15 @@
 package edu.columbia.cs.psl.ioclones.analysis;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeSet;
 
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
-import org.objectweb.asm.tree.InvokeDynamicInsnNode;
 import org.objectweb.asm.tree.MethodInsnNode;
-import org.objectweb.asm.tree.MultiANewArrayInsnNode;
 import org.objectweb.asm.tree.analysis.AnalyzerException;
 import org.objectweb.asm.tree.analysis.BasicValue;
 
@@ -75,7 +75,6 @@ public class ExploreValueInterpreter extends DependentValueInterpreter {
 						}
 					}
 				}
-				System.out.println("Potential outputs: " + potentialOutputs);
 				
 				if (potentialOutputs != null) {
 					Map<Integer, TreeSet<Integer>> potentialInputs = new HashMap<Integer, TreeSet<Integer>>();
@@ -84,7 +83,8 @@ public class ExploreValueInterpreter extends DependentValueInterpreter {
 							DependentValue dv = dvs.get(i);
 							
 							TreeSet<Integer> recorder = new TreeSet<Integer>();
-							this.inferInputParamIndices(dv, recorder);
+							Set<Integer> visited = new HashSet<Integer>();
+							this.inferInputParamIndices(dv, recorder, visited);
 							potentialInputs.put(i, recorder);
 						}
 					}
@@ -101,21 +101,6 @@ public class ExploreValueInterpreter extends DependentValueInterpreter {
 				}
 				
 				return ret;
-			case INVOKEDYNAMIC:
-				InvokeDynamicInsnNode dynamicInsn = (InvokeDynamicInsnNode) insn;
-				Type dynRetType = Type.getReturnType(dynamicInsn.desc);
-				DependentValue dynRet = (DependentValue) newValue(dynRetType);
-				for (DependentValue dv: dvs) {
-					dynRet.addDep(dv);
-				}
-				return dynRet;
-			case MULTIANEWARRAY:
-				DependentValue mulArr = (DependentValue) newValue(Type.getType(((MultiANewArrayInsnNode) insn).desc));
-				dvs.forEach(dv->{
-					mulArr.addDep(dv);
-				});
-				//mulArr.addSrc(insn);
-				return mulArr;
 			default:
 				return super.naryOperation(insn, values);
 		}

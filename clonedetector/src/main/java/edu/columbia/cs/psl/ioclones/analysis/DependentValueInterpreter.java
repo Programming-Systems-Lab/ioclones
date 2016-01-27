@@ -116,10 +116,18 @@ public class DependentValueInterpreter extends BasicInterpreter {
 		return -1;
 	}
 	
-	public void inferInputParamIndices(DependentValue dv, TreeSet<Integer> record) {
+	public void inferInputParamIndices(DependentValue dv, 
+			TreeSet<Integer> record, 
+			Set<Integer> visited) {
 		if (dv == null) {
 			return ;
 		}
+		
+		if (visited.contains(dv.id)) {
+			return ;
+		}
+		
+		visited.add(dv.id);
 		
 		if (this.params.containsKey(dv.id)) {
 			record.add(this.queryInputParamIndex(dv.id));
@@ -130,7 +138,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 		}
 		
 		for (DependentValue dep: dv.getDeps()) {
-			inferInputParamIndices(dep, record);
+			inferInputParamIndices(dep, record, visited);
 		}
 	}
 		
