@@ -7,6 +7,8 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
@@ -16,9 +18,17 @@ import org.objectweb.asm.commons.JSRInlinerAdapter;
 import org.objectweb.asm.util.Textifier;
 import org.objectweb.asm.util.TraceClassVisitor;
 
+import edu.columbia.cs.psl.ioclones.utils.IOUtils;
+
 
 public class Main {
+	
+	public static final Logger logger = LogManager.getLogger(Main.class);
+	
 	public static void main(String[] args) throws FileNotFoundException, IOException {
+		logger.info("Loading class info");
+		IOUtils.unzipClassInfo();
+		
 		File clazz = new File(args[0]);
 
 		final ClassReader cr1 = new ClassReader(new FileInputStream(clazz));

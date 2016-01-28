@@ -1,12 +1,19 @@
 package edu.columbia.cs.psl.ioclones.pojo;
 
+import edu.columbia.cs.psl.ioclones.utils.DeepHash;
+
 public class XMLWrapper {
 	
 	public static final int UNINITIALIZED = Integer.MIN_VALUE;
 	
 	public Object obj;
 	
-	public transient int deepHash = Integer.MIN_VALUE;
+	public int deepHash;
+	
+	public XMLWrapper(Object obj) {
+		this.obj = obj;
+		this.deepHash = DeepHash.deepHash(this.obj);
+	}
 		
 	@Override
 	public boolean equals(Object o) {
@@ -20,7 +27,8 @@ public class XMLWrapper {
 	
 	@Override
 	public int hashCode() {
-		return this.obj.hashCode();
+		//return this.obj.hashCode();
+		return this.deepHash;
 	}
 
 }

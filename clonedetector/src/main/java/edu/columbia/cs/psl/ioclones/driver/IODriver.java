@@ -12,6 +12,7 @@ import org.apache.logging.log4j.Logger;
 
 import edu.columbia.cs.psl.ioclones.config.IOCloneConfig;
 import edu.columbia.cs.psl.ioclones.utils.GlobalInfoRecorder;
+import edu.columbia.cs.psl.ioclones.utils.IOUtils;
 import edu.columbia.cs.psl.ioclones.utils.ShutdownLogger;
 
 public class IODriver {
@@ -20,6 +21,8 @@ public class IODriver {
 	
 	public static final String iorepoDir = "iorepo";
 	
+	public static final String profileDir = "classinfo";
+	
 	public static void main(String args[]) {
 		/*for (int i = 0; i < args.length; i++) {
 			System.out.println(args[i]);
@@ -27,6 +30,9 @@ public class IODriver {
 		IOCloneConfig config = IOCloneConfig.getInstance();
 		logger.info("Configuration: ");
 		logger.info(config);
+		
+		logger.info("Loading class info");
+		IOUtils.unzipClassInfo();
 		
 		String className = args[0];
 		String[] newArgs = new String[args.length - 1];

@@ -9,6 +9,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -42,7 +43,7 @@ public class PreAnalyzer {
 			logger.info("JVM profiling mode");
 			profileName = "jvm_profile";
 			
-			String jreLibPath = System.getProperty("sun.boot.class.path");
+			/*String jreLibPath = System.getProperty("sun.boot.class.path");
 			String[] jreLibs = jreLibPath.split(":");
 			
 			for (String s: jreLibs) {
@@ -55,114 +56,177 @@ public class PreAnalyzer {
 				}
 				
 				ClassInfoUtils.collectClassesInJar(jarFile, container);
-			}
+			}*/
+			File rtFile = new File(rtJarPath);
+			ClassInfoUtils.collectClassesInJar(rtFile, container);
 			logger.info("Total collected jvm class file: " + container.size());
 		} else {
+			String codebasePath = args[0];
+			int lastIdx = codebasePath.lastIndexOf("/");
+			if (lastIdx == -1) {
+				profileName = codebasePath;
+			} else {
+				profileName = codebasePath.substring(lastIdx + 1, codebasePath.length());
+			}
+			
 			File codebase = new File(args[0]);
-			profileName = "normal_profile";
 			
 			if (!codebase.exists()) {
 				logger.error("Invalid codebase: " + codebase.getAbsolutePath());
 				System.exit(-1);
 			}
 			
-			logger.info("Profiling: " + codebase.getAbsolutePath());;
+			logger.info("Profiling: " + codebase.getAbsolutePath());
+			logger.info("Profile name: " + profileName);
 			ClassInfoUtils.genRepoClasses(codebase, container);
 			logger.info("Total collected classes in codebase: " + container.size());
-			
-			//Map<String, InputStream> classLookup = new HashMap<String, InputStream>();
-			Map<String, byte[]> classLookup = new HashMap<String, byte[]>();
-			for (InputStream is: container) {
-				try {
-					ClassReader cr = new ClassReader(is);
-					ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS);
-					cr.accept(cw, ClassReader.EXPAND_FRAMES);
+		}
+		
+		System.out.println("Classes to analyze: " + container.size());
+		try {
+			for (InputStream is: container) {					
+				ClassReader cr = new ClassReader(is);
+				ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS);
+				cr.accept(new ClassVisitor(Opcodes.ASM5, cw) {
+					@Override
+					public MethodVisitor visitMethod(int access, String name, String desc, String signature, String[] exceptions) {
+						// TODO Auto-generated method stub
+						return new JSRInlinerAdapter(super.visitMethod(access, name, desc, signature, exceptions), access, name, desc, signature, exceptions);
+					}
+				}, ClassReader.EXPAND_FRAMES);
+				
+				ClassReader analysisReader = new ClassReader(cw.toByteArray());
+				ClassWriter analysisWriter = new ClassWriter(ClassWriter.COMPUTE_MAXS);
+				ClassVisitor cv = new ClassVisitor(Opcodes.ASM5, analysisWriter) {
+					String className;
 					
-					byte[] classData = cw.toByteArray();
-					String className = ClassInfoUtils.cleanType(cr.getClassName());
-					classLookup.put(className, classData);
-				} catch (Exception ex) {
-					logger.error("Error: ", ex);
-				}
-			}
-			System.out.println("Classes from codebase: " + classLookup.keySet());
+					String superName;
 					
-			LinkedList<String> requiredJVM = new LinkedList<String>();
-			for (byte[] classData: classLookup.values()) {
-				try {					
-					ClassReader computeReader = new ClassReader(classData);
-					ClassWriter computeWriter = new ClassWriter(ClassWriter.COMPUTE_MAXS);
+					ClassInfo classInfo;
 					
-					ClassVisitor cv = new ClassVisitor(Opcodes.ASM5, computeWriter) {
-						@Override
-						public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
-							super.visit(version, access, name, signature, superName, interfaces);
+					@Override
+					public void visit(int version, 
+							int access, 
+							String name, 
+							String signature, 
+							String superName, 
+							String[] interfaces) {
+						super.visit(version, access, name, signature, superName, interfaces);
+						
+						this.className = ClassInfoUtils.cleanType(name);
+						//logger.info("Name: " + this.className);
+						
+						this.classInfo = GlobalInfoRecorder.queryClassInfo(this.className);
+						if (this.classInfo == null) {
+							this.classInfo = new ClassInfo(this.className);
+							GlobalInfoRecorder.registerClassInfo(this.classInfo);
 						}
 						
-						@Override
-						public MethodVisitor visitMethod(int access, 
-								String name, 
-								String desc, 
-								String signature, 
-								String[] exceptions) {
-							MethodVisitor mv = super.visitMethod(access, name, desc, signature, exceptions);
-							ObjInitCollector objCollector = new ObjInitCollector(mv, 
-									requiredJVM, 
-									classLookup.keySet());
+						if (superName != null) {
+							this.superName = ClassInfoUtils.cleanType(superName);
+							ClassInfo superClass = GlobalInfoRecorder.queryClassInfo(this.superName);
+							if (superClass == null) {
+								superClass = new ClassInfo(this.superName);
+								GlobalInfoRecorder.registerClassInfo(superClass);
+							}
 							
-							return objCollector;
-						} 
-					};
-					computeReader.accept(cv, ClassReader.EXPAND_FRAMES);
-				} catch (Exception ex) {
-					logger.error("Error: ", ex);
-				}
-			}
-			System.out.println("Required classes from JVM: " + requiredJVM);
-									
-			//Grab the sub class trees from JVM, focus on rt.jar
-			Map<String, InputStream> jvmClasses = new HashMap<String, InputStream>();
-			if (requiredJVM.size() > 0) {
-				File rtJar = new File(rtJarPath);
-				ClassInfoUtils.genJVMLookupTable(rtJar, jvmClasses);
-			}
-			
-			while (requiredJVM.size() > 0) {
-				try {
-					String jvmClassName = requiredJVM.removeFirst();
-					InputStream classStream = jvmClasses.get(jvmClassName);
-					
-					ClassReader cr = new ClassReader(classStream);
-					ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS);
-					cr.accept(cw, ClassReader.EXPAND_FRAMES);
-					
-					byte[] classData = cw.toByteArray();
-					classLookup.put(jvmClassName, classData);
-					
-					ClassReader computeReader = new ClassReader(classData);
-					ClassWriter computeWriter = new ClassWriter(ClassWriter.COMPUTE_MAXS);
-					
-					ClassVisitor cv = new ClassVisitor(Opcodes.ASM5, computeWriter) {						
-						@Override
-						public MethodVisitor visitMethod(int access, 
-								String name, 
-								String desc, 
-								String signature, 
-								String[] exceptions) {
-							MethodVisitor mv = super.visitMethod(access, name, desc, signature, exceptions);
-							ObjInitCollector objCollector = new ObjInitCollector(mv, 
-									requiredJVM, 
-									classLookup.keySet());
+							this.classInfo.setParent(this.superName);
+							superClass.addChild(this.className);
+						}
+						
+						for (String inter: interfaces) {
+							inter = ClassInfoUtils.cleanType(inter);
+							ClassInfo interClass = GlobalInfoRecorder.queryClassInfo(inter);
+							if (interClass == null) {
+								interClass = new ClassInfo(inter);
+								GlobalInfoRecorder.registerClassInfo(interClass);
+							}
 							
-							return objCollector;
-						} 
-					};
-					computeReader.accept(cv, ClassReader.EXPAND_FRAMES);
-				} catch (Exception ex) {
-					logger.error("Error: ", ex);
+							this.classInfo.addInterface(inter);
+							interClass.addChild(this.className);
+						}
+					}
+					
+					@Override
+					public MethodVisitor visitMethod(int access, 
+							String name, 
+							String desc, 
+							String signature, 
+							String[] exceptions) {
+						boolean isSynthetic = ClassInfoUtils.checkAccess(access, Opcodes.ACC_SYNTHETIC);
+						boolean isNative = ClassInfoUtils.checkAccess(access, Opcodes.ACC_NATIVE);
+						//boolean isInterface = ClassInfoUtils.checkAccess(access, Opcodes.ACC_INTERFACE);
+						//boolean isAbstract = ClassInfoUtils.checkAccess(access, Opcodes.ACC_ABSTRACT);
+						
+						MethodVisitor mv = super.visitMethod(access, name, desc, signature, exceptions);
+						if (name.equals("toString") && desc.equals("()Ljava/lang/String;")) {
+							return mv;
+						} else if (name.equals("equals") && desc.equals("(Ljava/lang/Object;)Z")) {
+							return mv;
+						} else if (name.equals("hashCode") && desc.equals("()I")) {
+							return mv;
+						} else if (isSynthetic || isNative) {
+							return mv;
+						} else {
+							WriterExplorer we = new WriterExplorer(mv, 
+									access, 
+									this.className, 
+									name, 
+									desc, 
+									signature, 
+									exceptions, 
+									this.classInfo);
+							return we;
+						}
+					}
+				};
+				analysisReader.accept(cv, ClassReader.EXPAND_FRAMES);
+			}
+		} catch (Exception ex) {
+			logger.error("Error: ", ex);
+		}
+		
+		Map<String, ClassInfo> allClasses = GlobalInfoRecorder.getClassInfo();
+		int methodCounter = 0;
+		int stabelizedCounter = 0;
+		for (String className: allClasses.keySet()) {
+			ClassInfo clazz = allClasses.get(className);
+			Map<String, MethodInfo> methods = clazz.getMethods();
+			methodCounter += methods.size();
+			for (MethodInfo method: methods.values()) {
+				//Identify which methods are already stable (no callees)
+				int callSize = method.getCallees().size();
+				if (callSize == 0) {
+					method.stabelized = true;
+					stabelizedCounter++;
+					//SymbolicValueAnalyzer.analyzeValue(method);
 				}
 			}
 		}
+		
+		logger.info("Total method count: " + methodCounter);
+		logger.info("Stabelized count: " + stabelizedCounter);
+		
+		logger.info("Review profiling results of methods");
+		allClasses.forEach((name, clazz)->{
+			logger.info("Class: " + clazz.getClassName());
+			clazz.getMethods().forEach((key, m)->{
+				logger.info("Method: " + m.getMethodKey());
+				logger.info("Stabelized: " + m.stabelized);
+				m.getCallees().forEach(c->{
+					logger.info("Callee: " + c.getMethodKey());
+					logger.info("Potential outputs: " + c.getPotentialOutputs());
+				});
+			});
+		});
+		GlobalInfoRecorder.reportClassProfiles(IODriver.profileDir, profileName);
+		
+		//Start to summarize the methods with their callees...
+		/*System.out.println("Not stabelize methods");
+		notStable.forEach(n->{
+			System.out.println(n.getMethodKey());
+			ClassInfoUtils.stabelizeMethod(n);
+		});*/
 	}
 	
 	public static class WriterExplorer extends MethodVisitor {
@@ -242,13 +306,28 @@ public class PreAnalyzer {
 					try {
 						//Analyze callee here
 						Frame[] fr = a.analyze(className, this);
-						info.insts = this.instructions;
-						info.frames = fr;
-						info.dvi = fvi;
+						//info.insts = this.instructions;
+						//info.frames = fr;
+						//info.dvi = fvi;
+						fvi.getParamList().forEach(val->{
+							if (val.getDeps() != null && val.getDeps().size() > 0) {
+								
+							}
+						});
+						
+						for (int j = 0; j < fvi.getParamList().size(); j++) {
+							DependentValue val = fvi.getParamList().get(j);
+							if (val.getDeps() != null && val.getDeps().size() > 0) {
+								if (info.writtenInputs == null) {
+									info.writtenInputs = new TreeSet<Integer>();
+								}
+								
+								info.writtenInputs.add(j);
+							}
+						}
 					} catch (Exception ex) {
 						logger.info("Error: ", ex);
 					}
-					this.mv.visitEnd();
 				}
 			});
 		}

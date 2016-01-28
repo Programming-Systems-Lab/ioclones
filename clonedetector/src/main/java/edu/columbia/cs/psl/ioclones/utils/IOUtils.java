@@ -49,8 +49,10 @@ import com.thoughtworks.xstream.XStream;
 import com.thoughtworks.xstream.converters.enums.EnumToStringConverter;
 import com.thoughtworks.xstream.mapper.MapperWrapper;
 
+import edu.columbia.cs.psl.ioclones.driver.IODriver;
 import edu.columbia.cs.psl.ioclones.driver.SimAnalysisDriver;
 import edu.columbia.cs.psl.ioclones.driver.SimAnalysisDriver.IOSim;
+import edu.columbia.cs.psl.ioclones.pojo.ClassInfo;
 import edu.columbia.cs.psl.ioclones.pojo.IORecord;
 import edu.columbia.cs.psl.ioclones.xmlconverter.BlackConverter;
 import edu.columbia.cs.psl.ioclones.xmlconverter.InnerClassConverter;
@@ -362,7 +364,7 @@ public class IOUtils {
 		}
 	}
 	
-	private static boolean shouldRemove(Object o) {
+	public static boolean shouldRemove(Object o) {
 		if (o == null) {
 			return false;
 		}
@@ -462,6 +464,52 @@ public class IOUtils {
 			}
 			
 			return false;
+		}
+	}
+	
+	public static void unzipClassInfo() {
+		File infoDir = new File(IODriver.profileDir);
+		if (!infoDir.exists()) {
+			logger.warn("Class info directory not exist");
+			return ;
+		}
+		
+		for (File f: infoDir.listFiles()) {
+			if (f.getName().endsWith(".zip")) {
+				unzipClassInfo(f);
+			}
+		}
+		logger.info("Total loaded class profiles: " + GlobalInfoRecorder.getClassInfo().size());
+	}
+	
+	public static void unzipClassInfo(File zipFile) {
+		try {
+			ZipInputStream zis = new ZipInputStream(new FileInputStream(zipFile));
+			ZipEntry curEntry = null;
+			
+			while ((curEntry = zis.getNextEntry()) != null) {
+				//System.out.println("Cur entry: " + curEntry.getName());
+				
+				if (curEntry.isDirectory()) {
+					continue ;
+				}
+				
+				String extension = getExtension(curEntry.getName());
+				if (extension.equals("xml")) {
+					StringBuilder sb = new StringBuilder();
+					byte[] buffer = new byte[1024];
+					int read = 0;
+					
+					while ((read = zis.read(buffer, 0, 1024)) >= 0) {
+						sb.append(new String(buffer, 0, read));
+					}
+					
+					ClassInfo classInfo = (ClassInfo) fromXML2Obj(sb.toString());
+					GlobalInfoRecorder.registerClassInfo(classInfo);
+				}
+			}
+		} catch (Exception ex) {
+			logger.error("Error: ", ex);
 		}
 	}
 	

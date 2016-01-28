@@ -29,7 +29,7 @@ public class MethodInfo {
 	
 	public TreeSet<Integer> flowToStatic;
 	
-	public Map<Integer, TreeSet<Integer>> writtenToInputs;
+	public Set<Integer> writtenInputs;
 	
 	private String methodKey;
 	

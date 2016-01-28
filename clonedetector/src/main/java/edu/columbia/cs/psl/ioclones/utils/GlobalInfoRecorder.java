@@ -61,7 +61,7 @@ public class GlobalInfoRecorder {
 	public static int getRecordCounter() {
 		return recordCounter;
 	}
-	
+		
 	public static void registerIO(IORecord io) {
 		synchronized(recordLock) {
 			if (stopRecord(io.getMethodKey())) {

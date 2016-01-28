@@ -9,7 +9,7 @@ public class CalleeRecord {
 	//Facilitate query, Integer: callee param id, Integer: caller input param id
 	private Map<Integer, Integer> potentialOutputs;
 	
-	private Map<Integer, TreeSet<Integer>> potentialInputs;
+	//private Map<Integer, TreeSet<Integer>> potentialInputs;
 	
 	public boolean fixed = false;
 	
@@ -29,11 +29,11 @@ public class CalleeRecord {
 		return this.potentialOutputs;
 	}
 	
-	public void setPotentialInputs(Map<Integer, TreeSet<Integer>> potentialInputs) {
+	/*public void setPotentialInputs(Map<Integer, TreeSet<Integer>> potentialInputs) {
 		this.potentialInputs = potentialInputs;
 	}
 	
 	public Map<Integer, TreeSet<Integer>> getPotentialInputs(){
 		return this.potentialInputs;
-	}
+	}*/
 }

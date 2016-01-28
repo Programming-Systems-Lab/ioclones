@@ -77,22 +77,10 @@ public class ExploreValueInterpreter extends DependentValueInterpreter {
 				}
 				
 				if (potentialOutputs != null) {
-					Map<Integer, TreeSet<Integer>> potentialInputs = new HashMap<Integer, TreeSet<Integer>>();
-					for (int i = 0; i < dvs.size(); i++) {
-						if (!potentialOutputs.containsKey(i)) {
-							DependentValue dv = dvs.get(i);
-							
-							TreeSet<Integer> recorder = new TreeSet<Integer>();
-							Set<Integer> visited = new HashSet<Integer>();
-							this.inferInputParamIndices(dv, recorder, visited);
-							potentialInputs.put(i, recorder);
-						}
-					}
-					
-					String calleeKey = ClassInfoUtils.genMethodKey(methodInst.owner, methodInst.name, methodInst.desc)[0];
+					String cleanOwner = ClassInfoUtils.cleanType(methodInst.owner);
+					String calleeKey = ClassInfoUtils.genMethodKey(cleanOwner, methodInst.name, methodInst.desc)[0];
 					CalleeRecord cr = new CalleeRecord(calleeKey);
 					cr.setPotentialOutputs(potentialOutputs);
-					cr.setPotentialInputs(potentialInputs);
 					
 					if (opcode != INVOKESPECIAL && opcode != INVOKESTATIC) {
 						cr.fixed = true;

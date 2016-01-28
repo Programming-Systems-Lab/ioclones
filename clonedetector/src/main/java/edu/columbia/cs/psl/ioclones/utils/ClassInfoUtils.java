@@ -39,8 +39,8 @@ public class ClassInfoUtils {
 	
 	private static final Set<Type> immutables = new HashSet<Type>();
 	
-	private static final HashMap<String, TreeMap<Integer, TreeSet<Integer>>> paramCache = 
-			new HashMap<String, TreeMap<Integer, TreeSet<Integer>>>();
+	private static final HashMap<String, TreeSet<Integer>> paramCache = 
+			new HashMap<String, TreeSet<Integer>>();
 	
 	static {
 		Type stringType = Type.getType(String.class);
@@ -184,6 +184,10 @@ public class ClassInfoUtils {
 					continue ;
 				}
 				
+				if (!entryName.startsWith("java/")) {
+					continue ;
+				}
+				
 				if (entryName.endsWith(".class")) {
 					InputStream entryStream = jarInstance.getInputStream(entry);
 					container.add(entryStream);
@@ -257,56 +261,39 @@ public class ClassInfoUtils {
 	
 	public static void stabelizeMethod(MethodInfo method) {
 		method.stabelized = true;
-		method.writtenToInputs = new HashMap<Integer, TreeSet<Integer>>();
+		if (method.writtenInputs == null) {
+			method.writtenInputs = new TreeSet<Integer>();
+		}
 		
 		for (CalleeRecord ci: method.getCallees()) {
 			String calleeKey = ci.getMethodKey();
-			String className = calleeKey.split(ClassInfoUtils.RE_SLASH)[0];
+			System.out.println("Callee key: " + calleeKey);
+			String className = calleeKey.split(ClassInfoUtils.DELIM)[0];
 			
 			//From callee to caller map
 			Map<Integer, Integer> potentialOutputs = ci.getPotentialOutputs();
-			Map<Integer, TreeSet<Integer>> potentialInputs = ci.getPotentialInputs();
 			
 			//Conservatively query the class hierarchy, level here does not matter
-			TreeMap<Integer, TreeSet<Integer>> writtenParams = null;
+			TreeSet<Integer> writtenParams = null;
 			if (ci.fixed) {
 				writtenParams = queryMethod(className, calleeKey, true, MethodInfo.PUBLIC);
 			} else {
 				writtenParams = queryMethod(className, calleeKey, false, MethodInfo.PUBLIC);
 			}
+			System.out.println("writtenParams: " + writtenParams);
 			
-			Map<Integer, TreeSet<Integer>> writtenToInputs = new HashMap<Integer, TreeSet<Integer>>();
 			for (Integer calleeId: potentialOutputs.keySet()) {
-				if (writtenParams.containsKey(calleeId)) {
+				if (writtenParams.contains(calleeId)) {
 					int callerId = potentialOutputs.get(calleeId);
-					TreeSet<Integer> totalInputs = new TreeSet<Integer>();
-					
-					TreeSet<Integer> relatedInputs = writtenParams.get(calleeId);
-					if (relatedInputs != null) {
-						relatedInputs.forEach(ri->{
-							if (potentialInputs.containsKey(ri)) {
-								totalInputs.addAll(potentialInputs.get(ri));
-							}
-						});
-					}
-					
-					writtenToInputs.put(callerId, totalInputs);
+					method.writtenInputs.add(callerId);
 				}
 			}
-			
-			writtenToInputs.forEach((w, r)->{
-				if (method.writtenToInputs.containsKey(w)) {
-					method.writtenToInputs.get(w).addAll(r);
-				} else {
-					method.writtenToInputs.put(w, r);
-				}
-			});
 		}
 		
-		SymbolicValueAnalyzer.analyzeValue(method);
+		//SymbolicValueAnalyzer.analyzeValue(method);
 	}
 	
-	public static TreeMap<Integer, TreeSet<Integer>> queryMethod(String className, 
+	public static TreeSet<Integer> queryMethod(String className, 
 			String methodKey, 
 			boolean isFixed, 
 			int level) {
@@ -314,11 +301,11 @@ public class ClassInfoUtils {
 			return paramCache.get(methodKey);
 		}
 		
-		TreeMap<Integer, TreeSet<Integer>> writtenParams = new TreeMap<Integer, TreeSet<Integer>>();
+		TreeSet<Integer> writtenParams = new TreeSet<Integer>();
 		ClassInfo ci = GlobalInfoRecorder.queryClassInfo(className);
 		if (ci == null) {
-			logger.error("Missed class: " + className);
-			System.exit(-1);
+			logger.warn("Missed class: " + className);
+			return writtenParams;
 		}
 		
 		if (isFixed) {
@@ -328,18 +315,12 @@ public class ClassInfoUtils {
 					stabelizeMethod(mi);
 				}
 				
-				if (mi.writtenToInputs.size() > 0) {
-					mi.writtenToInputs.forEach((w, r)->{
-						if (writtenParams.containsKey(w)) {
-							writtenParams.get(w).addAll(r);
-						} else {
-							writtenParams.put(w, r);
-						}
-					});
+				if (mi.writtenInputs.size() > 0) {
+					writtenParams.addAll(mi.writtenInputs);
 				}
 			} else {
-				TreeMap<Integer, TreeSet<Integer>> superQuery = queryMethod(ci.getParent(), methodKey, isFixed, level);
-				writtenParams.putAll(superQuery);
+				TreeSet<Integer> superQuery = queryMethod(ci.getParent(), methodKey, isFixed, level);
+				writtenParams.addAll(superQuery);
 			}
 			paramCache.put(methodKey, writtenParams);
 			
@@ -352,113 +333,83 @@ public class ClassInfoUtils {
 				stabelizeMethod(mi);
 			}
 			
-			writtenParams.putAll(mi.writtenToInputs);
+			writtenParams.addAll(mi.writtenInputs);
 			level = mi.getLevel();
 		}
 		
 		//Climb up
 		if (ci.getParent() != null) {
-			TreeMap<Integer, TreeSet<Integer>> superQuery = searchUp(ci.getParent(), methodKey, level);
-			superQuery.forEach((w, r)->{
-				if (writtenParams.containsKey(w)) {
-					writtenParams.get(w).addAll(r);
-				} else {
-					writtenParams.put(w, r);
-				}
-			});
+			TreeSet<Integer> superQuery = searchUp(ci.getParent(), methodKey, level);
+			writtenParams.addAll(superQuery);
 		}
 		
 		//Go down
 		for (String child: ci.getChildren()) {
-			TreeMap<Integer, TreeSet<Integer>> childQuery = searchDown(child, methodKey, level);
-			childQuery.forEach((w, r)->{
-				if (writtenParams.containsKey(w)) {
-					writtenParams.get(w).addAll(r);
-				} else {
-					writtenParams.put(w, r);
-				}
-			});
+			TreeSet<Integer> childQuery = searchDown(child, methodKey, level);
+			writtenParams.addAll(childQuery);
 		}
 		paramCache.put(methodKey, writtenParams);
 		
 		return writtenParams;
 	}
 	
-	public static TreeMap<Integer, TreeSet<Integer>> searchUp(String className, 
+	public static TreeSet<Integer> searchUp(String className, 
 			String methodKey, 
 			int level) {	
 		ClassInfo ci = GlobalInfoRecorder.queryClassInfo(className);
 		MethodInfo mi = ci.getMethods().get(methodKey);
 		
-		TreeMap<Integer, TreeSet<Integer>> ret = new TreeMap<Integer, TreeSet<Integer>>();
+		TreeSet<Integer> ret = new TreeSet<Integer>();
 		if (mi != null && mi.getLevel() <= level && !mi.isFinal()) {
 			if (!mi.stabelized) {
 				stabelizeMethod(mi);
 			}
 			
-			if (mi.writtenToInputs != null && mi.writtenToInputs.size() > 0)
-				ret.putAll(mi.writtenToInputs);
+			if (mi.writtenInputs != null && mi.writtenInputs.size() > 0) {
+				ret.addAll(mi.writtenInputs);
+			}
 		}
 		
 		if (ci.getParent() != null) {
-			TreeMap<Integer, TreeSet<Integer>> superQuery = null;
+			TreeSet<Integer> superQuery = null;
 			if (mi == null) {
 				superQuery = searchUp(ci.getParent(), methodKey, level);
 			} else {
 				superQuery = searchUp(ci.getParent(), methodKey, mi.getLevel());
 			}
-			
-			superQuery.forEach((w, r)->{
-				if (ret.containsKey(w)) {
-					ret.get(w).addAll(r);
-				} else {
-					ret.put(w, r);
-				}
-			});
+			ret.addAll(superQuery);
 		}
 		
 		return ret;
 	}
 	
-	public static TreeMap<Integer, TreeSet<Integer>> searchDown(String className, 
+	public static TreeSet<Integer> searchDown(String className, 
 			String methodKey, 
 			int level) {
 		ClassInfo ci = GlobalInfoRecorder.queryClassInfo(className);
 		MethodInfo mi = ci.getMethods().get(methodKey);
-		TreeMap<Integer, TreeSet<Integer>> ret = new TreeMap<Integer, TreeSet<Integer>>();
+		TreeSet<Integer> ret = new TreeSet<Integer>();
 		if (mi != null && mi.getLevel() >= level) {
 			if (!mi.stabelized) {
 				stabelizeMethod(mi);
 			}
 			
-			if (mi.writtenToInputs != null && mi.writtenToInputs.size() > 0) {
-				ret.putAll(mi.writtenToInputs);
+			if (mi.writtenInputs != null && mi.writtenInputs.size() > 0) {
+				ret.addAll(mi.writtenInputs);
 			}
 		}
 		
 		if (mi != null) {
 			if (!mi.isFinal()) {
 				ci.getChildren().forEach(child->{
-					TreeMap<Integer, TreeSet<Integer>> childQuery = searchDown(child, methodKey, mi.getLevel());
-					childQuery.forEach((w, r)->{
-						if (ret.containsKey(w)) {
-							ret.get(w).addAll(r);
-						} else {
-							ret.put(w, r);
-						}
-					});
+					TreeSet<Integer> childQuery = searchDown(child, methodKey, mi.getLevel());
+					ret.addAll(childQuery);
 				});
 			}
 		} else {
 			ci.getChildren().forEach(child->{
-				TreeMap<Integer, TreeSet<Integer>> childQuery = searchDown(child, methodKey, level);
-				childQuery.forEach((w, r)->{
-					if (ret.containsKey(w)) {
-						ret.get(w).addAll(r);
-					} else {
-						ret.put(w, r);
-					}
-				});
+				TreeSet<Integer> childQuery = searchDown(child, methodKey, level);
+				ret.addAll(childQuery);
 			});
 		}
 		

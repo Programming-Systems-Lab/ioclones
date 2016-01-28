@@ -578,9 +578,9 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				DependentValue written = (DependentValue) value2;
 				Set<Integer> visited = new HashSet<Integer>();
 				boolean polluteInput = propagateDepToOwners(objRef, written, visited);
-				if (polluteInput) {
+				/*if (polluteInput) {
 					written.addOutSink(insn);
-				}
+				}*/
 				written.owner = objRef;
 				
 				return null;
@@ -605,9 +605,9 @@ public class DependentValueInterpreter extends BasicInterpreter {
 		//objRef.addDep(val);
 		Set<Integer> visited = new HashSet<Integer>();
 		boolean polluteInput = this.propagateDepToOwners(objRef, val, visited);
-		if (polluteInput) {
+		/*if (polluteInput) {
 			val.addOutSink(insn);
-		}
+		}*/
 		val.owner = objRef;
 		
 		return super.ternaryOperation(insn, val1, val2, val3);
@@ -654,23 +654,33 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				}
 				
 				String className = ClassInfoUtils.cleanType(methodInst.owner);
-				String methodKey = ClassInfoUtils.genMethodKey(methodInst.owner, methodInst.name, methodInst.desc)[0];
-				Map<Integer, TreeSet<Integer>> writtenRelations = null;
+				String methodKey = ClassInfoUtils.genMethodKey(className, methodInst.name, methodInst.desc)[0];
+				Set<Integer> writtenParams = null;
 				if (opcode == INVOKESTATIC || opcode == INVOKESPECIAL) {
-					writtenRelations = ClassInfoUtils.queryMethod(className, methodKey, true, MethodInfo.PUBLIC);
+					writtenParams = ClassInfoUtils.queryMethod(className, methodKey, true, MethodInfo.PUBLIC);
 				} else {
-					writtenRelations = ClassInfoUtils.queryMethod(className, methodKey, false, MethodInfo.PUBLIC);
+					writtenParams = ClassInfoUtils.queryMethod(className, methodKey, false, MethodInfo.PUBLIC);
 				}
+				System.out.println("Callee: " + methodKey);
+				System.out.println("Writtne param: " + writtenParams);
 				
-				if (writtenRelations.size() > 0) {
-					for (Integer writtenIdx: writtenRelations.keySet()) {
-						DependentValue written = dvs.get(writtenIdx);
-						
-						TreeSet<Integer> flowToWritten = writtenRelations.get(writtenIdx);
-						flowToWritten.forEach(fw->{
-							DependentValue dep = dvs.get(fw);
-							written.addDep(dep);
-						});
+				if (writtenParams.size() > 0) {
+					List<DependentValue> writtenVals = new ArrayList<DependentValue>();
+					List<DependentValue> depVals = new ArrayList<DependentValue>();
+					
+					for (int i = 0; i < dvs.size(); i++) {
+						DependentValue dv = dvs.get(i);
+						if (writtenParams.contains(i)) {
+							writtenVals.add(dv);
+						} else {
+							depVals.add(dv);
+						}
+					}
+					
+					for (DependentValue w: writtenVals) {
+						for (DependentValue d: depVals) {
+							w.addDep(d);
+						}
 					}
 				}
 				

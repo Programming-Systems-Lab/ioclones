@@ -73,8 +73,7 @@ public class NoOrderAnalyzer extends AbstractSim {
 		} else {
 			//Convert every other object to xmlstring
 			//String xmlString = IOUtils.fromObj2XML(o);
-			XMLWrapper wrapper = new XMLWrapper();
-			wrapper.obj = o;
+			XMLWrapper wrapper = new XMLWrapper(o);
 			return wrapper;
 		}
 	}

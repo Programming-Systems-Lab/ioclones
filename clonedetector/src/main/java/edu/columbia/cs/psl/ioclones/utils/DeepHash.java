@@ -2,6 +2,7 @@ package edu.columbia.cs.psl.ioclones.utils;
 
 import java.util.Set;
 
+import com.cedarsoftware.util.DeepEquals;
 import com.cedarsoftware.util.ReflectionUtils;
 
 import java.lang.reflect.Array;
@@ -60,12 +61,12 @@ public class DeepHash {
             	continue;
             }
             
-            /*if (hasCustomHashCode(obj.getClass()))
+            if (DeepEquals.hasCustomHashCode(obj.getClass()))
             {   // A real hashCode() method exists, call it.
                 hash += obj.hashCode();
                 continue;
-            }*/
-
+            }
+           
             Collection<Field> fields = ReflectionUtils.getDeepDeclaredFields(obj.getClass());
             for (Field field : fields)
             {

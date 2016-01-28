@@ -1,8 +1,10 @@
 package edu.columbia.cs.psl.ioclones;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -27,6 +29,8 @@ public class DependencyAnalyzer extends MethodVisitor {
 	private static final Logger logger = LogManager.getLogger(DependencyAnalyzer.class);
 	
 	public static final String OUTPUT_MSG = "__$$COLUMBIA_IO_OUTPUT";
+	
+	public static final String TAINTED_IN = "__$$COLUMBIA_IO_TAINT@";
 	
 	public static final String INPUT_MSG = "__$$COLUMBIA_IO_INPUT";
 	
@@ -71,14 +75,33 @@ public class DependencyAnalyzer extends MethodVisitor {
 				
 				DependentValueInterpreter dvi = new DependentValueInterpreter(args, returnType, null);
 				Analyzer a = new Analyzer(dvi);
-				try {				
+				try {		
 					Frame[] fr = a.analyze(className, this);
-															
+					
 					//1st round, collect vals relevant to outputs
 					Map<DependentValue, LinkedList<DependentValue>> ios = 
 							new HashMap<DependentValue, LinkedList<DependentValue>>();
 					AbstractInsnNode insn = this.instructions.getFirst();
-					int i = 0;					
+					int i = 0;
+					Map<Integer, WrittenParam> writtenParams = new HashMap<Integer, WrittenParam>();
+					
+					//Determine which input has been polluted
+					for (int j = 0; j < dvi.getParamList().size(); j++) {
+						DependentValue paramVal = dvi.getParamList().get(j);
+						if (paramVal.getDeps() != null && paramVal.getDeps().size() > 0) {
+							LinkedList<DependentValue> writtenDeps = paramVal.tag();
+							
+							if (writtenDeps.size() > 0) {
+								writtenDeps.removeFirst();
+							}
+							WrittenParam wp = new WrittenParam();
+							wp.paramIdx = j;
+							wp.deps = writtenDeps;
+							
+							writtenParams.put(paramVal.id, wp);
+						}
+					}
+					
 					while(insn != null) {
 						Frame fn = fr[i];
 						if(fn != null) {							
@@ -94,22 +117,46 @@ public class DependencyAnalyzer extends MethodVisitor {
 								case Opcodes.PUTSTATIC:
 									//What are we returning?
 									DependentValue retVal = (DependentValue)fn.getStack(fn.getStackSize() - 1);
-									LinkedList<DependentValue> toOutput = retVal.tag();
-									retVal.addOutSink(insn);
-									
-									//The first will be the ret itself
-									if (toOutput.size() == 0) {
-										//This means that this output has been analyzed before (merge)
-										logger.warn("Visited val: " + retVal);
-										logger.warn("Corresponding inst: " + insn);
-									} else {
-										toOutput.removeFirst();
-										ios.put(retVal, toOutput);
+									if (!writtenParams.containsKey(retVal.id)) {
+										LinkedList<DependentValue> toOutput = retVal.tag();
+										retVal.addOutSink(insn);
+										
+										int opcode = insn.getOpcode();
+										if (opcode >= Opcodes.IRETURN && opcode <= Opcodes.ARETURN) {
+											List<Integer> written = null;
+										}
+										
+										//The first will be the ret itself
+										if (toOutput.size() == 0) {
+											//This means that this output has been analyzed before (merge)
+											logger.warn("Visited val: " + retVal);
+											logger.warn("Corresponding inst: " + insn);
+										} else {
+											toOutput.removeFirst();
+											ios.put(retVal, toOutput);
+										}
+										
+										System.out.println("Output val with inst: " + retVal + " " + insn);
+										System.out.println("Dependent val: " + toOutput);
 									}
 									
-									System.out.println("Output val with inst: " + retVal + " " + insn);
-									System.out.println("Dependent val: " + toOutput);
-									break;									
+									if (writtenParams.size() > 0) {
+										for (WrittenParam wp: writtenParams.values()) {
+											String msg = TAINTED_IN + wp.paramIdx;
+											this.instructions.insertBefore(insn, new LdcInsnNode(msg));
+										}
+									}
+									
+									break;
+								case Opcodes.RETURN:
+									if (writtenParams.size() > 0) {
+										for (WrittenParam wp: writtenParams.values()) {
+											String msg = TAINTED_IN + wp.paramIdx;
+											this.instructions.insertBefore(insn, new LdcInsnNode(msg));
+										}
+									}
+									
+									break ;
 							}
 						}
 						i++;
@@ -119,30 +166,7 @@ public class DependencyAnalyzer extends MethodVisitor {
 					if (debug) {
 						this.debug(fr);
 					}
-					
-					Map<Integer, DependentValue> params = dvi.getParams();
-					System.out.println("Input param: " + params);
-					params.forEach((id, val)->{						
-						if (val.getDeps() != null && val.getDeps().size() > 0) {
-							//This means that the input is an object that has been written
-							System.out.println("Dirty input val: " + val);
-							
-							val.getDeps().forEach(d->{
-								System.out.println("Written to input (output): " + d + " " + d.getInSrcs());
-								LinkedList<DependentValue> toOutput = d.tag();
-								
-								if (toOutput.size() > 0) {
-									//The first will be d itself
-									toOutput.removeFirst();
-									ios.put(d, toOutput);
-									System.out.println("Dependent val: " + toOutput);
-								} else {
-									logger.info("Visited value: " + d);
-								}
-							});
-						}
-					});
-					
+										
 					Set<Integer> touched = new HashSet<Integer>();
 					Set<AbstractInsnNode> visitedInInsns = new HashSet<AbstractInsnNode>();
 										
@@ -190,8 +214,7 @@ public class DependencyAnalyzer extends MethodVisitor {
 						}
 					}
 					
-					//Include only when there is a output has been identified
-					if (ios.size() > 0) {
+					if (ios.size() > 0 || writtenParams.size() > 0) {
 						//Need to analyze which control instruction should be recorded
 						//blockAnalyzer.insertGuide(controlTarget);
 						//Jumps will affect outputs
@@ -226,7 +249,6 @@ public class DependencyAnalyzer extends MethodVisitor {
 				}
 				super.visitEnd();
 				this.accept(cmv);
-				System.out.println();
 			}
 			
 			public void debug(Frame[] fr) {
@@ -269,5 +291,10 @@ public class DependencyAnalyzer extends MethodVisitor {
 			} 
 		});
 	}
-
+	
+	public static class WrittenParam {
+		int paramIdx;
+				
+		List<DependentValue> deps;
+	}
 }

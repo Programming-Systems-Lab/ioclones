@@ -1,13 +1,18 @@
 package edu.columbia.cs.psl.ioclones.pojo;
 
 import java.util.List;
+import java.util.Set;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashSet;
 
+import edu.columbia.cs.psl.ioclones.sim.NoOrderAnalyzer;
 import edu.columbia.cs.psl.ioclones.utils.GlobalInfoRecorder;
 import edu.columbia.cs.psl.ioclones.utils.IOUtils;
 
@@ -15,25 +20,25 @@ public class IORecord {
 	
 	private static final Logger logger = LogManager.getLogger(IORecord.class);
 	
+	private Comparator<Object> dhComparator = new Comparator<Object>(){
+		public int compare(Object o1, Object o2) {
+			return o1.hashCode() > o2.hashCode()?1:(o1.hashCode() < o2.hashCode()?-1:0);
+		}
+	};
+	
 	private String methodKey;
 	
 	private int id = -1;
 	
 	//private Set<Integer> stopVar = new HashSet<Integer>();
 	
-	private List<Object> inputs = new ArrayList<Object>();
+	private Set<Object> inputs = new HashSet<Object>();
 	
-	private List<Object> outputs = new ArrayList<Object>();
+	private Set<Object> outputs = new HashSet<Object>();
 	
 	public transient Collection<Object> cleanInputs;
 	
 	public transient Collection<Object> cleanOutputs;
-	
-	private transient Object retVal = null;
-	
-	private transient List<Object> controls = new ArrayList<Object>();
-	
-	private transient List<Object> sideEffects = new ArrayList<Object>();
 	
 	private boolean stopRecord = false;
 	
@@ -55,71 +60,37 @@ public class IORecord {
 	public int getId() {
 		return this.id;
 	}
-	
-	public void setRetVal(Object retVal, boolean ser) {
+					
+	/*public void swapLastTwo() {
 		if (this.stopRecord) {
 			return ;
 		}
 		
-		if (retVal == null) {
-			ser = false;
-		}
-		
-		Object insert = null;
-		if (ser) {
-			insert = IOUtils.newObject(retVal);
-		} else {
-			insert = retVal;
-		}
-		
-		this.retVal = insert;
-	}
-		
-	public Object getRetVal() {
-		return this.retVal;
-	}
-	
-	public void registerControl(Object i, boolean ser) {
-		if (this.stopRecord) {
-			return ;
-		}
-				
-		if (i == null) {
-			ser = false;
-		}
-		
-		Object insert = null;
-		if (ser) {
-			insert = IOUtils.newObject(i);
-		} else {
-			insert = i;
-		}
-		
-		this.controls.add(insert);
-	}
-			
-	public void swapLastTwo() {
-		if (this.stopRecord) {
-			return ;
-		}
-		
-		//System.out.println("Before swap2: " + this.inputs);
-		Object last = this.controls.get(this.inputs.size() - 1);
-		Object last2 = this.controls.get(this.inputs.size() - 2);
-		this.controls.set(this.controls.size() - 2, last);
-		this.controls.set(this.controls.size() - 1, last2);
-		//System.out.println("After swap2: " + this.inputs);
-	}
+		Object last = this.inputs.get(this.inputs.size() - 1);
+		Object last2 = this.inputs.get(this.inputs.size() - 2);
+		this.inputs.set(this.inputs.size() - 2, last);
+		this.inputs.set(this.inputs.size() - 1, last2);
+	}*/
 		
 	public void registerInput(Object o, boolean ser) {
+		if (this.stopRecord) {
+			return ;
+		}
 		this.registerObj(o, ser, true);
 	}
-	
-	public void registerSideEffect(Object o) {
-		this.registerObj(o, true, true);
+		
+	public void registerOutput(Object o, boolean ser) {
+		if (this.stopRecord) {
+			return ;
+		}
+		this.registerObj(o, ser, false);
 	}
 	
 	private void registerObj(Object o, boolean ser, boolean input) {
+		if (IOUtils.shouldRemove(o)) {
+			return ;
+		}
+		
 		if (o == null) {
 			ser = false;
 		}
@@ -129,25 +100,19 @@ public class IORecord {
 			insert = IOUtils.newObject(o);
 		}
 		
+		Object cleanObj = NoOrderAnalyzer.cleanObject(insert);
 		if (input) {
-			this.inputs.add(insert);
+			this.inputs.add(cleanObj);
 		} else {
-			this.sideEffects.add(insert);
+			this.outputs.add(cleanObj);
 		}
 	}
-	
-	public void summarizeIO() {
-		//Summarize inputs
-		this.inputs.addAll(this.controls);
-		this.outputs.addAll(this.sideEffects);
-		this.outputs.add(this.retVal);
-	}
 				
-	public List<Object> getInputs() {
+	public Collection<Object> getInputs() {
 		return this.inputs;
 	}
 	
-	public List<Object> getOutputs() {
+	public Collection<Object> getOutputs() {
 		return this.outputs;
 	}
 		
@@ -186,18 +151,29 @@ public class IORecord {
 			return false;
 		}
 		
-		for (int i = 0; i < this.inputs.size(); i++) {
-			Object myObj = this.inputs.get(i);
-			Object tmpObj = tmp.getInputs().get(i);
+		List<Object> myInput = new ArrayList<Object>(this.inputs);
+		List<Object> tmpInput = new ArrayList<Object>(tmp.getInputs());
+		
+		Collections.sort(myInput, this.dhComparator);
+		Collections.sort(tmpInput, this.dhComparator);
+		
+		for (int i = 0; i < myInput.size(); i++) {
+			Object myObj = myInput.get(i);
+			Object tmpObj = tmpInput.get(i);
 			
 			if (!myObj.equals(tmpObj)) {
 				return false;
 			}
 		}
 		
-		for (int i = 0; i < this.outputs.size(); i++) {
-			Object myObj = this.outputs.get(i);
-			Object tmpObj = tmp.getOutputs().get(i);
+		List<Object> myOutput = new ArrayList<Object>(this.outputs);
+		List<Object> tmpOutput = new ArrayList<Object>(tmp.getOutputs());
+		Collections.sort(myOutput, this.dhComparator);
+		Collections.sort(tmpOutput, this.dhComparator);
+		
+		for (int i = 0; i < myOutput.size(); i++) {
+			Object myObj = myOutput.get(i);
+			Object tmpObj = tmpOutput.get(i);
 			
 			if (!myObj.equals(tmpObj)) {
 				return false;
@@ -211,15 +187,8 @@ public class IORecord {
 	public int hashCode() {
 		int result = 17;
 		
-		int inHash = 0;
-		for (Object obj: this.inputs) {
-			inHash += obj.hashCode();
-		}
-		
-		int outHash = 0;
-		for (Object obj: this.outputs) {
-			outHash += obj.hashCode();
-		}
+		int inHash = this.inputs.hashCode();		
+		int outHash = this.outputs.hashCode();
 		
 		//String inputString = IOUtils.fromObj2XML(this.inputs);
 		//String outputString = IOUtils.fromObj2XML(this.outputs);

@@ -28,8 +28,8 @@ public class SymbolicValueAnalyzer {
 				new HashMap<DependentValue, LinkedList<DependentValue>>();
 				
 		mi.flowToRet = new TreeSet<Integer>();
-		if (mi.writtenToInputs == null) {
-			mi.writtenToInputs = new HashMap<Integer, TreeSet<Integer>>();
+		if (mi.writtenInputs == null) {
+			mi.writtenInputs = new TreeSet<Integer>();
 		}
 		mi.flowToStatic = new TreeSet<Integer>();
 		
@@ -56,8 +56,8 @@ public class SymbolicValueAnalyzer {
 						//The first will be the ret itself
 						if (toOutput.size() == 0) {
 							//This means that this output has been analyzed before (merge)
-							logger.warn("Visited val: " + retVal);
-							logger.warn("Corresponding inst: " + insn);
+							//logger.warn("Visited val: " + retVal);
+							//logger.warn("Corresponding inst: " + insn);
 						} else {
 							toOutput.removeFirst();
 							ios.put(retVal, toOutput);
@@ -75,8 +75,8 @@ public class SymbolicValueAnalyzer {
 							}
 						}
 						
-						System.out.println("Output val with inst: " + retVal + " " + insn);
-						System.out.println("Dependent val: " + toOutput);
+						//System.out.println("Output val with inst: " + retVal + " " + insn);
+						//System.out.println("Dependent val: " + toOutput);
 						break;									
 				}
 			}
@@ -95,33 +95,7 @@ public class SymbolicValueAnalyzer {
 				//This means that the input is an object that has been written
 				System.out.println("Dirty input val: " + val);
 				int inputIdx = mi.dvi.queryInputParamIndex(id);
-				
-				if (!mi.writtenToInputs.containsKey(inputIdx)) {
-					TreeSet<Integer> depInputs = new TreeSet<Integer>();
-					mi.writtenToInputs.put(inputIdx, depInputs);
-				}
-				TreeSet<Integer> related = mi.writtenToInputs.get(inputIdx);
-				
-				val.getDeps().forEach(d->{
-					System.out.println("Written to input (output): " + d + " " + d.getInSrcs());
-					LinkedList<DependentValue> toOutput = d.tag();
-					
-					if (toOutput.size() > 0) {
-						//The first will be d itself
-						toOutput.removeFirst();
-						ios.put(d, toOutput);
-						System.out.println("Dependent val: " + toOutput);
-						
-						toOutput.forEach(dv->{
-							int idx = mi.dvi.queryInputParamIndex(dv.id);
-							if (idx != -1) {
-								related.add(idx);
-							}
-						});
-					} else {
-						logger.info("Visited value: " + d);
-					}
-				});
+				mi.writtenInputs.add(inputIdx);
 			}
 		});
 	}
