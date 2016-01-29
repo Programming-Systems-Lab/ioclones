@@ -50,6 +50,8 @@ public class GlobalInfoRecorder {
 	
 	private static int recordCounter = 0;
 	
+	private static int changeCounter = 0;
+	
 	public static int getThreadIndex() {
 		return threadIndexer.get();
 	}
@@ -60,6 +62,19 @@ public class GlobalInfoRecorder {
 	
 	public static int getRecordCounter() {
 		return recordCounter;
+	}
+	
+	public static void resetChangeCounter() {
+		changeCounter = 0;
+	}
+	
+	public static void increChangeCounter() {
+		changeCounter++;
+	}
+	
+	public static boolean isChanged() {
+		logger.info("Changed method: " + changeCounter);
+		return changeCounter != 0;
 	}
 		
 	public static void registerIO(IORecord io) {
@@ -184,6 +199,18 @@ public class GlobalInfoRecorder {
 	
 	public static Map<String, ClassInfo> getClassInfo() {
 		return classInfo;
+	}
+	
+	public static void reportClassInfo() {
+		synchronized(classLock) {
+			classInfo.values().forEach(info->{
+				System.out.println("Class name: " + info.getClassName());
+				
+				info.getMethodInfo().forEach((key, method)->{
+					System.out.println("Method: " + key + " " + method.getWrittenParams());
+				});
+			});
+		}
 	}
 	
 	public static void reportClassProfiles(String baseDir, String profileName) {

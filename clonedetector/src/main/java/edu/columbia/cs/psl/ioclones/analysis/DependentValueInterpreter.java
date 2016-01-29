@@ -44,8 +44,6 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	
 	protected boolean objDep = false;
 	
-	protected MethodInfo mi;
-	
 	protected Map<Integer, DependentValue> params = new HashMap<Integer, DependentValue>();
 	
 	protected List<DependentValue> paramList = new ArrayList<DependentValue>();
@@ -56,13 +54,12 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	
 	protected Map<AbstractInsnNode, DependentValue> singelControls = new HashMap<AbstractInsnNode, DependentValue>();
 	
-	public DependentValueInterpreter(Type[] args, Type retType, MethodInfo mi) {
+	public DependentValueInterpreter(Type[] args, Type retType) {
 		if (retType.getSort() == Type.VOID) {
 			this.initParams = true;
 		}
 		
 		this.allTypes = args;
-		this.mi = mi;
 	}
 	
 	public boolean propagateDepToOwners(DependentValue owner, 
@@ -654,33 +651,34 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				}
 				
 				String className = ClassInfoUtils.cleanType(methodInst.owner);
-				String methodKey = ClassInfoUtils.genMethodKey(className, methodInst.name, methodInst.desc)[0];
-				Set<Integer> writtenParams = null;
-				if (opcode == INVOKESTATIC || opcode == INVOKESPECIAL) {
-					writtenParams = ClassInfoUtils.queryMethod(className, methodKey, true, MethodInfo.PUBLIC);
-				} else {
-					writtenParams = ClassInfoUtils.queryMethod(className, methodKey, false, MethodInfo.PUBLIC);
-				}
-				System.out.println("Callee: " + methodKey);
-				System.out.println("Writtne param: " + writtenParams);
-				
-				if (writtenParams.size() > 0) {
-					List<DependentValue> writtenVals = new ArrayList<DependentValue>();
-					List<DependentValue> depVals = new ArrayList<DependentValue>();
-					
-					for (int i = 0; i < dvs.size(); i++) {
-						DependentValue dv = dvs.get(i);
-						if (writtenParams.contains(i)) {
-							writtenVals.add(dv);
-						} else {
-							depVals.add(dv);
-						}
+				ClassInfo calleeInfo = GlobalInfoRecorder.queryClassInfo(className);
+				if (calleeInfo != null) {
+					System.out.println("Callee info: " + calleeInfo.getClassName());
+					String methodNameArgs = ClassInfoUtils.methodNameArgs(methodInst.name, methodInst.desc);
+					Map<Integer, TreeSet<Integer>> calleeWritten = null;
+					if (opcode == INVOKESTATIC || opcode == INVOKESPECIAL) {
+						calleeWritten = ClassInfoUtils.queryMethod(className, methodNameArgs, true, MethodInfo.PUBLIC);
+					} else {
+						calleeWritten = ClassInfoUtils.queryMethod(className, methodNameArgs, false, MethodInfo.PUBLIC);
 					}
 					
-					for (DependentValue w: writtenVals) {
-						for (DependentValue d: depVals) {
-							w.addDep(d);
-						}
+					System.out.println("Callee writtens: " + calleeWritten);
+					if (calleeWritten != null) {
+						calleeWritten.forEach((w, deps)->{
+							DependentValue written = dvs.get(w);
+							
+							if (!written.isReference()) {
+								logger.error("Suspicious written: " + className + " " + methodNameArgs + " " + written);
+							}
+							
+							if (this.params.containsKey(written.id)) {
+								System.out.println("Inserting written");
+								for (Integer d: deps) {
+									DependentValue dep = dvs.get(d);
+									written.addDep(dep);
+								}
+							}
+						});
 					}
 				}
 				

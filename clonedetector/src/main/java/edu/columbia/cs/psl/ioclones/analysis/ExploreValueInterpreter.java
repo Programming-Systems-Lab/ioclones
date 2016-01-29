@@ -7,6 +7,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.MethodInsnNode;
@@ -14,14 +16,17 @@ import org.objectweb.asm.tree.analysis.AnalyzerException;
 import org.objectweb.asm.tree.analysis.BasicValue;
 
 import edu.columbia.cs.psl.ioclones.pojo.CalleeRecord;
+import edu.columbia.cs.psl.ioclones.pojo.ClassInfo;
 import edu.columbia.cs.psl.ioclones.pojo.MethodInfo;
 import edu.columbia.cs.psl.ioclones.utils.ClassInfoUtils;
+import edu.columbia.cs.psl.ioclones.utils.GlobalInfoRecorder;
 
 public class ExploreValueInterpreter extends DependentValueInterpreter {
 	
-	public ExploreValueInterpreter(Type[] args, Type retType, MethodInfo mi) {
-		super(args, retType, mi);
-		System.out.println("Explore: " + mi.getMethodKey());
+	private static final Logger logger = LogManager.getLogger(ExploreValueInterpreter.class);
+	
+	public ExploreValueInterpreter(Type[] args, Type retType) {
+		super(args, retType);
 	}
 	
 	@Override
@@ -59,33 +64,31 @@ public class ExploreValueInterpreter extends DependentValueInterpreter {
 				 * If so, then mark the value that flows into that parameter slot
 				 * as an output!
 				 */
-				
-				Map<Integer, Integer> potentialOutputs = null;
-				for (int i = 0; i < dvs.size(); i++) {
-					DependentValue dv = dvs.get(i);
-					if (dv.isReference() && this.params.containsKey(dv.id)) {
-						Type dvType = dv.getType();
-						if (!ClassInfoUtils.isImmutable(dvType)) {
-							//Which param?
-							int callerParam = this.queryInputParamIndex(dv.id);
-							if (potentialOutputs == null) {
-								potentialOutputs = new HashMap<Integer, Integer>();
-							}
-							potentialOutputs.put(i, callerParam);
-						}
+				String className = ClassInfoUtils.cleanType(methodInst.owner);
+				ClassInfo calleeInfo = GlobalInfoRecorder.queryClassInfo(className);
+				if (calleeInfo != null) {
+					String methodNameArgs = ClassInfoUtils.methodNameArgs(methodInst.name, methodInst.desc);
+					Map<Integer, TreeSet<Integer>> calleeWritten = null;
+					if (opcode == INVOKESTATIC || opcode == INVOKESPECIAL) {
+						calleeWritten = ClassInfoUtils.queryMethod(className, methodNameArgs, true, MethodInfo.PUBLIC);
+					} else {
+						calleeWritten = ClassInfoUtils.queryMethod(className, methodNameArgs, false, MethodInfo.PUBLIC);
 					}
-				}
-				
-				if (potentialOutputs != null) {
-					String cleanOwner = ClassInfoUtils.cleanType(methodInst.owner);
-					String calleeKey = ClassInfoUtils.genMethodKey(cleanOwner, methodInst.name, methodInst.desc)[0];
-					CalleeRecord cr = new CalleeRecord(calleeKey);
-					cr.setPotentialOutputs(potentialOutputs);
 					
-					if (opcode != INVOKESPECIAL && opcode != INVOKESTATIC) {
-						cr.fixed = true;
-					}
-					mi.addCallee(cr);
+					calleeWritten.forEach((w, deps)->{
+						DependentValue written = dvs.get(w);
+						
+						if (written.isReference()) {
+							logger.error("Suspicious written: " + className + " " + methodNameArgs + " " + written);
+						}
+						
+						if (this.params.containsKey(written.id)) {
+							for (Integer d: deps) {
+								DependentValue dep = dvs.get(d);
+								written.addDep(dep);
+							}
+						}
+					});
 				}
 				
 				return ret;

@@ -3,6 +3,7 @@ package edu.columbia.cs.psl.ioclones.analysis;
 import java.io.File;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -83,8 +84,10 @@ public class PreAnalyzer {
 		}
 		
 		System.out.println("Classes to analyze: " + container.size());
-		try {
-			for (InputStream is: container) {					
+		//copy inputstream
+		Map<String, byte[]> classDatas = new HashMap<String, byte[]>();
+		for (InputStream is: container) {
+			try {
 				ClassReader cr = new ClassReader(is);
 				ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS);
 				cr.accept(new ClassVisitor(Opcodes.ASM5, cw) {
@@ -95,7 +98,19 @@ public class PreAnalyzer {
 					}
 				}, ClassReader.EXPAND_FRAMES);
 				
-				ClassReader analysisReader = new ClassReader(cw.toByteArray());
+				String className = ClassInfoUtils.cleanType(cr.getClassName());
+				classDatas.put(className, cw.toByteArray());
+			} catch (Exception ex) {
+				logger.error("Error: ", ex);
+			}
+		}
+		
+		logger.info("Initialization phase");
+		for (byte[] classData: classDatas.values()) {
+			try {
+				byte[] copy = Arrays.copyOf(classData, classData.length);
+				
+				ClassReader analysisReader = new ClassReader(copy);
 				ClassWriter analysisWriter = new ClassWriter(ClassWriter.COMPUTE_MAXS);
 				ClassVisitor cv = new ClassVisitor(Opcodes.ASM5, analysisWriter) {
 					String className;
@@ -155,8 +170,8 @@ public class PreAnalyzer {
 							String[] exceptions) {
 						boolean isSynthetic = ClassInfoUtils.checkAccess(access, Opcodes.ACC_SYNTHETIC);
 						boolean isNative = ClassInfoUtils.checkAccess(access, Opcodes.ACC_NATIVE);
-						//boolean isInterface = ClassInfoUtils.checkAccess(access, Opcodes.ACC_INTERFACE);
-						//boolean isAbstract = ClassInfoUtils.checkAccess(access, Opcodes.ACC_ABSTRACT);
+						boolean isInterface = ClassInfoUtils.checkAccess(access, Opcodes.ACC_INTERFACE);
+						boolean isAbstract = ClassInfoUtils.checkAccess(access, Opcodes.ACC_ABSTRACT);
 						
 						MethodVisitor mv = super.visitMethod(access, name, desc, signature, exceptions);
 						if (name.equals("toString") && desc.equals("()Ljava/lang/String;")) {
@@ -165,7 +180,7 @@ public class PreAnalyzer {
 							return mv;
 						} else if (name.equals("hashCode") && desc.equals("()I")) {
 							return mv;
-						} else if (isSynthetic || isNative) {
+						} else if (isSynthetic || isNative || isInterface || isAbstract) {
 							return mv;
 						} else {
 							WriterExplorer we = new WriterExplorer(mv, 
@@ -181,52 +196,77 @@ public class PreAnalyzer {
 					}
 				};
 				analysisReader.accept(cv, ClassReader.EXPAND_FRAMES);
-			}
-		} catch (Exception ex) {
-			logger.error("Error: ", ex);
-		}
-		
-		Map<String, ClassInfo> allClasses = GlobalInfoRecorder.getClassInfo();
-		int methodCounter = 0;
-		int stabelizedCounter = 0;
-		for (String className: allClasses.keySet()) {
-			ClassInfo clazz = allClasses.get(className);
-			Map<String, MethodInfo> methods = clazz.getMethods();
-			methodCounter += methods.size();
-			for (MethodInfo method: methods.values()) {
-				//Identify which methods are already stable (no callees)
-				int callSize = method.getCallees().size();
-				if (callSize == 0) {
-					method.stabelized = true;
-					stabelizedCounter++;
-					//SymbolicValueAnalyzer.analyzeValue(method);
-				}
+			} catch (Exception ex) {
+				logger.error("Error: ", ex);
 			}
 		}
 		
-		logger.info("Total method count: " + methodCounter);
-		logger.info("Stabelized count: " + stabelizedCounter);
+		int iteration = 0;
+		do {
+			logger.info("Search phase: " + iteration++);
+			GlobalInfoRecorder.resetChangeCounter();
+			for (byte[] classData: classDatas.values()) {
+				byte[] copy = Arrays.copyOf(classData, classData.length);
+				ClassReader cr = new ClassReader(copy);
+				ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS);
+				ClassVisitor cv = new ClassVisitor(Opcodes.ASM5, cw) {
+					
+					String className;
+					
+					ClassInfo classInfo;
+					
+					@Override
+					public void visit(int version, 
+							int access, 
+							String name, 
+							String signature, 
+							String superName, 
+							String[] interfaces) {
+						super.visit(version, access, name, signature, superName, interfaces);
+						this.className = ClassInfoUtils.cleanType(name);
+						this.classInfo = GlobalInfoRecorder.queryClassInfo(this.className);
+						System.out.println("Current class: " + className);
+					}
+					
+					@Override
+					public MethodVisitor visitMethod(int access, 
+							String name, 
+							String desc, 
+							String signature, 
+							String[] exceptions) {
+						boolean isSynthetic = ClassInfoUtils.checkAccess(access, Opcodes.ACC_SYNTHETIC);
+						boolean isNative = ClassInfoUtils.checkAccess(access, Opcodes.ACC_NATIVE);
+						boolean isInterface = ClassInfoUtils.checkAccess(access, Opcodes.ACC_INTERFACE);
+						boolean isAbstract = ClassInfoUtils.checkAccess(access, Opcodes.ACC_ABSTRACT);
+						
+						MethodVisitor mv = super.visitMethod(access, name, desc, signature, exceptions);
+						if (name.equals("toString") && desc.equals("()Ljava/lang/String;")) {
+							return mv;
+						} else if (name.equals("equals") && desc.equals("(Ljava/lang/Object;)Z")) {
+							return mv;
+						} else if (name.equals("hashCode") && desc.equals("()I")) {
+							return mv;
+						} else if (isSynthetic || isNative || isInterface || isAbstract) {
+							return mv;
+						} else {
+							WriterExplorer we = new WriterExplorer(mv, 
+									access, 
+									this.className, 
+									name, 
+									desc, 
+									signature, 
+									exceptions, 
+									this.classInfo);
+							return we;
+						}
+					}
+				};
+				cr.accept(cv, ClassReader.EXPAND_FRAMES);
+			}
+		} while(GlobalInfoRecorder.isChanged());
 		
-		logger.info("Review profiling results of methods");
-		allClasses.forEach((name, clazz)->{
-			logger.info("Class: " + clazz.getClassName());
-			clazz.getMethods().forEach((key, m)->{
-				logger.info("Method: " + m.getMethodKey());
-				logger.info("Stabelized: " + m.stabelized);
-				m.getCallees().forEach(c->{
-					logger.info("Callee: " + c.getMethodKey());
-					logger.info("Potential outputs: " + c.getPotentialOutputs());
-				});
-			});
-		});
-		GlobalInfoRecorder.reportClassProfiles(IODriver.profileDir, profileName);
-		
-		//Start to summarize the methods with their callees...
-		/*System.out.println("Not stabelize methods");
-		notStable.forEach(n->{
-			System.out.println(n.getMethodKey());
-			ClassInfoUtils.stabelizeMethod(n);
-		});*/
+		logger.info("Report writtein params of methods");
+		GlobalInfoRecorder.reportClassInfo();
 	}
 	
 	public static class WriterExplorer extends MethodVisitor {
@@ -258,8 +298,7 @@ public class PreAnalyzer {
 				
 				@Override
 				public void visitEnd() {
-					String[] parsed = ClassInfoUtils.genMethodKey(className, methodName, methodDesc);
-					String methodKey = parsed[0];
+					//String[] parsed = ClassInfoUtils.genMethodKey(className, methodName, methodDesc);
 					
 					boolean isFinal = ClassInfoUtils.checkAccess(access, Opcodes.ACC_FINAL);
 					int level = -1;
@@ -281,10 +320,14 @@ public class PreAnalyzer {
 					}
 					
 					//logger.info("Method key: " + methodKey);
-					MethodInfo info = new MethodInfo(methodKey);
-					info.setLevel(level);
-					info.setFinal(isFinal);
-					ownerClass.addMethod(info);
+					String methodNameArgs = ClassInfoUtils.methodNameArgs(methodName, methodDesc);
+					MethodInfo info = ownerClass.getMethodInfo(methodNameArgs);
+					if (info == null) {
+						info = new MethodInfo();
+						info.setLevel(level);
+						info.setFinal(isFinal);
+						ownerClass.addMethodInfo(methodNameArgs, info);
+					}
 					
 					boolean isStatic = ClassInfoUtils.checkAccess(this.access, Opcodes.ACC_STATIC);
 					Type[] args = null;
@@ -300,30 +343,48 @@ public class PreAnalyzer {
 					}
 					Type returnType = Type.getReturnType(this.desc);
 					
-					//DependentValueInterpreter dvi = new DependentValueInterpreter(args, returnType, info);
-					ExploreValueInterpreter fvi = new ExploreValueInterpreter(args, returnType, info);
-					Analyzer a = new Analyzer(fvi);
+					DependentValueInterpreter dvi = new DependentValueInterpreter(args, returnType);
+					//ExploreValueInterpreter fvi = new ExploreValueInterpreter(args, returnType);
+					Analyzer a = new Analyzer(dvi);
 					try {
 						//Analyze callee here
 						Frame[] fr = a.analyze(className, this);
-						//info.insts = this.instructions;
-						//info.frames = fr;
-						//info.dvi = fvi;
-						fvi.getParamList().forEach(val->{
+						Map<Integer, TreeSet<Integer>> iterWritten = new HashMap<Integer, TreeSet<Integer>>();
+						for (int j = 0; j < dvi.getParamList().size(); j++) {
+							DependentValue val = dvi.getParamList().get(j);
 							if (val.getDeps() != null && val.getDeps().size() > 0) {
+								LinkedList<DependentValue> deps = val.tag();
+								deps.removeFirst();
+								System.out.println("Deps: ");
+								deps.forEach(dep->{
+									System.out.println(dvi.queryInputParamIndex(dep.id));
+								});
 								
-							}
-						});
-						
-						for (int j = 0; j < fvi.getParamList().size(); j++) {
-							DependentValue val = fvi.getParamList().get(j);
-							if (val.getDeps() != null && val.getDeps().size() > 0) {
-								if (info.writtenInputs == null) {
-									info.writtenInputs = new TreeSet<Integer>();
+								for (DependentValue dep: deps) {
+									if (dvi.params.containsKey(dep.id)) {
+										int depParam = dvi.queryInputParamIndex(dep.id);
+										
+										if (iterWritten.containsKey(j)) {
+											iterWritten.get(j).add(depParam);
+										} else {
+											TreeSet<Integer> depParams = new TreeSet<Integer>();
+											depParams.add(depParam);
+											iterWritten.put(j, depParams);
+										}
+									}
 								}
-								
-								info.writtenInputs.add(j);
 							}
+						}
+						
+						if (info.getWrittenParams() == null) {
+							//Initialization phase
+							info.setWrittenParams(iterWritten);
+							return ;
+						}
+						
+						if (!info.getWrittenParams().equals(iterWritten)) {
+							GlobalInfoRecorder.increChangeCounter();
+							info.setWrittenParams(iterWritten);
 						}
 					} catch (Exception ex) {
 						logger.info("Error: ", ex);

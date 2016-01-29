@@ -15,7 +15,7 @@ public class ClassInfo {
 	
 	private List<String> children = new ArrayList<String>();
 	
-	private Map<String, MethodInfo> methods = new HashMap<String, MethodInfo>();
+	private Map<String, MethodInfo> methodInfo = new HashMap<String, MethodInfo>();
 	
 	public ClassInfo(String className) {
 		this.className = className;
@@ -49,11 +49,15 @@ public class ClassInfo {
 		return this.children;
 	}
 	
-	public void addMethod(MethodInfo method) {
-		this.methods.put(method.getMethodKey(), method);
+	public void addMethodInfo(String nameArgs, MethodInfo mi) {
+		this.methodInfo.put(nameArgs, mi);
 	}
 	
-	public Map<String, MethodInfo> getMethods() {
-		return methods;
+	public MethodInfo getMethodInfo(String nameArgs) {
+		return this.methodInfo.get(nameArgs);
+	}
+	
+	public Map<String, MethodInfo> getMethodInfo() {
+		return this.methodInfo;
 	}
 }

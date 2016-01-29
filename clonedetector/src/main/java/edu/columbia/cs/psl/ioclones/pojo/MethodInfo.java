@@ -1,15 +1,7 @@
 package edu.columbia.cs.psl.ioclones.pojo;
 
-import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.TreeSet;
-
-import org.objectweb.asm.tree.InsnList;
-import org.objectweb.asm.tree.analysis.Frame;
-
-import edu.columbia.cs.psl.ioclones.analysis.DependentValueInterpreter;
 
 public class MethodInfo {
 	
@@ -23,44 +15,14 @@ public class MethodInfo {
 	
 	public static final int PRIVATE = 4;
 	
-	public transient boolean stabelized = false;
+	public transient boolean changed = false;
 	
-	public TreeSet<Integer> flowToRet;
-	
-	public TreeSet<Integer> flowToStatic;
-	
-	public Set<Integer> writtenInputs;
-	
-	private String methodKey;
-	
-	private Set<CalleeRecord> callees = new HashSet<CalleeRecord>();
-	
-	public transient InsnList insts;
-	
-	public transient Frame[] frames;
-	
-	public transient DependentValueInterpreter dvi;
+	private Map<Integer, TreeSet<Integer>> writtenParams;
 	
 	private int level = -1;
 	
 	private boolean isFinal = false;
-	
-	public MethodInfo(String methodKey) {
-		this.methodKey = methodKey;
-	}
-	
-	public String getMethodKey() {
-		return this.methodKey;
-	}
-	
-	public void addCallee(CalleeRecord callee) {
-		this.callees.add(callee);
-	}
-	
-	public Set<CalleeRecord> getCallees() {
-		return this.callees;
-	}
-	
+		
 	public void setLevel(int level) {
 		this.level = level;
 	}
@@ -75,5 +37,13 @@ public class MethodInfo {
 	
 	public boolean isFinal() {
 		return isFinal;
+	}
+	
+	public void setWrittenParams(Map<Integer, TreeSet<Integer>> writtenParams) {
+		this.writtenParams = writtenParams;
+	}
+	
+	public Map<Integer, TreeSet<Integer>> getWrittenParams() {
+		return this.writtenParams;
 	}
 }

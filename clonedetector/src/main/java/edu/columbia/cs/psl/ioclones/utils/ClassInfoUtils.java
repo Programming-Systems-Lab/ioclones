@@ -3,25 +3,23 @@ package edu.columbia.cs.psl.ioclones.utils;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.junit.internal.MethodSorter;
 import org.objectweb.asm.Type;
 
 import edu.columbia.cs.psl.ioclones.analysis.DependentValue;
-import edu.columbia.cs.psl.ioclones.analysis.SymbolicValueAnalyzer;
-import edu.columbia.cs.psl.ioclones.pojo.CalleeRecord;
 import edu.columbia.cs.psl.ioclones.pojo.ClassInfo;
 import edu.columbia.cs.psl.ioclones.pojo.MethodInfo;
 
@@ -38,10 +36,7 @@ public class ClassInfoUtils {
 	private static final File libDir = new File(System.getProperty("user.home") + "/.m2");
 	
 	private static final Set<Type> immutables = new HashSet<Type>();
-	
-	private static final HashMap<String, TreeSet<Integer>> paramCache = 
-			new HashMap<String, TreeSet<Integer>>();
-	
+		
 	static {
 		Type stringType = Type.getType(String.class);
 		immutables.add(stringType);
@@ -73,6 +68,21 @@ public class ClassInfoUtils {
 	}
 	
 	public static String[] genMethodKey(String owner, String name, String desc) {
+		Type returnType = Type.getReturnType(desc);
+		String nameWithArgs = methodNameArgs(name, desc);
+		
+		//methodKey = className + methodName + args
+		String methodKey = owner + DELIM + nameWithArgs;
+		String returnString = returnType.toString();
+		if (returnType.getSort() == Type.OBJECT) {
+			returnString = returnString.substring(1, returnString.length());
+		}
+		String typeString = cleanType(returnString);
+		String[] ret = {methodKey, typeString};
+		return ret;
+	}
+	
+	public static String methodNameArgs(String name, String desc) {
 		Type[] args = Type.getArgumentTypes(desc);
 		Type returnType = Type.getReturnType(desc);
 		StringBuilder argBuilder = new StringBuilder();
@@ -100,15 +110,7 @@ public class ClassInfoUtils {
 			argString = "(" + argBuilder.substring(0, argBuilder.length() - 1) + ")";
 		}
 		
-		//methodKey = className + methodName + args
-		String methodKey = owner + DELIM + name + DELIM + argString;
-		String returnString = returnType.toString();
-		if (returnType.getSort() == Type.OBJECT) {
-			returnString = returnString.substring(1, returnString.length());
-		}
-		String typeString = cleanType(returnString);
-		String[] ret = {methodKey, typeString};
-		return ret;
+		return name + DELIM + argString;
 	}
 	
 	public static String parsePkgName(String className) {
@@ -259,7 +261,7 @@ public class ClassInfoUtils {
 		return immutables.contains(t);
 	}
 	
-	public static void stabelizeMethod(MethodInfo method) {
+	/*public static void stabelizeMethod(MethodInfo method) {
 		method.stabelized = true;
 		if (method.writtenInputs == null) {
 			method.writtenInputs = new TreeSet<Integer>();
@@ -291,128 +293,112 @@ public class ClassInfoUtils {
 		}
 		
 		//SymbolicValueAnalyzer.analyzeValue(method);
-	}
+	}*/
 	
-	public static TreeSet<Integer> queryMethod(String className, 
-			String methodKey, 
+	public static Map<Integer, TreeSet<Integer>> queryMethod(String className, 
+			String methodNameArgs, 
 			boolean isFixed, 
 			int level) {
-		if (paramCache.containsKey(methodKey)) {
-			return paramCache.get(methodKey);
-		}
 		
-		TreeSet<Integer> writtenParams = new TreeSet<Integer>();
-		ClassInfo ci = GlobalInfoRecorder.queryClassInfo(className);
-		if (ci == null) {
-			logger.warn("Missed class: " + className);
-			return writtenParams;
-		}
+		Map<Integer, TreeSet<Integer>> writtenParams = null;
+		ClassInfo curInfo = GlobalInfoRecorder.queryClassInfo(className);
 		
 		if (isFixed) {
-			MethodInfo mi = ci.getMethods().get(methodKey);
-			if (mi != null) {
-				if (!mi.stabelized) {
-					stabelizeMethod(mi);
-				}
-				
-				if (mi.writtenInputs.size() > 0) {
-					writtenParams.addAll(mi.writtenInputs);
-				}
+			MethodInfo curMethod = curInfo.getMethodInfo(methodNameArgs);
+			if (curMethod != null) {
+				return curMethod.getWrittenParams();
 			} else {
-				TreeSet<Integer> superQuery = queryMethod(ci.getParent(), methodKey, isFixed, level);
-				writtenParams.addAll(superQuery);
+				if (curInfo.getParent() == null) {
+					return null;
+				} else {
+					return queryMethod(curInfo.getParent(), methodNameArgs, isFixed, level);
+				}
 			}
-			paramCache.put(methodKey, writtenParams);
-			
-			return writtenParams;
 		}
 		
-		MethodInfo mi = ci.getMethods().get(methodKey);
-		if (mi != null) {
-			if (!mi.stabelized) {
-				stabelizeMethod(mi);
-			}
-			
-			writtenParams.addAll(mi.writtenInputs);
-			level = mi.getLevel();
+		if (writtenParams == null) {
+			writtenParams = new HashMap<Integer, TreeSet<Integer>>();
 		}
 		
-		//Climb up
-		if (ci.getParent() != null) {
-			TreeSet<Integer> superQuery = searchUp(ci.getParent(), methodKey, level);
-			writtenParams.addAll(superQuery);
+		MethodInfo curMethod = curInfo.getMethodInfo(methodNameArgs);
+		if (curMethod != null) {
+			if (curMethod.getWrittenParams() != null)
+				unionMap(curMethod.getWrittenParams(), writtenParams);
+		} else if (curInfo.getParent() != null) {
+			//Climb up
+			Map<Integer, TreeSet<Integer>> superQuery = searchUp(curInfo.getParent(), methodNameArgs, level);
+			unionMap(superQuery, writtenParams);
 		}
 		
 		//Go down
-		for (String child: ci.getChildren()) {
-			TreeSet<Integer> childQuery = searchDown(child, methodKey, level);
-			writtenParams.addAll(childQuery);
+		for (String child: curInfo.getChildren()) {
+			Map<Integer, TreeSet<Integer>> childQuery = searchDown(child, methodNameArgs, level);
+			unionMap(childQuery, writtenParams);
 		}
-		paramCache.put(methodKey, writtenParams);
 		
 		return writtenParams;
 	}
 	
-	public static TreeSet<Integer> searchUp(String className, 
-			String methodKey, 
+	public static Map<Integer, TreeSet<Integer>> searchUp(String className, 
+			String nameArgs, 
 			int level) {	
+		Map<Integer, TreeSet<Integer>> ret = new HashMap<Integer, TreeSet<Integer>>();
 		ClassInfo ci = GlobalInfoRecorder.queryClassInfo(className);
-		MethodInfo mi = ci.getMethods().get(methodKey);
+		MethodInfo mi = ci.getMethodInfo(nameArgs);
 		
-		TreeSet<Integer> ret = new TreeSet<Integer>();
-		if (mi != null && mi.getLevel() <= level && !mi.isFinal()) {
-			if (!mi.stabelized) {
-				stabelizeMethod(mi);
+		if (mi != null && mi.getLevel() <= level) {
+			if (mi.getWrittenParams() != null) {
+				unionMap(mi.getWrittenParams(), ret);
 			}
-			
-			if (mi.writtenInputs != null && mi.writtenInputs.size() > 0) {
-				ret.addAll(mi.writtenInputs);
-			}
-		}
-		
-		if (ci.getParent() != null) {
-			TreeSet<Integer> superQuery = null;
-			if (mi == null) {
-				superQuery = searchUp(ci.getParent(), methodKey, level);
-			} else {
-				superQuery = searchUp(ci.getParent(), methodKey, mi.getLevel());
-			}
-			ret.addAll(superQuery);
+		} else  if (ci.getParent() != null){
+			Map<Integer, TreeSet<Integer>> superQuery = null;
+			superQuery = searchUp(ci.getParent(), nameArgs, level);
+			unionMap(superQuery, ret);
 		}
 		
 		return ret;
 	}
 	
-	public static TreeSet<Integer> searchDown(String className, 
-			String methodKey, 
+	public static Map<Integer, TreeSet<Integer>> searchDown(String className, 
+			String nameArgs, 
 			int level) {
+		Map<Integer, TreeSet<Integer>> ret = new HashMap<Integer, TreeSet<Integer>>();
 		ClassInfo ci = GlobalInfoRecorder.queryClassInfo(className);
-		MethodInfo mi = ci.getMethods().get(methodKey);
-		TreeSet<Integer> ret = new TreeSet<Integer>();
+		MethodInfo mi = ci.getMethodInfo(nameArgs);
+		
 		if (mi != null && mi.getLevel() >= level) {
-			if (!mi.stabelized) {
-				stabelizeMethod(mi);
-			}
-			
-			if (mi.writtenInputs != null && mi.writtenInputs.size() > 0) {
-				ret.addAll(mi.writtenInputs);
+			if (mi.getWrittenParams() != null) {
+				unionMap(mi.getWrittenParams(), ret);
 			}
 		}
 		
 		if (mi != null) {
 			if (!mi.isFinal()) {
 				ci.getChildren().forEach(child->{
-					TreeSet<Integer> childQuery = searchDown(child, methodKey, mi.getLevel());
-					ret.addAll(childQuery);
+					Map<Integer, TreeSet<Integer>> childQuery = searchDown(child, nameArgs, mi.getLevel());
+					unionMap(childQuery, ret);
 				});
+				
 			}
 		} else {
 			ci.getChildren().forEach(child->{
-				TreeSet<Integer> childQuery = searchDown(child, methodKey, level);
-				ret.addAll(childQuery);
+				Map<Integer, TreeSet<Integer>> childQuery = searchDown(child, nameArgs, level);
+				unionMap(childQuery, ret);
 			});
 		}
 		
 		return ret;
+	}
+	
+	public static <T> void unionMap(Map<T, TreeSet<T>> toAdd, 
+			Map<T, TreeSet<T>> original) {
+		toAdd.forEach((o, is)->{
+			if (original.containsKey(o)) {
+				original.get(o).addAll(is);
+			} else {
+				TreeSet<T> copy = new TreeSet<T>(is);
+				original.put(o, copy);
+			}
+		});
 	}
 }
