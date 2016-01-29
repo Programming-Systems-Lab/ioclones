@@ -21,6 +21,8 @@ import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.JSRInlinerAdapter;
+import org.objectweb.asm.tree.AbstractInsnNode;
+import org.objectweb.asm.tree.LdcInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.analysis.Analyzer;
 import org.objectweb.asm.tree.analysis.Frame;
@@ -83,7 +85,7 @@ public class PreAnalyzer {
 			logger.info("Total collected classes in codebase: " + container.size());
 		}
 		
-		System.out.println("Classes to analyze: " + container.size());
+		logger.info("Classes to analyze: " + container.size());
 		//copy inputstream
 		Map<String, byte[]> classDatas = new HashMap<String, byte[]>();
 		for (InputStream is: container) {
@@ -225,7 +227,6 @@ public class PreAnalyzer {
 						super.visit(version, access, name, signature, superName, interfaces);
 						this.className = ClassInfoUtils.cleanType(name);
 						this.classInfo = GlobalInfoRecorder.queryClassInfo(this.className);
-						System.out.println("Current class: " + className);
 					}
 					
 					@Override
@@ -265,7 +266,7 @@ public class PreAnalyzer {
 			}
 		} while(GlobalInfoRecorder.isChanged());
 		
-		logger.info("Report writtein params of methods");
+		logger.info("Report written params of methods");
 		GlobalInfoRecorder.reportClassInfo();
 	}
 	
@@ -329,6 +330,10 @@ public class PreAnalyzer {
 						ownerClass.addMethodInfo(methodNameArgs, info);
 					}
 					
+					if (info.leaf) {
+						return ;
+					}
+					
 					boolean isStatic = ClassInfoUtils.checkAccess(this.access, Opcodes.ACC_STATIC);
 					Type[] args = null;
 					if (isStatic) {
@@ -352,25 +357,31 @@ public class PreAnalyzer {
 						Map<Integer, TreeSet<Integer>> iterWritten = new HashMap<Integer, TreeSet<Integer>>();
 						for (int j = 0; j < dvi.getParamList().size(); j++) {
 							DependentValue val = dvi.getParamList().get(j);
-							if (val.getDeps() != null && val.getDeps().size() > 0) {
+							if (val.written) {
 								LinkedList<DependentValue> deps = val.tag();
+								if (deps.size() == 0) {
+									System.out.println("Suspicious class: " + className);
+									System.out.println("Method name: " + methodNameArgs);
+									System.out.println("Param idx: " + dvi.queryInputParamIndex(val.id));
+									System.out.println("Param: " + val);
+									System.out.println("Deps: " + val.getDeps());
+									System.out.println("All params: " + dvi.getParamList());
+	
+									System.exit(-1);
+								}
 								deps.removeFirst();
-								System.out.println("Deps: ");
-								deps.forEach(dep->{
-									System.out.println(dvi.queryInputParamIndex(dep.id));
-								});
+								//System.out.println("Written val: " + val);
+								//System.out.println("Deps: " + deps);
+								
+								if (!iterWritten.containsKey(j)) {
+									TreeSet<Integer> depParams = new TreeSet<Integer>();
+									iterWritten.put(j, depParams);
+								}
 								
 								for (DependentValue dep: deps) {
 									if (dvi.params.containsKey(dep.id)) {
 										int depParam = dvi.queryInputParamIndex(dep.id);
-										
-										if (iterWritten.containsKey(j)) {
-											iterWritten.get(j).add(depParam);
-										} else {
-											TreeSet<Integer> depParams = new TreeSet<Integer>();
-											depParams.add(depParam);
-											iterWritten.put(j, depParams);
-										}
+										iterWritten.get(j).add(depParam);
 									}
 								}
 							}
@@ -379,6 +390,11 @@ public class PreAnalyzer {
 						if (info.getWrittenParams() == null) {
 							//Initialization phase
 							info.setWrittenParams(iterWritten);
+							
+							if (!dvi.hasCallees) {
+								info.leaf = true;
+							}
+							
 							return ;
 						}
 						

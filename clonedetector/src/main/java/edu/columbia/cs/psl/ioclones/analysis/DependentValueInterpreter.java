@@ -3,6 +3,7 @@ package edu.columbia.cs.psl.ioclones.analysis;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -35,6 +36,8 @@ import edu.columbia.cs.psl.ioclones.utils.GlobalInfoRecorder;
 public class DependentValueInterpreter extends BasicInterpreter {
 		
 	private static Logger logger = LogManager.getLogger(DependentValueInterpreter.class);
+	
+	public transient boolean hasCallees = false;
 		
 	protected Type[] allTypes;
 	
@@ -43,6 +46,8 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	protected boolean initParams = false;
 	
 	protected boolean objDep = false;
+	
+	protected boolean idxDep = false;
 	
 	protected Map<Integer, DependentValue> params = new HashMap<Integer, DependentValue>();
 	
@@ -62,28 +67,49 @@ public class DependentValueInterpreter extends BasicInterpreter {
 		this.allTypes = args;
 	}
 	
-	public boolean propagateDepToOwners(DependentValue owner, 
-			DependentValue written, 
-			Set<Integer> visited) {
-		boolean fromInputParams = this.params.containsKey(owner.id);
+	public void propagateDepToOwners(DependentValue owner, DependentValue dep) {
+		LinkedList<DependentValue> queue = new LinkedList<DependentValue>();
+		Set<DependentValue> visited = new HashSet<DependentValue>();
+		queue.add(owner);
+		while (queue.size() > 0) {
+			DependentValue dv = queue.removeFirst();
+			dv.addDep(dep);
+			
+			dv.written = true;
+			visited.add(dv);
+			
+			if (dv.getOwners() != null) {
+				dv.getOwners().forEach(o->{
+					if (!visited.contains(o) && !queue.contains(o)) {
+						queue.add(o);
+					}
+				});
+			}
+		}
+	}
+	
+	public boolean checkValueOrigin(DependentValue val) {		
+		Set<DependentValue> visited = new HashSet<DependentValue>();
+		LinkedList<DependentValue> queue = new LinkedList<DependentValue>();
+		queue.add(val);
 		
-		//Prevent loop relations between objects...
-		if (visited.contains(owner.id)) {
-			return fromInputParams;
+		while (queue.size() > 0) {
+			DependentValue dv = queue.removeFirst();
+			if (this.params.containsKey(dv.id)) {
+				return true ;
+			}
+			visited.add(dv);
+			
+			if (dv.getOwners() != null) {
+				dv.getOwners().forEach(o->{
+					if (!visited.contains(o) && !queue.contains(o)) {
+						queue.add(o);
+					}
+				});
+			}
 		}
 		
-		owner.addDep(written);
-		visited.add(owner.id);
-		
-		if (fromInputParams) {
-			return true;
-		}
-		
-		if (owner.owner != null) {
-			fromInputParams = propagateDepToOwners(owner.owner, written, visited) || fromInputParams;
-		}
-		
-		return fromInputParams;
+		return false;
 	}
 	
 	public Map<Integer, DependentValue> getParams() {
@@ -257,7 +283,6 @@ public class DependentValueInterpreter extends BasicInterpreter {
 			case Opcodes.ALOAD:
 				//For capturing xloads that might be input
 				if (this.params.containsKey(dv.id)) {
-					//System.out.println("Input load: " + insn + " " + dv);
 					dv.addInSrc(insn);
 				}
 			default:
@@ -308,10 +333,11 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	        	}
 	        	
 	            ret = (DependentValue) newValue(Type.INT_TYPE);
-	            ret.owner = oriVal;
-	            if (this.params.containsKey(oriVal.id)) {
+	            ret.addOwner(oriVal);
+	            if (checkValueOrigin(oriVal)) {
 	            	ret.addInSrc(insn);
 	            }
+	            
 	            this.convertMap.put(oriVal.id, ret);
 	            return ret;
 	        case FNEG:
@@ -359,14 +385,13 @@ public class DependentValueInterpreter extends BasicInterpreter {
 			case GETFIELD:
 				ret = (DependentValue) super.unaryOperation(insn, value);
 				//ret.src = insn;
-				ret.addInSrc(insn);
 				
 				DependentValue owner = (DependentValue)value;
-				ret.owner = owner;
-				if (this.objDep) {
-					ret.addDep(owner);
+				if (checkValueOrigin(owner)) {
+					ret.addInSrc(insn);
 				}
 				
+				ret.addOwner(owner);				
 				//System.out.println("Getfield: " + insn + " " + ret);
 				return ret;
 			case NEWARRAY:
@@ -415,13 +440,13 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				arrRef = (DependentValue) value1;
 				idx = (DependentValue) value2;
 				ret = new DependentValue(Type.INT_TYPE);
-				ret.owner = arrRef;
-				ret.addDep(idx);
-				if (this.objDep) {
-					ret.addDep(arrRef);
-				}
 				
-				if (this.params.containsKey(arrRef.id)) {
+				if (this.idxDep)
+					arrRef.addDep(idx);
+				
+				ret.addOwner(arrRef);
+			
+				if (checkValueOrigin(arrRef)) {
 					ret.addInSrc(insn);
 				}
 				
@@ -447,14 +472,13 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				arrRef = (DependentValue) value1;
 				idx = (DependentValue) value2;
 				ret = new DependentValue(Type.FLOAT_TYPE);
-				ret.owner = arrRef;
-				ret.addDep(idx);
 				
-				if (this.objDep) {
-					ret.addDep(arrRef);
-				}
+				if (this.idxDep)
+					arrRef.addDep(idx);
 				
-				if (this.params.containsKey(arrRef.id)) {
+				ret.addOwner(arrRef);
+				
+				if (checkValueOrigin(arrRef)) {
 					ret.addInSrc(insn);
 				}
 				
@@ -472,14 +496,13 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				arrRef = (DependentValue) value1;
 				idx = (DependentValue) value2;
 				ret = new DependentValue(Type.LONG_TYPE);
-				ret.owner = arrRef;
-				ret.addDep(idx);
 				
-				if (this.objDep) {
-					ret.addDep(arrRef);
-				}
+				if (this.idxDep)
+					arrRef.addDep(idx);
 				
-				if (this.params.containsKey(arrRef.id)) {
+				ret.addOwner(arrRef);
+				
+				if (checkValueOrigin(arrRef)) {
 					ret.addInSrc(insn);
 				}
 				
@@ -503,14 +526,13 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				arrRef = (DependentValue) value1;
 				idx = (DependentValue) value2;
 				ret = new DependentValue(Type.DOUBLE_TYPE);
-				ret.owner = arrRef;
-				ret.addDep(idx);
 				
-				if (this.objDep) {
-					ret.addDep(arrRef);
-				}
+				if (this.idxDep)
+					arrRef.addDep(idx);
 				
-				if (this.params.containsKey(arrRef.id)) {
+				ret.addOwner(arrRef);
+				
+				if (checkValueOrigin(arrRef)) {
 					ret.addInSrc(insn);
 				}
 				
@@ -529,13 +551,13 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				arrRef = (DependentValue) value1;
 				idx = (DependentValue) value2;
 				ret = new DependentValue(BasicValue.REFERENCE_VALUE.getType());
-				ret.owner = arrRef;
-				ret.addDep(idx);
-				if (this.objDep) {
-					ret.addDep(arrRef);
-				}
 				
-				if (this.params.containsKey(arrRef.id)) {
+				if (this.idxDep)
+					arrRef.addDep(idx);
+				
+				ret.addOwner(arrRef);
+								
+				if (checkValueOrigin(arrRef)) {
 					ret.addInSrc(insn);
 				}
 				
@@ -573,12 +595,11 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				
 				DependentValue objRef = (DependentValue) value1;
 				DependentValue written = (DependentValue) value2;
-				Set<Integer> visited = new HashSet<Integer>();
-				boolean polluteInput = propagateDepToOwners(objRef, written, visited);
+				propagateDepToOwners(objRef, written);
 				/*if (polluteInput) {
 					written.addOutSink(insn);
 				}*/
-				written.owner = objRef;
+				written.addOwner(objRef);
 				
 				return null;
 			default:
@@ -597,15 +618,14 @@ public class DependentValueInterpreter extends BasicInterpreter {
 		//Should record idx for array, too detailed?
 		DependentValue idx = (DependentValue)val2;
 		DependentValue val = (DependentValue)val3;
+				
+		//Should we care about the idx?
+		if (this.idxDep)
+			this.propagateDepToOwners(objRef, idx);
 		
-		//objRef.addDep(idx);
-		//objRef.addDep(val);
-		Set<Integer> visited = new HashSet<Integer>();
-		boolean polluteInput = this.propagateDepToOwners(objRef, val, visited);
-		/*if (polluteInput) {
-			val.addOutSink(insn);
-		}*/
-		val.owner = objRef;
+		this.propagateDepToOwners(objRef, val);
+		
+		val.addOwner(objRef);
 		
 		return super.ternaryOperation(insn, val1, val2, val3);
 	}
@@ -650,35 +670,45 @@ public class DependentValueInterpreter extends BasicInterpreter {
 					return ret;
 				}
 				
-				String className = ClassInfoUtils.cleanType(methodInst.owner);
-				ClassInfo calleeInfo = GlobalInfoRecorder.queryClassInfo(className);
-				if (calleeInfo != null) {
-					System.out.println("Callee info: " + calleeInfo.getClassName());
-					String methodNameArgs = ClassInfoUtils.methodNameArgs(methodInst.name, methodInst.desc);
-					Map<Integer, TreeSet<Integer>> calleeWritten = null;
-					if (opcode == INVOKESTATIC || opcode == INVOKESPECIAL) {
-						calleeWritten = ClassInfoUtils.queryMethod(className, methodNameArgs, true, MethodInfo.PUBLIC);
-					} else {
-						calleeWritten = ClassInfoUtils.queryMethod(className, methodNameArgs, false, MethodInfo.PUBLIC);
+				//Check if this callee is possible to write inputs
+				boolean shouldCheck = false;
+				for (DependentValue dv: dvs) {
+					if (dv.isReference()) {
+						shouldCheck = true;
 					}
+					break ;
+				}
+				
+				if (shouldCheck) {
+					this.hasCallees = true;
 					
-					System.out.println("Callee writtens: " + calleeWritten);
-					if (calleeWritten != null) {
-						calleeWritten.forEach((w, deps)->{
-							DependentValue written = dvs.get(w);
-							
-							if (!written.isReference()) {
-								logger.error("Suspicious written: " + className + " " + methodNameArgs + " " + written);
-							}
-							
-							if (this.params.containsKey(written.id)) {
-								System.out.println("Inserting written");
-								for (Integer d: deps) {
-									DependentValue dep = dvs.get(d);
-									written.addDep(dep);
+					String className = ClassInfoUtils.cleanType(methodInst.owner);
+					ClassInfo calleeInfo = GlobalInfoRecorder.queryClassInfo(className);
+					if (calleeInfo != null) {
+						String methodNameArgs = ClassInfoUtils.methodNameArgs(methodInst.name, methodInst.desc);
+						Map<Integer, TreeSet<Integer>> calleeWritten = null;
+						if (opcode == INVOKESTATIC || opcode == INVOKESPECIAL) {
+							calleeWritten = ClassInfoUtils.queryMethod(className, methodNameArgs, true, MethodInfo.PUBLIC);
+						} else {
+							calleeWritten = ClassInfoUtils.queryMethod(className, methodNameArgs, false, MethodInfo.PUBLIC);
+						}
+						
+						if (calleeWritten != null) {
+							calleeWritten.forEach((w, deps)->{
+								DependentValue written = dvs.get(w);
+								
+								if (!written.isReference()) {
+									logger.error("Suspicious written: " + className + " " + methodNameArgs + " " + written);
 								}
-							}
-						});
+								
+								if (this.params.containsKey(written.id)) {
+									for (Integer d: deps) {
+										DependentValue dep = dvs.get(d);
+										written.addDep(dep);
+									}
+								}
+							});
+						}
 					}
 				}
 				
@@ -728,8 +758,8 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	
 	@Override
 	public BasicValue merge(BasicValue v, BasicValue w) {
-		//System.out.println("V: " + v);
-		//System.out.println("W: " + w);
+		System.out.println("V: " + v);
+		System.out.println("W: " + w);
 		if (v == BasicValue.UNINITIALIZED_VALUE 
 				&& w == BasicValue.UNINITIALIZED_VALUE) {
 			return v;

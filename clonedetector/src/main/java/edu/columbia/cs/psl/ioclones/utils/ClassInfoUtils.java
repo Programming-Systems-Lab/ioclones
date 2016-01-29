@@ -160,18 +160,6 @@ public class ClassInfoUtils {
 		return false;
 	}
 	
-	public static boolean checkOwnerInParams(Set<Integer> params, DependentValue dv) {
-		DependentValue ptr = dv;
-		while (ptr != null) {
-			if (params.contains(dv.id)) {
-				return true;
-			}
-			
-			ptr = dv.owner;
-		}
-		return false;
-	}
-	
 	public static void collectClassesInJar(File jarFile, 
 			List<InputStream> container) {
 		try {

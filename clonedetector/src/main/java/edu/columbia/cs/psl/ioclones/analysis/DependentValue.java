@@ -17,7 +17,10 @@ public class DependentValue extends BasicValue {
 	
 	private boolean flowsToOutput;
 	
-	public transient DependentValue owner;
+	//public transient DependentValue owner;
+	private transient Set<DependentValue> owners;
+	
+	public transient boolean written = false;
 	
 	private HashSet<DependentValue> deps;
 	
@@ -32,6 +35,17 @@ public class DependentValue extends BasicValue {
 	public DependentValue(Type type) {
 		super(type);
 		this.id = ++idCounter;
+	}
+	
+	public void addOwner(DependentValue dv) {
+		if (this.owners == null) {
+			this.owners = new HashSet<DependentValue>();
+		}
+		this.owners.add(dv);
+	}
+	
+	public Set<DependentValue> getOwners() {
+		return this.owners;
 	}
 	
 	public void addDep(DependentValue d) {
@@ -116,7 +130,7 @@ public class DependentValue extends BasicValue {
 
 	@Override
 	public int hashCode() {
-		final int prime = 31;
+		/*final int prime = 31;
 		int result = super.hashCode();
 		result = prime * result + (flowsToOutput ? 1231 : 1237);
 		if (this.inSrcs == null && this.outSinks == null) {
@@ -137,7 +151,8 @@ public class DependentValue extends BasicValue {
 		}
 		
 		//result = prime * result + ((src == null) ? 0 : src.hashCode());
-		return result;
+		return result;*/
+		return this.id;
 	}
 
 	@Override

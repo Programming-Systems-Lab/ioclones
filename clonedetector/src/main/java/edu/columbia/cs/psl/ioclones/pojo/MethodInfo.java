@@ -15,7 +15,7 @@ public class MethodInfo {
 	
 	public static final int PRIVATE = 4;
 	
-	public transient boolean changed = false;
+	public transient boolean leaf = false;
 	
 	private Map<Integer, TreeSet<Integer>> writtenParams;
 	

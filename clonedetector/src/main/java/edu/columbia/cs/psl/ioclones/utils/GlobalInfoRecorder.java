@@ -203,6 +203,7 @@ public class GlobalInfoRecorder {
 	
 	public static void reportClassInfo() {
 		synchronized(classLock) {
+			logger.info("Total class info: " + classInfo.size());
 			classInfo.values().forEach(info->{
 				System.out.println("Class name: " + info.getClassName());
 				
