@@ -796,7 +796,13 @@ public class IOUtils {
 			createMethodStmt.executeUpdate(createMethod);
 			logger.info("Create method table");
 			
+			int classCounter = 0;
 			for (ClassInfo c: classes) {
+				classCounter++;
+				if (classCounter % 1000 == 0) {
+					logger.info("Store classes: " + classCounter);
+				}
+				
 				String insertClass = "INSERT INTO CLASSINFO (CLASSNAME, PARENT, INTERFACES, CHILDREN) "
 						+ "VALUES(?, ?, ?, ?)";
 				PreparedStatement classStmt = conn.prepareStatement(insertClass, Statement.RETURN_GENERATED_KEYS);
@@ -810,7 +816,7 @@ public class IOUtils {
 				
 				ResultSet classInsert = classStmt.getGeneratedKeys();;
 				int classIdx = classInsert.getInt(1);
-				logger.info("Class idx: " + c.getClassName() + " " + classIdx);
+				//logger.info("Class idx: " + c.getClassName() + " " + classIdx);
 				
 				String insertMethod = "INSERT INTO METHODINFO (C_ID, METHOD_DESC, WRITTEN_PARAMS) "
 						+ "VALUES(?, ?, ?)";

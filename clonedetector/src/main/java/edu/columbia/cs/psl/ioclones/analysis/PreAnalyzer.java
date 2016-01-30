@@ -1,11 +1,10 @@
 package edu.columbia.cs.psl.ioclones.analysis;
 
-import java.io.File;
-import java.io.InputStream;
+import java.io.BufferedWriter;
+import java.io.FileWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -20,16 +19,13 @@ import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
-import org.objectweb.asm.commons.JSRInlinerAdapter;
-import org.objectweb.asm.tree.AbstractInsnNode;
-import org.objectweb.asm.tree.LdcInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.analysis.Analyzer;
 import org.objectweb.asm.tree.analysis.Frame;
 
-import edu.columbia.cs.psl.ioclones.driver.IODriver;
 import edu.columbia.cs.psl.ioclones.pojo.ClassInfo;
 import edu.columbia.cs.psl.ioclones.pojo.MethodInfo;
+import edu.columbia.cs.psl.ioclones.utils.ClassDataTraverser;
 import edu.columbia.cs.psl.ioclones.utils.ClassInfoUtils;
 import edu.columbia.cs.psl.ioclones.utils.GlobalInfoRecorder;
 
@@ -40,75 +36,23 @@ public class PreAnalyzer {
 	private static final String rtJarPath = "/Library/Java/JavaVirtualMachines/jdk1.8.0_65.jdk/Contents/Home/jre/lib/rt.jar";
 	
 	public static void main(String[] args) {
-		List<InputStream> container = new ArrayList<InputStream>();
-		String profileName = null;
+		List<byte[]> container = new ArrayList<byte[]>();
 		if (args.length == 0) {
-			logger.info("JVM profiling mode");
-			profileName = "jvm_profile";
-			
-			/*String jreLibPath = System.getProperty("sun.boot.class.path");
-			String[] jreLibs = jreLibPath.split(":");
-			
-			for (String s: jreLibs) {
-				System.out.println(s);
-				
-				File jarFile = new File(s);
-				if (!jarFile.exists()) {
-					logger.warn("Invalid jar path: " + s);
-					continue ;
-				}
-				
-				ClassInfoUtils.collectClassesInJar(jarFile, container);
-			}*/
-			File rtFile = new File(rtJarPath);
-			ClassInfoUtils.collectClassesInJar(rtFile, container);
-			logger.info("Total collected jvm class file: " + container.size());
-		} else {
-			String codebasePath = args[0];
-			int lastIdx = codebasePath.lastIndexOf("/");
-			if (lastIdx == -1) {
-				profileName = codebasePath;
-			} else {
-				profileName = codebasePath.substring(lastIdx + 1, codebasePath.length());
-			}
-			
-			File codebase = new File(args[0]);
-			
-			if (!codebase.exists()) {
-				logger.error("Invalid codebase: " + codebase.getAbsolutePath());
-				System.exit(-1);
-			}
-			
-			logger.info("Profiling: " + codebase.getAbsolutePath());
-			logger.info("Profile name: " + profileName);
-			ClassInfoUtils.genRepoClasses(codebase, container);
-			logger.info("Total collected classes in codebase: " + container.size());
+			System.err.println("Please specify input directory");
+			System.exit(-1);
 		}
+		ClassDataTraverser.collectDir(args[0], container);
 		
 		logger.info("Classes to analyze: " + container.size());
-		//copy inputstream
-		Map<String, byte[]> classDatas = new HashMap<String, byte[]>();
-		for (InputStream is: container) {
-			try {
-				ClassReader cr = new ClassReader(is);
-				ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS);
-				cr.accept(new ClassVisitor(Opcodes.ASM5, cw) {
-					@Override
-					public MethodVisitor visitMethod(int access, String name, String desc, String signature, String[] exceptions) {
-						// TODO Auto-generated method stub
-						return new JSRInlinerAdapter(super.visitMethod(access, name, desc, signature, exceptions), access, name, desc, signature, exceptions);
-					}
-				}, ClassReader.EXPAND_FRAMES);
-				
-				String className = ClassInfoUtils.cleanType(cr.getClassName());
-				classDatas.put(className, cw.toByteArray());
-			} catch (Exception ex) {
-				logger.error("Error: ", ex);
-			}
-		}
-		
 		logger.info("Initialization phase");
-		for (byte[] classData: classDatas.values()) {
+		int counter = 0;
+		List<String> ori = new ArrayList<String>();
+		for (byte[] classData: container) {
+			counter++;
+			if (counter % 1000 == 0) {
+				logger.info("Analyzed: " + counter);
+			}
+			
 			try {
 				byte[] copy = Arrays.copyOf(classData, classData.length);
 				
@@ -132,6 +76,7 @@ public class PreAnalyzer {
 						
 						this.className = ClassInfoUtils.cleanType(name);
 						//logger.info("Name: " + this.className);
+						ori.add(this.className);
 						
 						this.classInfo = GlobalInfoRecorder.queryClassInfo(this.className);
 						if (this.classInfo == null) {
@@ -192,7 +137,8 @@ public class PreAnalyzer {
 									desc, 
 									signature, 
 									exceptions, 
-									this.classInfo);
+									this.classInfo, 
+									false);
 							return we;
 						}
 					}
@@ -202,12 +148,38 @@ public class PreAnalyzer {
 				logger.error("Error: ", ex);
 			}
 		}
+		//Actually, two classes will be loaded twice from jre
+		//netscape.javascript.JSException and netscape.javascript.JSObject
+		/*logger.info("After analyzed: " + GlobalInfoRecorder.getClassInfo().size());
+		try {
+			BufferedWriter bw = new BufferedWriter(new FileWriter("ori.csv"));
+			for (String o: ori) {
+				bw.write(o + "\n");
+			}
+			bw.flush();
+			bw.close();
+			
+			bw = new BufferedWriter(new FileWriter("ana.csv"));
+			for (String a: GlobalInfoRecorder.getClassInfo().keySet()) {
+				bw.write(a + "\n");
+			}
+			bw.flush();
+			bw.close();
+		} catch (Exception ex) {
+			ex.printStackTrace();
+		}*/
 		
 		int iteration = 0;
 		do {
 			logger.info("Search phase: " + iteration++);
 			GlobalInfoRecorder.resetChangeCounter();
-			for (byte[] classData: classDatas.values()) {
+			int searchCounter = 0;
+			for (byte[] classData: container) {
+				searchCounter++;
+				if (searchCounter % 1000 == 0) {
+					logger.info("Searched: " + searchCounter);
+				}
+				
 				byte[] copy = Arrays.copyOf(classData, classData.length);
 				ClassReader cr = new ClassReader(copy);
 				ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS);
@@ -257,7 +229,8 @@ public class PreAnalyzer {
 									desc, 
 									signature, 
 									exceptions, 
-									this.classInfo);
+									this.classInfo, 
+									true);
 							return we;
 						}
 					}
@@ -289,7 +262,8 @@ public class PreAnalyzer {
 				String methodDesc, 
 				String signature, 
 				String[] exceptions,
-				ClassInfo ownerClass) {
+				ClassInfo ownerClass, 
+				boolean explore) {
 			super(Opcodes.ASM5, new MethodNode(Opcodes.ASM5, 
 					access, 
 					methodName, 
@@ -348,7 +322,8 @@ public class PreAnalyzer {
 					}
 					Type returnType = Type.getReturnType(this.desc);
 					
-					DependentValueInterpreter dvi = new DependentValueInterpreter(args, returnType);
+					DependentValueInterpreter dvi = new DependentValueInterpreter(args, returnType, explore);
+					dvi.className = className;
 					//ExploreValueInterpreter fvi = new ExploreValueInterpreter(args, returnType);
 					Analyzer a = new Analyzer(dvi);
 					try {
@@ -360,12 +335,12 @@ public class PreAnalyzer {
 							if (val.written) {
 								LinkedList<DependentValue> deps = val.tag();
 								if (deps.size() == 0) {
-									System.out.println("Suspicious class: " + className);
-									System.out.println("Method name: " + methodNameArgs);
-									System.out.println("Param idx: " + dvi.queryInputParamIndex(val.id));
-									System.out.println("Param: " + val);
-									System.out.println("Deps: " + val.getDeps());
-									System.out.println("All params: " + dvi.getParamList());
+									//System.out.println("Suspicious class: " + className);
+									//System.out.println("Method name: " + methodNameArgs);
+									//System.out.println("Param idx: " + dvi.queryInputParamIndex(val.id));
+									//System.out.println("Param: " + val);
+									//System.out.println("Deps: " + val.getDeps());
+									//System.out.println("All params: " + dvi.getParamList());
 	
 									//System.exit(-1);
 								} else {

@@ -38,6 +38,10 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	private static Logger logger = LogManager.getLogger(DependentValueInterpreter.class);
 	
 	public transient boolean hasCallees = false;
+	
+	public String className;
+	
+	private boolean explore = false;
 		
 	protected Type[] allTypes;
 	
@@ -59,12 +63,13 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	
 	protected Map<AbstractInsnNode, DependentValue> singelControls = new HashMap<AbstractInsnNode, DependentValue>();
 	
-	public DependentValueInterpreter(Type[] args, Type retType) {
+	public DependentValueInterpreter(Type[] args, Type retType, boolean explore) {
 		if (retType.getSort() == Type.VOID) {
 			this.initParams = true;
 		}
 		
 		this.allTypes = args;
+		this.explore = explore;
 	}
 	
 	public void propagateDepToOwners(DependentValue owner, DependentValue dep) {
@@ -670,6 +675,25 @@ public class DependentValueInterpreter extends BasicInterpreter {
 					return ret;
 				}
 				
+				Type ownerType = Type.getType(methodInst.owner);
+				if (ownerType.getSort() == Type.ARRAY) {
+					if (dvs.size() == 0) {
+						return ret;
+					} else {
+						if (this.objDep && ret != null) {
+							for (DependentValue dv: dvs) {
+								ret.addDep(dv);
+							}
+						} else if (ret != null) {
+							for (int i = 1; i < dvs.size(); i++) {
+								DependentValue dv = dvs.get(i);
+								ret.addDep(dv);;
+							}
+						}
+						return ret;
+					}
+				}
+				
 				//Check if this callee is possible to write inputs
 				boolean shouldCheck = false;
 				for (DependentValue dv: dvs) {
@@ -709,6 +733,9 @@ public class DependentValueInterpreter extends BasicInterpreter {
 								}
 							});
 						}
+					} else if (this.explore && calleeInfo == null) {
+						logger.error("Missed class: " + className + " " + methodInst.name + " " + methodInst.desc);
+						logger.error("Current class: " + this.className);
 					}
 				}
 				

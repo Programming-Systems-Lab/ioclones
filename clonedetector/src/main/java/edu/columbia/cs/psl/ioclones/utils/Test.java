@@ -166,6 +166,7 @@ public class Test {
 		//emptyMap.put(1, emptySet);
 		System.out.println("Empty map: " + emptyMap);
 		System.out.println(IOUtils.objToJson(null, new TypeToken<HashMap<Integer, TreeSet<Integer>>>(){}));
+		System.out.println("Bootstrap path: " + System.getProperty("sun.boot.class.path"));
 	}
 }
 
