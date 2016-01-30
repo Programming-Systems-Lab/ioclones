@@ -174,7 +174,7 @@ public class ClassInfoUtils {
 					continue ;
 				}
 				
-				if (!entryName.startsWith("java/")) {
+				if (!entryName.startsWith("java")) {
 					continue ;
 				}
 				

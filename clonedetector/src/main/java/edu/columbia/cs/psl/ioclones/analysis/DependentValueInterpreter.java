@@ -758,8 +758,8 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	
 	@Override
 	public BasicValue merge(BasicValue v, BasicValue w) {
-		System.out.println("V: " + v);
-		System.out.println("W: " + w);
+		//System.out.println("V: " + v);
+		//System.out.println("W: " + w);
 		if (v == BasicValue.UNINITIALIZED_VALUE 
 				&& w == BasicValue.UNINITIALIZED_VALUE) {
 			return v;

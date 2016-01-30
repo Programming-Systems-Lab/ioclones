@@ -12,10 +12,7 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
-import java.lang.reflect.Method;
 import java.net.Socket;
-import java.net.URL;
-import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
 import java.sql.Connection;
@@ -25,8 +22,6 @@ import java.sql.ResultSet;
 import java.sql.Statement;
 import java.sql.Timestamp;
 import java.util.List;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashSet;
@@ -35,6 +30,7 @@ import java.util.LinkedList;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -46,7 +42,6 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import com.google.gson.stream.JsonReader;
 import com.thoughtworks.xstream.XStream;
-import com.thoughtworks.xstream.converters.enums.EnumToStringConverter;
 import com.thoughtworks.xstream.mapper.MapperWrapper;
 
 import edu.columbia.cs.psl.ioclones.driver.IODriver;
@@ -54,8 +49,8 @@ import edu.columbia.cs.psl.ioclones.driver.SimAnalysisDriver;
 import edu.columbia.cs.psl.ioclones.driver.SimAnalysisDriver.IOSim;
 import edu.columbia.cs.psl.ioclones.pojo.ClassInfo;
 import edu.columbia.cs.psl.ioclones.pojo.IORecord;
+import edu.columbia.cs.psl.ioclones.pojo.MethodInfo;
 import edu.columbia.cs.psl.ioclones.xmlconverter.BlackConverter;
-import edu.columbia.cs.psl.ioclones.xmlconverter.InnerClassConverter;
 import edu.columbia.cs.psl.ioclones.xmlconverter.EnumMapConverter;
 
 public class IOUtils {
@@ -71,6 +66,8 @@ public class IOUtils {
 	private static Object bfLock = new Object();
 	
 	private static XStream xstream = null;
+	
+	private static Gson gson = null;
 	
 	private static Object streamLock = new Object();
 	
@@ -175,6 +172,15 @@ public class IOUtils {
 		}
 	}
 	
+	public static Gson getGson() {
+		if (gson == null) {
+			GsonBuilder gb = new GsonBuilder();
+			gb.setPrettyPrinting();
+			gson = gb.enableComplexMapKeySerialization().create();
+		}
+		return gson;
+	}
+	
 	public static Connection getConnection(String db, String userName, String pw) {
 		if (connection == null) {
 			try {
@@ -215,10 +221,7 @@ public class IOUtils {
 	}
 		
 	public static <T> void writeJson(T obj, TypeToken typeToken, String fileName) {
-		GsonBuilder gb = new GsonBuilder();
-		gb.setPrettyPrinting();
-		Gson gson = gb.enableComplexMapKeySerialization().create();
-		String toWrite = gson.toJson(obj, typeToken.getType());
+		String toWrite = objToJson(obj, typeToken);
 		
 		try {
 			File f = new File(fileName);
@@ -248,6 +251,16 @@ public class IOUtils {
 			logger.error("Error: ", ex);
 		}
 		return null;
+	}
+	
+	public static <T> String objToJson(Object obj, TypeToken<T> typeToken) {
+		String toWrite = getGson().toJson(obj, typeToken.getType());
+		return toWrite;
+	}
+	
+	public static <T> T jsonToObj(String json, TypeToken<T> typeToken) {
+		T obj = getGson().fromJson(json, typeToken.getType());
+		return obj;
 	}
 		
 	public static Set<String> blackPrefix() {
@@ -743,6 +756,82 @@ public class IOUtils {
 		}
 		
 		logger.info("Exporting ends: " + codebase);
+	}
+	
+	public static void exportMethodIODeps(Collection<ClassInfo> classes) {
+		File classInfoDir = new File(IODriver.profileDir);
+		if (classInfoDir.exists()) {
+			classInfoDir.mkdirs();
+		}
+		
+		try {
+			Class.forName("org.sqlite.JDBC");
+			String dbpath = "jdbc:sqlite:" + IODriver.profileDir + "/methodeps.db";
+			Connection conn = DriverManager.getConnection(dbpath);
+			logger.info("Connect to sqlite");
+			
+			Statement dropStmt = conn.createStatement();
+			String dropProbe = "DROP TABLE IF EXISTS CLASSINFO";
+			dropStmt.executeUpdate(dropProbe);
+			
+			Statement methodDropStmt = conn.createStatement();
+			String dropMethod = "DROP TABLE IF EXISTS METHODINFO";
+			methodDropStmt.executeUpdate(dropMethod);
+			
+			
+			Statement createClassStmt = conn.createStatement();
+			String createClass = "CREATE TABLE CLASSINFO "
+					+ "(ID INTEGER PRIMARY KEY AUTOINCREMENT, "
+					+ "CLASSNAME TEXT NOT NULL, "
+					+ "PARENT TEXT, "
+					+ "INTERFACES TEXT, "
+					+ "CHILDREN TEXT)"; 
+			createClassStmt.executeUpdate(createClass);
+			logger.info("Create class table");
+			
+			Statement createMethodStmt = conn.createStatement();
+			String createMethod = "CREATE TABLE METHODINFO (C_ID INTEGER NOT NULL, "
+					+ "METHOD_DESC TEXT NOT NULL, "
+					+ "WRITTEN_PARAMS TEXT)";
+			createMethodStmt.executeUpdate(createMethod);
+			logger.info("Create method table");
+			
+			for (ClassInfo c: classes) {
+				String insertClass = "INSERT INTO CLASSINFO (CLASSNAME, PARENT, INTERFACES, CHILDREN) "
+						+ "VALUES(?, ?, ?, ?)";
+				PreparedStatement classStmt = conn.prepareStatement(insertClass, Statement.RETURN_GENERATED_KEYS);
+				classStmt.setString(1, c.getClassName());
+				classStmt.setString(2, c.getParent());
+				
+				TypeToken<List<String>> interToken = new TypeToken<List<String>>(){}; 
+				classStmt.setString(3, IOUtils.objToJson(c.getInterfaces(), interToken));
+				classStmt.setString(4, IOUtils.objToJson(c.getChildren(), interToken));
+				classStmt.executeUpdate();
+				
+				ResultSet classInsert = classStmt.getGeneratedKeys();;
+				int classIdx = classInsert.getInt(1);
+				logger.info("Class idx: " + c.getClassName() + " " + classIdx);
+				
+				String insertMethod = "INSERT INTO METHODINFO (C_ID, METHOD_DESC, WRITTEN_PARAMS) "
+						+ "VALUES(?, ?, ?)";
+				PreparedStatement methodStatement = conn.prepareStatement(insertMethod);
+				TypeToken<Map<Integer, TreeSet<Integer>>> writtenType = 
+						new TypeToken<Map<Integer, TreeSet<Integer>>>(){};
+				for (String nameDesc: c.getMethodInfo().keySet()) {
+					MethodInfo methodInfo = c.getMethodInfo(nameDesc);
+					methodStatement.setInt(1, classIdx);
+					methodStatement.setString(2, nameDesc);
+					
+					Map<Integer, TreeSet<Integer>> writtens = methodInfo.getWrittenParams();
+					methodStatement.setString(3, IOUtils.objToJson(writtens, writtenType));
+					
+					methodStatement.addBatch();
+				}
+				methodStatement.executeBatch();
+			}
+		} catch (Exception ex) {
+			logger.error("Error: ", ex);
+		}
 	}
 	
 	public static void main(String[] args) throws Exception {

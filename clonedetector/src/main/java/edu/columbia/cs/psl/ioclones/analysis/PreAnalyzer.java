@@ -367,21 +367,22 @@ public class PreAnalyzer {
 									System.out.println("Deps: " + val.getDeps());
 									System.out.println("All params: " + dvi.getParamList());
 	
-									System.exit(-1);
-								}
-								deps.removeFirst();
-								//System.out.println("Written val: " + val);
-								//System.out.println("Deps: " + deps);
-								
-								if (!iterWritten.containsKey(j)) {
-									TreeSet<Integer> depParams = new TreeSet<Integer>();
-									iterWritten.put(j, depParams);
-								}
-								
-								for (DependentValue dep: deps) {
-									if (dvi.params.containsKey(dep.id)) {
-										int depParam = dvi.queryInputParamIndex(dep.id);
-										iterWritten.get(j).add(depParam);
+									//System.exit(-1);
+								} else {
+									deps.removeFirst();
+									//System.out.println("Written val: " + val);
+									//System.out.println("Deps: " + deps);
+									
+									if (!iterWritten.containsKey(j)) {
+										TreeSet<Integer> depParams = new TreeSet<Integer>();
+										iterWritten.put(j, depParams);
+									}
+									
+									for (DependentValue dep: deps) {
+										if (dvi.params.containsKey(dep.id)) {
+											int depParam = dvi.queryInputParamIndex(dep.id);
+											iterWritten.get(j).add(depParam);
+										}
 									}
 								}
 							}

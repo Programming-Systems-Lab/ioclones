@@ -1,6 +1,10 @@
 package edu.columbia.cs.psl.ioclones.utils;
 
 import java.util.*;
+
+import com.google.gson.reflect.TypeToken;
+import com.thoughtworks.xstream.XStream;
+
 import java.math.*;
 import java.io.*;
 
@@ -149,8 +153,19 @@ public class Test {
 	}
 
 	public static void main(String[] args) {
-		Locale.setDefault(Locale.US);
-		new Test("A_11").run();
+		//Locale.setDefault(Locale.US);
+		//new Test("A_11").run();
+		List<String> test = new ArrayList<String>();
+		test.add("test1");
+		test.add("test2");
+		test.add("test3");
+		//System.out.println(IOUtils.objToJson(null, new TypeToken<List<String>>(){}));
+		Map<Integer, TreeSet<Integer>> emptyMap = new HashMap<Integer, TreeSet<Integer>>();
+		TreeSet<Integer> emptySet = new TreeSet<Integer>();
+		//emptySet.add(2);
+		//emptyMap.put(1, emptySet);
+		System.out.println("Empty map: " + emptyMap);
+		System.out.println(IOUtils.objToJson(null, new TypeToken<HashMap<Integer, TreeSet<Integer>>>(){}));
 	}
 }
 
