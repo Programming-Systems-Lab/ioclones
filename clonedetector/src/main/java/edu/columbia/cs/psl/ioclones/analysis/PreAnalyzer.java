@@ -42,6 +42,7 @@ public class PreAnalyzer {
 			System.exit(-1);
 		}
 		ClassDataTraverser.collectDir(args[0], container);
+		//container = ClassDataTraverser.filter(container, "java/util/HashMap");
 		
 		logger.info("Classes to analyze: " + container.size());
 		logger.info("Initialization phase");
@@ -138,6 +139,7 @@ public class PreAnalyzer {
 									signature, 
 									exceptions, 
 									this.classInfo, 
+									false, 
 									false);
 							return we;
 						}
@@ -172,6 +174,8 @@ public class PreAnalyzer {
 		int iteration = 0;
 		do {
 			logger.info("Search phase: " + iteration++);
+			final int curIter = iteration;
+			
 			GlobalInfoRecorder.resetChangeCounter();
 			int searchCounter = 0;
 			for (byte[] classData: container) {
@@ -222,6 +226,10 @@ public class PreAnalyzer {
 						} else if (isSynthetic || isNative || isInterface || isAbstract) {
 							return mv;
 						} else {
+							boolean reportChange = false;
+							if (curIter > 12) {
+								reportChange = true;
+							}
 							WriterExplorer we = new WriterExplorer(mv, 
 									access, 
 									this.className, 
@@ -230,7 +238,8 @@ public class PreAnalyzer {
 									signature, 
 									exceptions, 
 									this.classInfo, 
-									true);
+									true, 
+									reportChange);
 							return we;
 						}
 					}
@@ -240,7 +249,7 @@ public class PreAnalyzer {
 		} while(GlobalInfoRecorder.isChanged());
 		
 		logger.info("Report written params of methods");
-		GlobalInfoRecorder.reportClassInfo();
+		GlobalInfoRecorder.reportClassInfo(true);
 	}
 	
 	public static class WriterExplorer extends MethodVisitor {
@@ -263,7 +272,8 @@ public class PreAnalyzer {
 				String signature, 
 				String[] exceptions,
 				ClassInfo ownerClass, 
-				boolean explore) {
+				boolean search, 
+				boolean reportChange) {
 			super(Opcodes.ASM5, new MethodNode(Opcodes.ASM5, 
 					access, 
 					methodName, 
@@ -322,12 +332,21 @@ public class PreAnalyzer {
 					}
 					Type returnType = Type.getReturnType(this.desc);
 					
-					DependentValueInterpreter dvi = new DependentValueInterpreter(args, returnType, explore);
-					dvi.className = className;
+					DependentValueInterpreter dvi = new DependentValueInterpreter(args, 
+							returnType, 
+							className, 
+							methodNameArgs, 
+							search);
 					//ExploreValueInterpreter fvi = new ExploreValueInterpreter(args, returnType);
 					Analyzer a = new Analyzer(dvi);
 					try {
 						//Analyze callee here
+						boolean show = false;
+						if (ownerClass.getClassName().equals("java.awt.MenuBar") 
+								&& methodNameArgs.equals("add-(java.awt.Menu)")) {
+							show = true;
+						}
+						
 						Frame[] fr = a.analyze(className, this);
 						Map<Integer, TreeSet<Integer>> iterWritten = new HashMap<Integer, TreeSet<Integer>>();
 						for (int j = 0; j < dvi.getParamList().size(); j++) {
@@ -341,23 +360,26 @@ public class PreAnalyzer {
 									//System.out.println("Param: " + val);
 									//System.out.println("Deps: " + val.getDeps());
 									//System.out.println("All params: " + dvi.getParamList());
-	
 									//System.exit(-1);
 								} else {
 									deps.removeFirst();
-									//System.out.println("Written val: " + val);
-									//System.out.println("Deps: " + deps);
-									
+																		
 									if (!iterWritten.containsKey(j)) {
 										TreeSet<Integer> depParams = new TreeSet<Integer>();
 										iterWritten.put(j, depParams);
 									}
 									
 									for (DependentValue dep: deps) {
-										if (dvi.params.containsKey(dep.id)) {
-											int depParam = dvi.queryInputParamIndex(dep.id);
-											iterWritten.get(j).add(depParam);
+										int checkParamId = dvi.checkValueOrigin(dep, false);
+										if (checkParamId != - 1) {
+											iterWritten.get(j).add(checkParamId);
 										}
+									}
+									
+									if (show) {
+										System.out.println("Written val: " + val);
+										System.out.println("Deps: " + deps);
+										System.out.println("Iter writtens: " + iterWritten);
 									}
 								}
 							}
@@ -366,6 +388,9 @@ public class PreAnalyzer {
 						if (info.getWrittenParams() == null) {
 							//Initialization phase
 							info.setWrittenParams(iterWritten);
+							if (show) {
+								System.out.println("----initial push: " + iterWritten);
+							}
 							
 							if (!dvi.hasCallees) {
 								info.leaf = true;
@@ -374,9 +399,25 @@ public class PreAnalyzer {
 							return ;
 						}
 						
+						if (show) {
+							System.out.println("----Special check (last): " + info.getWrittenParams());
+							System.out.println("(now): " + iterWritten);
+						}
+						
 						if (!info.getWrittenParams().equals(iterWritten)) {
+							if (reportChange) {
+								logger.info("Changed: " + ownerClass.getClassName() + " " + methodNameArgs);
+								logger.info("Last: " + info.getWrittenParams());
+								logger.info("Now: " + iterWritten);
+							}
+							ClassInfoUtils.unionMap(iterWritten, info.getWrittenParams());
+							
+							if (show) {
+								System.out.println("After merging: " + info.getWrittenParams());
+							}
+							
 							GlobalInfoRecorder.increChangeCounter();
-							info.setWrittenParams(iterWritten);
+							//info.setWrittenParams(iterWritten);
 						}
 					} catch (Exception ex) {
 						logger.info("Error: ", ex);

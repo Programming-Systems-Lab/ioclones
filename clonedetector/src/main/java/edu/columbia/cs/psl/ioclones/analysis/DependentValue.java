@@ -114,7 +114,24 @@ public class DependentValue extends BasicValue {
 		//System.out.println("Current vale: " + this);
 		//System.out.println("Src instruction: " + this.srcs);
 		//System.out.println("Deps: " + this.deps);
-		if (!this.flowsToOutput) {
+		LinkedList<DependentValue> queue = new LinkedList<DependentValue>();
+		HashSet<DependentValue> visited = new HashSet<DependentValue>();
+		queue.add(this);
+		while (queue.size() > 0) {
+			DependentValue toAdd = queue.removeFirst();
+			ret.add(toAdd);
+			visited.add(toAdd);
+			if (toAdd.deps != null) {
+				for (DependentValue child: toAdd.deps) {
+					if (!queue.contains(child) 
+							&& !visited.contains(child)) {
+						queue.add(child);
+					}
+				}
+			}
+		}
+		
+		/*if (!this.flowsToOutput) {
 			this.flowsToOutput = true;
 			ret.add(this);
 			if (this.deps != null) {
@@ -124,7 +141,7 @@ public class DependentValue extends BasicValue {
 					}
 				}
 			}
-		}
+		}*/
 		return ret;
 	}
 

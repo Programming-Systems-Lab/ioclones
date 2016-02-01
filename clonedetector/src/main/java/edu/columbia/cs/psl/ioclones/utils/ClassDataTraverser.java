@@ -7,6 +7,7 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.List;
@@ -33,7 +34,11 @@ public class ClassDataTraverser {
 	static int n = 0;
 	
 	//This jar requires swt.jar, which is not a default jar in jre
+	//plutin.jar is not default jar used by users. 
+	//It also got conflicts with jfxrt.jar (netscape.javascript.JSObject, netscape.javascript.JSException)
 	static String excludeSwt = "jfxswt.jar";
+	
+	static String pluginJar = "plugin.jar";
 
 	public static byte[] cleanClass(InputStream is) {
 		try {
@@ -144,7 +149,7 @@ public class ClassDataTraverser {
 	public static void processJar(File f, List<byte[]> datas) {
 		//System.out.println("Get jar: " + f.getPath());
 		if (f.getName().equals(excludeSwt)) {
-			//System.out.println("Capture exception jar: " + f.getPath());
+			//System.out.println("Exlude jar: " + f.getName());
 			return ;
 		}
 		
@@ -154,19 +159,25 @@ public class ClassDataTraverser {
 			while (entries.hasMoreElements()) {
 				JarEntry e = entries.nextElement();
 				if (e.getName().endsWith(".class")) {
-					{
-
-						try {
-							byte[] clazz = cleanClass(jar.getInputStream(e));
-							if (clazz == null) {
-								System.out.println("Failed to instrument " + e.getName() + " in " + f.getName());
-							} else {
-								datas.add(clazz);
-							}
-						} catch (ZipException ex) {
-							ex.printStackTrace();
-							continue;
+					
+					if (f.getName().equals(pluginJar)) {
+						if (e.getName().equals("netscape/javascript/JSObject.class") 
+								|| e.getName().equals("netscape/javascript/JSException.class")) {
+							System.out.println("Exclude duplicated class from plugin.jar: " + e.getName());
+							continue ;
 						}
+					}
+					
+					try {
+						byte[] clazz = cleanClass(jar.getInputStream(e));
+						if (clazz == null) {
+							System.out.println("Failed to instrument " + e.getName() + " in " + f.getName());
+						} else {
+							datas.add(clazz);
+						}
+					} catch (ZipException ex) {
+						ex.printStackTrace();
+						continue;
 					}
 				} 
 			}
@@ -216,5 +227,19 @@ public class ClassDataTraverser {
 			System.err.println("Unable to process zip: " + f.getAbsolutePath());
 			e.printStackTrace();
 		}
+	}
+	
+	public static List<byte[]> filter(List<byte[]> classDatas, String name) {
+		List<byte[]> ret = new ArrayList<byte[]>();
+		for (byte[] classData: classDatas) {
+			byte[] copy = Arrays.copyOf(classData, classData.length);
+			
+			ClassReader cr = new ClassReader(copy);
+			if (cr.getClassName().equals(name)) {
+				ret.add(classData);
+				break ;
+			}
+		}
+		return ret;
 	}
 }

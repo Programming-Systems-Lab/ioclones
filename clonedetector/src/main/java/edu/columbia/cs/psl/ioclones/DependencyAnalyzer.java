@@ -73,7 +73,12 @@ public class DependencyAnalyzer extends MethodVisitor {
 				}
 				Type returnType = Type.getReturnType(desc);
 				
-				DependentValueInterpreter dvi = new DependentValueInterpreter(args, returnType, true);
+				String methodNameArgs = ClassInfoUtils.methodNameArgs(name, desc);
+				DependentValueInterpreter dvi = new DependentValueInterpreter(args, 
+						returnType, 
+						className, 
+						methodNameArgs, 
+						true);
 				Analyzer a = new Analyzer(dvi);
 				try {		
 					Frame[] fr = a.analyze(className, this);

@@ -286,7 +286,7 @@ public class ClassInfoUtils {
 	public static Map<Integer, TreeSet<Integer>> queryMethod(String className, 
 			String methodNameArgs, 
 			boolean isFixed, 
-			int level) {
+			int level, boolean detail) {
 		
 		Map<Integer, TreeSet<Integer>> writtenParams = null;
 		ClassInfo curInfo = GlobalInfoRecorder.queryClassInfo(className);
@@ -299,7 +299,7 @@ public class ClassInfoUtils {
 				if (curInfo.getParent() == null) {
 					return null;
 				} else {
-					return queryMethod(curInfo.getParent(), methodNameArgs, isFixed, level);
+					return queryMethod(curInfo.getParent(), methodNameArgs, isFixed, level, detail);
 				}
 			}
 		}
@@ -315,12 +315,21 @@ public class ClassInfoUtils {
 		} else if (curInfo.getParent() != null) {
 			//Climb up
 			Map<Integer, TreeSet<Integer>> superQuery = searchUp(curInfo.getParent(), methodNameArgs, level);
+			if (detail) {
+				System.out.println("Parent: " + curInfo.getParent());
+				System.out.println("Super query: " + superQuery);
+			}
 			unionMap(superQuery, writtenParams);
 		}
 		
 		//Go down
 		for (String child: curInfo.getChildren()) {
 			Map<Integer, TreeSet<Integer>> childQuery = searchDown(child, methodNameArgs, level);
+			if (detail) {
+				System.out.println("Child: " + child);
+				System.out.println("Child query: " + childQuery);
+			}
+			
 			unionMap(childQuery, writtenParams);
 		}
 		

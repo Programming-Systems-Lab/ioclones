@@ -201,25 +201,22 @@ public class GlobalInfoRecorder {
 		return classInfo;
 	}
 	
-	public static void reportClassInfo() {
+	public static void reportClassInfo(boolean db) {
 		synchronized(classLock) {
 			logger.info("Total class info: " + classInfo.size());
 			
 			//Exporting profiling results to sqlite
-			try {
+			if (db) {
 				IOUtils.exportMethodIODeps(classInfo.values());
-			} catch (Exception ex) {
-				
-			}
-			
-			/*classInfo.values().forEach(info->{
-				logger.info("Class name: " + info.getClassName());
-				
-				info.getMethodInfo().forEach((key, method)->{
-					if (method.getWrittenParams() != null && method.getWrittenParams().size() > 0)
+			} else {
+				classInfo.values().forEach(info->{
+					logger.info("Class name: " + info.getClassName());
+					
+					info.getMethodInfo().forEach((key, method)->{
 						logger.info("Method: " + key + " " + method.getWrittenParams());
+					});
 				});
-			});*/
+			}
 		}
 	}
 	

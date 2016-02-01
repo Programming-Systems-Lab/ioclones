@@ -39,9 +39,13 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	
 	public transient boolean hasCallees = false;
 	
-	public String className;
+	public transient boolean detailed = false;
 	
-	private boolean explore = false;
+	private String className;
+	
+	private String methodNameArgs;
+	
+	private boolean search = false;
 		
 	protected Type[] allTypes;
 	
@@ -63,22 +67,28 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	
 	protected Map<AbstractInsnNode, DependentValue> singelControls = new HashMap<AbstractInsnNode, DependentValue>();
 	
-	public DependentValueInterpreter(Type[] args, Type retType, boolean explore) {
+	public DependentValueInterpreter(Type[] args, 
+			Type retType, 
+			String className, 
+			String methodNameArgs, 
+			boolean search) {
 		if (retType.getSort() == Type.VOID) {
 			this.initParams = true;
 		}
 		
+		this.className = className;
+		this.methodNameArgs = methodNameArgs;
 		this.allTypes = args;
-		this.explore = explore;
+		this.search = search;
 	}
 	
-	public void propagateDepToOwners(DependentValue owner, DependentValue dep) {
+	public void propagateDepToOwners(DependentValue ref, DependentValue dep) {
 		LinkedList<DependentValue> queue = new LinkedList<DependentValue>();
 		Set<DependentValue> visited = new HashSet<DependentValue>();
-		queue.add(owner);
+		queue.add(ref);
 		while (queue.size() > 0) {
 			DependentValue dv = queue.removeFirst();
-			dv.addDep(dep);
+			ref.addDep(dep);
 			
 			dv.written = true;
 			visited.add(dv);
@@ -93,15 +103,20 @@ public class DependentValueInterpreter extends BasicInterpreter {
 		}
 	}
 	
-	public boolean checkValueOrigin(DependentValue val) {		
+	public int checkValueOrigin(DependentValue val, boolean markWritten) {		
 		Set<DependentValue> visited = new HashSet<DependentValue>();
 		LinkedList<DependentValue> queue = new LinkedList<DependentValue>();
 		queue.add(val);
 		
 		while (queue.size() > 0) {
 			DependentValue dv = queue.removeFirst();
+			
+			if (markWritten) {
+				dv.written = true;
+			}
+			
 			if (this.params.containsKey(dv.id)) {
-				return true ;
+				return this.queryInputParamIndex(dv.id);
 			}
 			visited.add(dv);
 			
@@ -114,7 +129,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 			}
 		}
 		
-		return false;
+		return -1;
 	}
 	
 	public Map<Integer, DependentValue> getParams() {
@@ -339,7 +354,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	        	
 	            ret = (DependentValue) newValue(Type.INT_TYPE);
 	            ret.addOwner(oriVal);
-	            if (checkValueOrigin(oriVal)) {
+	            if (checkValueOrigin(oriVal, false) != -1) {
 	            	ret.addInSrc(insn);
 	            }
 	            
@@ -392,7 +407,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				//ret.src = insn;
 				
 				DependentValue owner = (DependentValue)value;
-				if (checkValueOrigin(owner)) {
+				if (checkValueOrigin(owner, false) != -1) {
 					ret.addInSrc(insn);
 				}
 				
@@ -451,7 +466,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				
 				ret.addOwner(arrRef);
 			
-				if (checkValueOrigin(arrRef)) {
+				if (checkValueOrigin(arrRef, false) != -1) {
 					ret.addInSrc(insn);
 				}
 				
@@ -483,7 +498,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				
 				ret.addOwner(arrRef);
 				
-				if (checkValueOrigin(arrRef)) {
+				if (checkValueOrigin(arrRef, false) != -1) {
 					ret.addInSrc(insn);
 				}
 				
@@ -507,7 +522,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				
 				ret.addOwner(arrRef);
 				
-				if (checkValueOrigin(arrRef)) {
+				if (checkValueOrigin(arrRef, false) != -1) {
 					ret.addInSrc(insn);
 				}
 				
@@ -537,7 +552,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				
 				ret.addOwner(arrRef);
 				
-				if (checkValueOrigin(arrRef)) {
+				if (checkValueOrigin(arrRef, false) != -1) {
 					ret.addInSrc(insn);
 				}
 				
@@ -562,7 +577,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				
 				ret.addOwner(arrRef);
 								
-				if (checkValueOrigin(arrRef)) {
+				if (checkValueOrigin(arrRef, false) != -1) {
 					ret.addInSrc(insn);
 				}
 				
@@ -604,7 +619,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				/*if (polluteInput) {
 					written.addOutSink(insn);
 				}*/
-				written.addOwner(objRef);
+				//written.addOwner(objRef);
 				
 				return null;
 			default:
@@ -630,7 +645,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 		
 		this.propagateDepToOwners(objRef, val);
 		
-		val.addOwner(objRef);
+		//val.addOwner(objRef);
 		
 		return super.ternaryOperation(insn, val1, val2, val3);
 	}
@@ -696,6 +711,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				
 				//Check if this callee is possible to write inputs
 				boolean shouldCheck = false;
+				//Do query only in the searching mode
 				for (DependentValue dv: dvs) {
 					if (dv.isReference()) {
 						shouldCheck = true;
@@ -703,39 +719,59 @@ public class DependentValueInterpreter extends BasicInterpreter {
 					break ;
 				}
 				
+				if (this.className.equals("java.awt.MenuBar") 
+						&& this.methodNameArgs.equals("add-(java.awt.Menu)")) {
+					System.out.println("Capture target: " + this.className + " " + this.methodNameArgs);
+					this.detailed = true;
+				}
+				
 				if (shouldCheck) {
 					this.hasCallees = true;
 					
-					String className = ClassInfoUtils.cleanType(methodInst.owner);
-					ClassInfo calleeInfo = GlobalInfoRecorder.queryClassInfo(className);
-					if (calleeInfo != null) {
-						String methodNameArgs = ClassInfoUtils.methodNameArgs(methodInst.name, methodInst.desc);
-						Map<Integer, TreeSet<Integer>> calleeWritten = null;
-						if (opcode == INVOKESTATIC || opcode == INVOKESPECIAL) {
-							calleeWritten = ClassInfoUtils.queryMethod(className, methodNameArgs, true, MethodInfo.PUBLIC);
-						} else {
-							calleeWritten = ClassInfoUtils.queryMethod(className, methodNameArgs, false, MethodInfo.PUBLIC);
-						}
+					if (this.search) {
+						String calleeName = ClassInfoUtils.cleanType(methodInst.owner);
+						ClassInfo calleeInfo = GlobalInfoRecorder.queryClassInfo(calleeName);
 						
-						if (calleeWritten != null) {
-							calleeWritten.forEach((w, deps)->{
-								DependentValue written = dvs.get(w);
-								
-								if (!written.isReference()) {
-									logger.error("Suspicious written: " + className + " " + methodNameArgs + " " + written);
-								}
-								
-								if (this.params.containsKey(written.id)) {
-									for (Integer d: deps) {
-										DependentValue dep = dvs.get(d);
-										written.addDep(dep);
+						if (calleeInfo != null) {
+							String methodNameArgs = ClassInfoUtils.methodNameArgs(methodInst.name, methodInst.desc);
+							Map<Integer, TreeSet<Integer>> calleeWritten = null;
+							if (opcode == INVOKESTATIC || opcode == INVOKESPECIAL) {
+								calleeWritten = ClassInfoUtils.queryMethod(calleeName, methodNameArgs, true, MethodInfo.PUBLIC, this.detailed);
+							} else {
+								calleeWritten = ClassInfoUtils.queryMethod(calleeName, methodNameArgs, false, MethodInfo.PUBLIC, this.detailed);
+							}
+							
+							if (this.detailed) {
+								System.out.println("Callee: " + calleeName + " " + methodNameArgs);
+								System.out.println("Callee written: " + calleeWritten);
+								System.out.println("Check dvs: " + dvs);
+								System.out.println("Check params: " + this.paramList);
+							}
+							
+							if (calleeWritten != null) {
+								calleeWritten.forEach((w, deps)->{
+									DependentValue written = dvs.get(w);
+									
+									if (!written.isReference()) {
+										logger.error("Suspicious written: " + className + " " + methodNameArgs + " " + written);
 									}
-								}
-							});
-						}
-					} else if (this.explore && calleeInfo == null) {
-						logger.error("Missed class: " + className + " " + methodInst.name + " " + methodInst.desc);
-						logger.error("Current class: " + this.className);
+									int callerParam = checkValueOrigin(written, true);
+									if (this.detailed) {
+										System.out.println("Written caller param: " + callerParam);
+									}
+									
+									/*if (checkValueOrigin(written, true) != -1) {
+										for (Integer d: deps) {
+											DependentValue dep = dvs.get(d);
+											written.addDep(dep);
+										}
+									}*/
+								});
+							}
+						} else {
+							logger.error("Missed class: " + calleeName + " " + methodInst.name + " " + methodInst.desc);
+							logger.error("Current class: " + this.className);
+						}	
 					}
 				}
 				

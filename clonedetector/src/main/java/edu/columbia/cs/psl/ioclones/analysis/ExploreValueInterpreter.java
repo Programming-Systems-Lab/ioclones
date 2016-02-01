@@ -26,7 +26,7 @@ public class ExploreValueInterpreter extends DependentValueInterpreter {
 	private static final Logger logger = LogManager.getLogger(ExploreValueInterpreter.class);
 	
 	public ExploreValueInterpreter(Type[] args, Type retType) {
-		super(args, retType, true);
+		super(args, retType, null, null, true);
 	}
 	
 	@Override
@@ -70,9 +70,9 @@ public class ExploreValueInterpreter extends DependentValueInterpreter {
 					String methodNameArgs = ClassInfoUtils.methodNameArgs(methodInst.name, methodInst.desc);
 					Map<Integer, TreeSet<Integer>> calleeWritten = null;
 					if (opcode == INVOKESTATIC || opcode == INVOKESPECIAL) {
-						calleeWritten = ClassInfoUtils.queryMethod(className, methodNameArgs, true, MethodInfo.PUBLIC);
+						calleeWritten = ClassInfoUtils.queryMethod(className, methodNameArgs, true, MethodInfo.PUBLIC, false);
 					} else {
-						calleeWritten = ClassInfoUtils.queryMethod(className, methodNameArgs, false, MethodInfo.PUBLIC);
+						calleeWritten = ClassInfoUtils.queryMethod(className, methodNameArgs, false, MethodInfo.PUBLIC, false);
 					}
 					
 					calleeWritten.forEach((w, deps)->{
