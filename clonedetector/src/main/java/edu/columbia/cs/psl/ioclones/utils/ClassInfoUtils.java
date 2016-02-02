@@ -316,7 +316,7 @@ public class ClassInfoUtils {
 			//Climb up
 			Map<Integer, TreeSet<Integer>> superQuery = searchUp(curInfo.getParent(), methodNameArgs, level);
 			if (detail) {
-				System.out.println("Parent: " + curInfo.getParent());
+				System.out.println("Parent: " + curInfo.getParent() + " " + methodNameArgs);
 				System.out.println("Super query: " + superQuery);
 			}
 			unionMap(superQuery, writtenParams);
@@ -326,7 +326,7 @@ public class ClassInfoUtils {
 		for (String child: curInfo.getChildren()) {
 			Map<Integer, TreeSet<Integer>> childQuery = searchDown(child, methodNameArgs, level);
 			if (detail) {
-				System.out.println("Child: " + child);
+				System.out.println("Child: " + child + " " + methodNameArgs);
 				System.out.println("Child query: " + childQuery);
 			}
 			

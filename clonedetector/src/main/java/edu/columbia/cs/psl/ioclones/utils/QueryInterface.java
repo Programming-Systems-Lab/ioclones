@@ -98,8 +98,8 @@ public class QueryInterface {
 	
 	public static void main(String[] args) {
 		try {
-			String className = "java.util.Comparator";
-			String methodName = "compare-(java.lang.Object+java.lang.Object)";
+			String className = "java.io.ObjectInputStream";
+			String methodName = "readObject-()";
 			
 			Class.forName("org.sqlite.JDBC");
 			String dbpath = "jdbc:sqlite:" + IODriver.profileDir + "/methodeps.db";

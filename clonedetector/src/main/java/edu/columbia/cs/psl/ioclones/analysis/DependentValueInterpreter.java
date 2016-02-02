@@ -88,7 +88,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 		queue.add(ref);
 		while (queue.size() > 0) {
 			DependentValue dv = queue.removeFirst();
-			ref.addDep(dep);
+			dv.addDep(dep);
 			
 			dv.written = true;
 			visited.add(dv);
@@ -719,11 +719,11 @@ public class DependentValueInterpreter extends BasicInterpreter {
 					break ;
 				}
 				
-				if (this.className.equals("java.awt.MenuBar") 
-						&& this.methodNameArgs.equals("add-(java.awt.Menu)")) {
+				/*if (this.className.equals("javax.naming.ldap.LdapName") 
+						&& this.methodNameArgs.equals("compareTo-(java.lang.Object)")) {
 					System.out.println("Capture target: " + this.className + " " + this.methodNameArgs);
 					this.detailed = true;
-				}
+				}*/
 				
 				if (shouldCheck) {
 					this.hasCallees = true;

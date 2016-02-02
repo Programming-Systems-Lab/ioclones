@@ -342,10 +342,11 @@ public class PreAnalyzer {
 					try {
 						//Analyze callee here
 						boolean show = false;
-						if (ownerClass.getClassName().equals("java.awt.MenuBar") 
-								&& methodNameArgs.equals("add-(java.awt.Menu)")) {
+						/*if (ownerClass.getClassName().equals("javax.naming.ldap.LdapName") 
+								&& methodNameArgs.equals("compareTo-(java.lang.Object)")) {
+							System.out.println("Owner calss: " + ownerClass.getClassName() + " " + methodNameArgs);
 							show = true;
-						}
+						}*/
 						
 						Frame[] fr = a.analyze(className, this);
 						Map<Integer, TreeSet<Integer>> iterWritten = new HashMap<Integer, TreeSet<Integer>>();
@@ -371,7 +372,7 @@ public class PreAnalyzer {
 									
 									for (DependentValue dep: deps) {
 										int checkParamId = dvi.checkValueOrigin(dep, false);
-										if (checkParamId != - 1) {
+										if (checkParamId != - 1 && checkParamId != j) {
 											iterWritten.get(j).add(checkParamId);
 										}
 									}
