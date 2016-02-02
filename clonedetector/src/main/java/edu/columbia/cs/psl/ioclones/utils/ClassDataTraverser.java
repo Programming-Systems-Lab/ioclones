@@ -90,7 +90,7 @@ public class ClassDataTraverser {
 	static File rootOutputDir;
 
 	public static void collectDir(String inputFolder, List<byte[]> datas) {
-		System.out.println(inputFolder);
+		//System.out.println(inputFolder);
 		File f = new File(inputFolder);
 		if (!f.exists()) {
 			System.err.println("Unable to read path " + inputFolder);

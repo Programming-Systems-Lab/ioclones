@@ -11,6 +11,11 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.CommandLineParser;
+import org.apache.commons.cli.DefaultParser;
+import org.apache.commons.cli.Options;
+import org.apache.commons.cli.ParseException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.objectweb.asm.ClassReader;
@@ -28,22 +33,45 @@ import edu.columbia.cs.psl.ioclones.pojo.MethodInfo;
 import edu.columbia.cs.psl.ioclones.utils.ClassDataTraverser;
 import edu.columbia.cs.psl.ioclones.utils.ClassInfoUtils;
 import edu.columbia.cs.psl.ioclones.utils.GlobalInfoRecorder;
+import edu.columbia.cs.psl.ioclones.utils.IOUtils;
 
 public class PreAnalyzer {
 	
 	private static final Logger logger = LogManager.getLogger(PreAnalyzer.class);
 	
-	private static final String rtJarPath = "/Library/Java/JavaVirtualMachines/jdk1.8.0_65.jdk/Contents/Home/jre/lib/rt.jar";
+	private static final Options options = new Options();
 	
-	public static void main(String[] args) {
-		List<byte[]> container = new ArrayList<byte[]>();
-		if (args.length == 0) {
+	static {
+		options.addOption("jvm", false, "Profile JVM");
+		options.addOption("cb", true, "codebase");
+		options.getOption("cb").setRequired(true);
+	}
+	
+	public static void main(String[] args) throws ParseException {
+		CommandLineParser parser = new DefaultParser();
+		CommandLine cmd = parser.parse(options, args);
+		String codebase = null;
+		boolean jvm = false;
+		if (cmd.hasOption("jvm")) {
+			jvm = true;
+			logger.info("Profiling JVM");
+		}
+		codebase = cmd.getOptionValue("cb");
+		if (codebase == null) {
 			System.err.println("Please specify input directory");
 			System.exit(-1);
 		}
-		ClassDataTraverser.collectDir(args[0], container);
+		logger.info("Codebase: " + codebase);
+		
+		if (!jvm) {
+			IOUtils.loadMethodIODeps();
+		}
+		
+		List<byte[]> container = new ArrayList<byte[]>();
+		ClassDataTraverser.collectDir(codebase, container);
 		//container = ClassDataTraverser.filter(container, "java/util/HashMap");
 		
+	
 		logger.info("Classes to analyze: " + container.size());
 		logger.info("Initialization phase");
 		int counter = 0;
@@ -249,7 +277,7 @@ public class PreAnalyzer {
 		} while(GlobalInfoRecorder.isChanged());
 		
 		logger.info("Report written params of methods");
-		GlobalInfoRecorder.reportClassInfo(true);
+		GlobalInfoRecorder.reportClassInfo(true, jvm);
 	}
 	
 	public static class WriterExplorer extends MethodVisitor {

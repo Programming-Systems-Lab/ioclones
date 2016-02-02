@@ -758,7 +758,62 @@ public class IOUtils {
 		logger.info("Exporting ends: " + codebase);
 	}
 	
-	public static void exportMethodIODeps(Collection<ClassInfo> classes) {
+	public static void loadMethodIODeps() {
+		try {
+			Class.forName("org.sqlite.JDBC");
+			String dbpath = "jdbc:sqlite:" + IODriver.profileDir + "/methodeps.db";
+			Connection conn = DriverManager.getConnection(dbpath);
+			logger.info("Connect to sqlite");
+			
+			String loadClass = "SELECT * FROM CLASSINFO";
+			Statement loadClassStmt = conn.createStatement();
+			ResultSet classResults = loadClassStmt.executeQuery(loadClass);
+			TypeToken<List<String>> listToken = new TypeToken<List<String>>(){};
+			TypeToken<Map<Integer, TreeSet<Integer>>> mapToken = 
+					new TypeToken<Map<Integer, TreeSet<Integer>>>(){};
+			while (classResults.next()) {
+				int cid = classResults.getInt("ID");
+				String className = classResults.getString("CLASSNAME");
+				String parent = classResults.getString("PARENT");
+				List<String> interfaces = IOUtils.jsonToObj(classResults.getString("INTERFACES"), listToken);
+				List<String> children = IOUtils.jsonToObj(classResults.getString("CHILDREN"), listToken);
+				
+				ClassInfo classInfo = new ClassInfo(className);
+				classInfo.setParent(parent);
+				classInfo.setInterfaces(interfaces);
+				classInfo.setChildren(children);
+				
+				String loadMethod = "SELECT * FROM METHODINFO WHERE C_ID=" + cid;
+				Statement loadMethodStmt = conn.createStatement();
+				ResultSet methodResult = loadMethodStmt.executeQuery(loadMethod);
+				while (methodResult.next()) {
+					String methodArgs = methodResult.getString("METHOD_DESC");
+					int level = methodResult.getInt("LEVEL");
+					boolean isFinal = methodResult.getBoolean("FINAL");
+					boolean leaf = methodResult.getBoolean("LEAF");
+					Map<Integer, TreeSet<Integer>> writtenParams = 
+							IOUtils.jsonToObj(methodResult.getString("WRITTEN_PARAMS"), mapToken);
+					
+					MethodInfo mi = new MethodInfo();
+					mi.setLevel(level);
+					mi.setFinal(isFinal);
+					mi.leaf = leaf;
+					mi.setWrittenParams(writtenParams);
+					classInfo.addMethodInfo(methodArgs, mi);
+				}
+				
+				GlobalInfoRecorder.registerClassInfo(classInfo);
+			}
+		} catch (Exception ex) {
+			logger.error("Error: ", ex);
+		}
+	}
+	
+	public static void exportJVMIODeps(Collection<ClassInfo> classes) {
+		exportMethodIODeps(classes, "methodeps");
+	}
+	
+	public static void exportMethodIODeps(Collection<ClassInfo> classes, String dbName) {
 		File classInfoDir = new File(IODriver.profileDir);
 		if (classInfoDir.exists()) {
 			classInfoDir.mkdirs();
@@ -766,7 +821,7 @@ public class IOUtils {
 		
 		try {
 			Class.forName("org.sqlite.JDBC");
-			String dbpath = "jdbc:sqlite:" + IODriver.profileDir + "/methodeps.db";
+			String dbpath = "jdbc:sqlite:" + IODriver.profileDir + "/" + dbName + ".db";
 			Connection conn = DriverManager.getConnection(dbpath);
 			logger.info("Connect to sqlite");
 			
@@ -790,8 +845,12 @@ public class IOUtils {
 			logger.info("Create class table");
 			
 			Statement createMethodStmt = conn.createStatement();
-			String createMethod = "CREATE TABLE METHODINFO (C_ID INTEGER NOT NULL, "
+			String createMethod = "CREATE TABLE METHODINFO "
+					+ "(C_ID INTEGER NOT NULL, "
 					+ "METHOD_DESC TEXT NOT NULL, "
+					+ "LEVEL INTEGER NOT NULL, "
+					+ "FINAL BOOLEAN NOT NULL, "
+					+ "LEAF BOOLEAN NOT NULL, "
 					+ "WRITTEN_PARAMS TEXT)";
 			createMethodStmt.executeUpdate(createMethod);
 			logger.info("Create method table");
@@ -818,8 +877,8 @@ public class IOUtils {
 				int classIdx = classInsert.getInt(1);
 				//logger.info("Class idx: " + c.getClassName() + " " + classIdx);
 				
-				String insertMethod = "INSERT INTO METHODINFO (C_ID, METHOD_DESC, WRITTEN_PARAMS) "
-						+ "VALUES(?, ?, ?)";
+				String insertMethod = "INSERT INTO METHODINFO (C_ID, METHOD_DESC, LEVEL, FINAL, LEAF, WRITTEN_PARAMS) "
+						+ "VALUES(?, ?, ?, ?, ?, ?)";
 				PreparedStatement methodStatement = conn.prepareStatement(insertMethod);
 				TypeToken<Map<Integer, TreeSet<Integer>>> writtenType = 
 						new TypeToken<Map<Integer, TreeSet<Integer>>>(){};
@@ -827,9 +886,12 @@ public class IOUtils {
 					MethodInfo methodInfo = c.getMethodInfo(nameDesc);
 					methodStatement.setInt(1, classIdx);
 					methodStatement.setString(2, nameDesc);
+					methodStatement.setInt(3, methodInfo.getLevel());
+					methodStatement.setBoolean(4, methodInfo.isFinal());
+					methodStatement.setBoolean(5, methodInfo.leaf);
 					
 					Map<Integer, TreeSet<Integer>> writtens = methodInfo.getWrittenParams();
-					methodStatement.setString(3, IOUtils.objToJson(writtens, writtenType));
+					methodStatement.setString(6, IOUtils.objToJson(writtens, writtenType));
 					
 					methodStatement.addBatch();
 				}

@@ -37,12 +37,20 @@ public class ClassInfo {
 		this.interfaces.add(inter);
 	}
 	
+	public void setInterfaces(List<String> interfaces) {
+		this.interfaces = interfaces;
+	}
+	
 	public List<String> getInterfaces() {
 		return this.interfaces;
 	}
 	
 	public void addChild(String child) {
 		this.children.add(child);
+	}
+	
+	public void setChildren(List<String> children) {
+		this.children = children;
 	}
 	
 	public List<String> getChildren() {

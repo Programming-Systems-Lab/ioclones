@@ -201,13 +201,17 @@ public class GlobalInfoRecorder {
 		return classInfo;
 	}
 	
-	public static void reportClassInfo(boolean db) {
+	public static void reportClassInfo(boolean db, boolean jvm) {
 		synchronized(classLock) {
 			logger.info("Total class info: " + classInfo.size());
 			
 			//Exporting profiling results to sqlite
 			if (db) {
-				IOUtils.exportMethodIODeps(classInfo.values());
+				if (jvm) {
+					IOUtils.exportJVMIODeps(classInfo.values());
+				} else {
+					IOUtils.exportMethodIODeps(classInfo.values(), "cb");
+				}
 			} else {
 				classInfo.values().forEach(info->{
 					logger.info("Class name: " + info.getClassName());
