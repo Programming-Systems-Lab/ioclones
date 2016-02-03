@@ -26,8 +26,9 @@ public class Main {
 	public static final Logger logger = LogManager.getLogger(Main.class);
 	
 	public static void main(String[] args) throws FileNotFoundException, IOException {
-		logger.info("Loading class info");
-		IOUtils.unzipClassInfo();
+		//logger.info("Loading class info");
+		//IOUtils.unzipClassInfo();
+		IOUtils.loadMethodIODeps("cb");
 		
 		File clazz = new File(args[0]);
 

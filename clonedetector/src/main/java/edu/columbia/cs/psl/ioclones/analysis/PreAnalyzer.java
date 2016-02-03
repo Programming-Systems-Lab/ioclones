@@ -1,7 +1,5 @@
 package edu.columbia.cs.psl.ioclones.analysis;
 
-import java.io.BufferedWriter;
-import java.io.FileWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -64,7 +62,7 @@ public class PreAnalyzer {
 		logger.info("Codebase: " + codebase);
 		
 		if (!jvm) {
-			IOUtils.loadMethodIODeps();
+			IOUtils.loadMethodIODeps("methodeps");
 		}
 		
 		List<byte[]> container = new ArrayList<byte[]>();

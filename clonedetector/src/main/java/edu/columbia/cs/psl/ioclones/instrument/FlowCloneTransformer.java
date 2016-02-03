@@ -32,7 +32,13 @@ public class FlowCloneTransformer implements ClassFileTransformer {
 		try {			
 			if (protectionDomain != null) {
 				String protection = protectionDomain.getCodeSource().getLocation().getPath();
+				//System.out.println("Protection domain: " + protection);
 				if (!ClassInfoUtils.checkProtectionDomain(protection)) {
+					return classfileBuffer;
+				}
+				
+				if (protection.matches(".*CloneDetector.*.jar")) {
+					//System.out.println("Capture file: " + protection);
 					return classfileBuffer;
 				}
 			}

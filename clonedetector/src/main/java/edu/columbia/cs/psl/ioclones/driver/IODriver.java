@@ -32,7 +32,8 @@ public class IODriver {
 		logger.info(config);
 		
 		logger.info("Loading class info");
-		IOUtils.unzipClassInfo();
+		//IOUtils.unzipClassInfo();
+		IOUtils.loadMethodIODeps("cb");
 		
 		String className = args[0];
 		String[] newArgs = new String[args.length - 1];

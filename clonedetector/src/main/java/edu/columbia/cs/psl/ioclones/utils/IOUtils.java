@@ -24,6 +24,7 @@ import java.sql.Timestamp;
 import java.util.List;
 import java.util.Collection;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -758,12 +759,12 @@ public class IOUtils {
 		logger.info("Exporting ends: " + codebase);
 	}
 	
-	public static void loadMethodIODeps() {
+	public static void loadMethodIODeps(String dbName) {
 		try {
 			Class.forName("org.sqlite.JDBC");
-			String dbpath = "jdbc:sqlite:" + IODriver.profileDir + "/methodeps.db";
+			String dbpath = "jdbc:sqlite:" + IODriver.profileDir + "/" + dbName + ".db";
 			Connection conn = DriverManager.getConnection(dbpath);
-			logger.info("Connect to sqlite");
+			logger.info("Connect to sqlite: " + dbName);
 			
 			String loadClass = "SELECT * FROM CLASSINFO";
 			Statement loadClassStmt = conn.createStatement();
@@ -771,7 +772,13 @@ public class IOUtils {
 			TypeToken<List<String>> listToken = new TypeToken<List<String>>(){};
 			TypeToken<Map<Integer, TreeSet<Integer>>> mapToken = 
 					new TypeToken<Map<Integer, TreeSet<Integer>>>(){};
+			int loadedCounter = 0;
+			Map<Integer, ClassInfo> classMap = new HashMap<Integer, ClassInfo>();
 			while (classResults.next()) {
+				loadedCounter++;
+				if (loadedCounter % 1000 == 0) {
+					logger.info("Loaded class: " + loadedCounter);
+				}
 				int cid = classResults.getInt("ID");
 				String className = classResults.getString("CLASSNAME");
 				String parent = classResults.getString("PARENT");
@@ -783,27 +790,39 @@ public class IOUtils {
 				classInfo.setInterfaces(interfaces);
 				classInfo.setChildren(children);
 				
-				String loadMethod = "SELECT * FROM METHODINFO WHERE C_ID=" + cid;
-				Statement loadMethodStmt = conn.createStatement();
-				ResultSet methodResult = loadMethodStmt.executeQuery(loadMethod);
-				while (methodResult.next()) {
-					String methodArgs = methodResult.getString("METHOD_DESC");
-					int level = methodResult.getInt("LEVEL");
-					boolean isFinal = methodResult.getBoolean("FINAL");
-					boolean leaf = methodResult.getBoolean("LEAF");
-					Map<Integer, TreeSet<Integer>> writtenParams = 
-							IOUtils.jsonToObj(methodResult.getString("WRITTEN_PARAMS"), mapToken);
-					
-					MethodInfo mi = new MethodInfo();
-					mi.setLevel(level);
-					mi.setFinal(isFinal);
-					mi.leaf = leaf;
-					mi.setWrittenParams(writtenParams);
-					classInfo.addMethodInfo(methodArgs, mi);
-				}
-				
+				classMap.put(cid, classInfo);
 				GlobalInfoRecorder.registerClassInfo(classInfo);
 			}
+			
+			String loadMethod = "SELECT * FROM METHODINFO";
+			Statement loadMethodStmt = conn.createStatement();
+			ResultSet methodResult = loadMethodStmt.executeQuery(loadMethod);
+			
+			int methodCounter = 0;
+			while (methodResult.next()) {
+				methodCounter++;
+				if (methodCounter % 1000 == 0) {
+					logger.info("Loaded methods: " + methodCounter);
+				}
+				
+				int cid = methodResult.getInt("C_ID");
+				String methodArgs = methodResult.getString("METHOD_DESC");
+				int level = methodResult.getInt("LEVEL");
+				boolean isFinal = methodResult.getBoolean("FINAL");
+				boolean leaf = methodResult.getBoolean("LEAF");
+				Map<Integer, TreeSet<Integer>> writtenParams = 
+						IOUtils.jsonToObj(methodResult.getString("WRITTEN_PARAMS"), mapToken);
+				
+				MethodInfo mi = new MethodInfo();
+				mi.setLevel(level);
+				mi.setFinal(isFinal);
+				mi.leaf = leaf;
+				mi.setWrittenParams(writtenParams);
+				
+				classMap.get(cid).addMethodInfo(methodArgs, mi);
+			}
+			
+			conn.close();
 		} catch (Exception ex) {
 			logger.error("Error: ", ex);
 		}
@@ -815,7 +834,7 @@ public class IOUtils {
 	
 	public static void exportMethodIODeps(Collection<ClassInfo> classes, String dbName) {
 		File classInfoDir = new File(IODriver.profileDir);
-		if (classInfoDir.exists()) {
+		if (!classInfoDir.exists()) {
 			classInfoDir.mkdirs();
 		}
 		
@@ -823,6 +842,7 @@ public class IOUtils {
 			Class.forName("org.sqlite.JDBC");
 			String dbpath = "jdbc:sqlite:" + IODriver.profileDir + "/" + dbName + ".db";
 			Connection conn = DriverManager.getConnection(dbpath);
+			conn.setAutoCommit(false);
 			logger.info("Connect to sqlite");
 			
 			Statement dropStmt = conn.createStatement();
@@ -897,12 +917,19 @@ public class IOUtils {
 				}
 				methodStatement.executeBatch();
 			}
+			conn.commit();
+			conn.close();
 		} catch (Exception ex) {
 			logger.error("Error: ", ex);
 		}
 	}
 	
-	public static void main(String[] args) throws Exception {
+	public static void main(String[] args) {
+		loadMethodIODeps("methodeps");
+		System.out.println("Loaded class info: " + GlobalInfoRecorder.getClassInfo().size());
+	}
+	
+	/*public static void main(String[] args) throws Exception {
 		Console c = System.console();
 		String filePath = c.readLine("CSV file path: ");
 		File csvFile = new File(filePath);
@@ -955,5 +982,5 @@ public class IOUtils {
 		} catch (Exception ex) {
 			ex.printStackTrace();
 		}
-	}
+	}*/
 }

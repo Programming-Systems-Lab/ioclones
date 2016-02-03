@@ -1,6 +1,5 @@
 package edu.columbia.cs.psl.ioclones;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -90,15 +89,16 @@ public class DependencyAnalyzer extends MethodVisitor {
 					int i = 0;
 					Map<Integer, WrittenParam> writtenParams = new HashMap<Integer, WrittenParam>();
 					
-					//Determine which input has been polluted
+					//Determine which input has been written
 					for (int j = 0; j < dvi.getParamList().size(); j++) {
 						DependentValue paramVal = dvi.getParamList().get(j);
-						if (paramVal.getDeps() != null && paramVal.getDeps().size() > 0) {
+						if (paramVal.written) {
 							LinkedList<DependentValue> writtenDeps = paramVal.tag();
 							
 							if (writtenDeps.size() > 0) {
 								writtenDeps.removeFirst();
 							}
+							
 							WrittenParam wp = new WrittenParam();
 							wp.paramIdx = j;
 							wp.deps = writtenDeps;
@@ -126,29 +126,23 @@ public class DependencyAnalyzer extends MethodVisitor {
 										LinkedList<DependentValue> toOutput = retVal.tag();
 										retVal.addOutSink(insn);
 										
-										int opcode = insn.getOpcode();
-										if (opcode >= Opcodes.IRETURN && opcode <= Opcodes.ARETURN) {
-											List<Integer> written = null;
-										}
-										
 										//The first will be the ret itself
-										if (toOutput.size() == 0) {
+										if (toOutput.size() > 0) {
+											toOutput.removeFirst();
+											ios.put(retVal, toOutput);
+										} else {
 											//This means that this output has been analyzed before (merge)
 											logger.warn("Visited val: " + retVal);
 											logger.warn("Corresponding inst: " + insn);
-										} else {
-											toOutput.removeFirst();
-											ios.put(retVal, toOutput);
 										}
-										
-										System.out.println("Output val with inst: " + retVal + " " + insn);
-										System.out.println("Dependent val: " + toOutput);
 									}
 									
-									if (writtenParams.size() > 0) {
-										for (WrittenParam wp: writtenParams.values()) {
-											String msg = TAINTED_IN + wp.paramIdx;
-											this.instructions.insertBefore(insn, new LdcInsnNode(msg));
+									int opcode = insn.getOpcode();
+									if (opcode >= Opcodes.IRETURN && opcode <= Opcodes.ARETURN) {
+										if (writtenParams.size() > 0) {
+											for (WrittenParam wp: writtenParams.values()) {
+												wp.retInsn = insn;
+											}
 										}
 									}
 									
@@ -156,8 +150,7 @@ public class DependencyAnalyzer extends MethodVisitor {
 								case Opcodes.RETURN:
 									if (writtenParams.size() > 0) {
 										for (WrittenParam wp: writtenParams.values()) {
-											String msg = TAINTED_IN + wp.paramIdx;
-											this.instructions.insertBefore(insn, new LdcInsnNode(msg));
+											wp.retInsn = insn;
 										}
 									}
 									
@@ -174,29 +167,14 @@ public class DependencyAnalyzer extends MethodVisitor {
 										
 					Set<Integer> touched = new HashSet<Integer>();
 					Set<AbstractInsnNode> visitedInInsns = new HashSet<AbstractInsnNode>();
-										
-					System.out.println("Output number: " + ios.size());
 					for (DependentValue o: ios.keySet()) {
-						System.out.println("Output: " + o);
 						LinkedList<DependentValue> inputs = ios.get(o);
 						
-						//If o's out sinks are null, something wrong
 						if (o.getOutSinks() != null) {
 							o.getOutSinks().forEach(sink->{
 								this.instructions.insertBefore(sink, new LdcInsnNode(OUTPUT_MSG));
 							});
 							touched.add(o.id);
-							
-							//In case the input and output are the same value
-							if (o.getInSrcs() != null) {
-								System.out.println("I is O: " + o);
-								/*o.getInSrcs().forEach(src->{
-									if (!visitedInInsns.contains(src)) {
-										this.instructions.insertBefore(src, new LdcInsnNode(INPUT_MSG));
-										visitedInInsns.add(src);
-									}
-								});*/
-							}
 							
 							if (inputs != null) {
 								for (DependentValue input: inputs) {
@@ -221,16 +199,15 @@ public class DependencyAnalyzer extends MethodVisitor {
 					
 					if (ios.size() > 0 || writtenParams.size() > 0) {
 						//Need to analyze which control instruction should be recorded
-						//blockAnalyzer.insertGuide(controlTarget);
 						//Jumps will affect outputs
-						logger.info("Cand. single controls: " + dvi.getSingleControls().size());
+						//logger.info("Cand. single controls: " + dvi.getSingleControls().size());
 						dvi.getSingleControls().forEach((sc, val)->{
 							if (this.recordControl(val, touched)) {
 								this.instructions.insertBefore(sc, new LdcInsnNode(INPUT_MSG));
 							}
 						});
 						
-						logger.info("Cand. double controls: " + dvi.getDoubleControls().size());
+						//logger.info("Cand. double controls: " + dvi.getDoubleControls().size());
 						dvi.getDoubleControls().forEach((dc, vals)->{
 							boolean[] record = {false, false};
 							for (int k = 0; k < vals.length; k++) {
@@ -248,6 +225,30 @@ public class DependencyAnalyzer extends MethodVisitor {
 								this.instructions.insertBefore(dc, new LdcInsnNode(INPUT_COPY_1_MSG));
 							}
 						});
+					}
+					
+					for (WrittenParam wp: writtenParams.values()) {
+						String msg = TAINTED_IN + wp.paramIdx;
+						this.instructions.insertBefore(wp.retInsn, new LdcInsnNode(msg));
+						
+						for (DependentValue dv: wp.deps) {
+							if (touched.contains(dv.id)) {
+								continue ;
+							}
+							touched.add(dv.id);
+							
+							if (dv.getInSrcs() == null 
+									|| dv.getInSrcs().size() == 0) {
+								continue ;
+							}
+							
+							dv.getInSrcs().forEach(src->{
+								if (!visitedInInsns.contains(src)) {
+									this.instructions.insertBefore(src, new LdcInsnNode(INPUT_MSG));
+									visitedInInsns.add(src);
+								}
+							});
+						}
 					}
 				} catch (AnalyzerException e) {
 					e.printStackTrace();
@@ -301,5 +302,7 @@ public class DependencyAnalyzer extends MethodVisitor {
 		int paramIdx;
 				
 		List<DependentValue> deps;
+		
+		AbstractInsnNode retInsn;
 	}
 }

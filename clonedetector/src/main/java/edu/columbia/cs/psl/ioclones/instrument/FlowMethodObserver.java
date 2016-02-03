@@ -112,12 +112,11 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 			this.mv.visitInsn(opcode);
 			return ;
 		}*/
-		System.out.println(opcode);
 		if (this.recordInput) {
 			this.mv.visitInsn(opcode);
 			
 			this.recordInput = false;
-			System.out.println("End record input: " + opcode);
+			//System.out.println("End record input: " + opcode);
 			boolean ser = false;
 			switch(opcode) {
 				case IALOAD:
@@ -232,7 +231,7 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 		
 	@Override
 	public void visitIntInsn(int opcode, int operand) {
-		System.out.println(opcode);
+		//System.out.println(opcode);
 		this.mv.visitIntInsn(opcode, operand);
 		/*if (this.recordInput) {
 			this.recordInput = false;
@@ -246,7 +245,7 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 	
 	@Override
 	public void visitVarInsn(int opcode, int var) {
-		System.out.println(opcode);
+		//System.out.println(opcode);
 		this.mv.visitVarInsn(opcode, var);
 		if (this.recordInput) {
 			this.recordInput = false;
@@ -304,7 +303,7 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 	
 	@Override
 	public void visitFieldInsn(int opcode, String owner, String name, String desc) {
-		System.out.println(opcode);
+		//System.out.println(opcode);
 		if (this.recordInput) {
 			this.mv.visitFieldInsn(opcode, owner, name, desc);
 			
@@ -353,7 +352,7 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 	
 	@Override
 	public void visitJumpInsn(int opcode, Label label) {
-		System.out.println(opcode);
+		//System.out.println(opcode);
 		if (this.recordInput) {
 			this.recordInput = false;
 			
@@ -460,7 +459,7 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 	
 	@Override
 	public void visitLookupSwitchInsn(Label dflt, int[] keys, Label[] labels) {
-		System.out.println(LOOKUPSWITCH);
+		//System.out.println(LOOKUPSWITCH);
 		if (this.recordInput) {
 			this.recordInput = false;
 			
@@ -479,7 +478,7 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 	
 	@Override
 	public void visitTableSwitchInsn(int min, int max, Label dflt, Label... labels) {
-		System.out.println(TABLESWITCH);
+		//System.out.println(TABLESWITCH);
 		if (this.recordInput) {
 			this.recordInput = false;
 			
@@ -498,7 +497,7 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 		
 	@Override
 	public void visitLdcInsn(Object cst) {
-		System.out.println(LDC);
+		//System.out.println(LDC);
 		if (cst instanceof String) {
 			String literal = (String) cst;
 			if (literal.equals(DependencyAnalyzer.INPUT_MSG)) {
