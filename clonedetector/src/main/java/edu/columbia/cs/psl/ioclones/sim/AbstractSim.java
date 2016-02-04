@@ -118,39 +118,14 @@ public abstract class AbstractSim implements SimAnalyzer {
 			int min = Math.min(c1.size(), c2.size());
 			int max = Math.max(c1.size(), c2.size());
 			double maxSim = ((double)min)/max;
-			if (maxSim - SimAnalysisDriver.simThresh < SimAnalyzer.TOLERANCE) {
+			if (maxSim - SimAnalysisDriver.simThresh - 0.1 < SimAnalyzer.TOLERANCE) {
 				return 0.0;
 			}
-			
-			/*Iterator<Object> c1IT = c1.iterator();
-			double simSum = 0.0;
-			while (c1IT.hasNext()) {
-				Object co1 = c1IT.next();
-				
-				Iterator<Object> c2IT = c2.iterator();
-				while (c2IT.hasNext()) {
-					Object co2 = c2IT.next();
-					simSum += this.compareObject(co1, co2);
-				}
-			}
-			System.out.println("Simsum: " + simSum);
-			double simRank = (CONSTANT * simSum)/(c1.size() * c2.size());
-			return simRank;*/
-			
+						
 			//Start from greedy algorithm
 			List<Object> c1Copy = new ArrayList<Object>(c1);
 			List<Object> c2Copy = new ArrayList<Object>(c2);
 			int[] simRecord = new int[c2Copy.size()];
-			
-			if (c1Copy.size() > 1000 || c2Copy.size() > 1000) {
-				logger.info("Detect large I/O: " + c1Copy.size() + " " + c2Copy.size());
-			}
-			long afterCopy = Runtime.getRuntime().freeMemory();
-			
-			double diff = ((double)(afterCopy - before))/Math.pow(10, 6);
-			if (diff > 100) {
-				logger.info("Large copy: " + c1Copy.size() + " " + c2Copy.size());
-			}
 			
 			double simSum = 0;
 			for (int i = 0; i < c1Copy.size(); i++) {
@@ -182,13 +157,7 @@ public abstract class AbstractSim implements SimAnalyzer {
 					simSum += bestSim;
 				}
 			}
-			
-			long afterCompare = Runtime.getRuntime().freeMemory();
-			double compareDiff = ((double)(afterCompare - afterCopy))/Math.pow(10, 6);
-			if (compareDiff > 1000) {
-				logger.info("Large compare: " + c1.size() + " " + c2.size());
-			}
-			
+						
 			//System.out.println("Sim sum: " + simSum);
 			int maxLen = Math.max(c1.size(), c2.size());
 			double sim = simSum/maxLen;
@@ -206,7 +175,7 @@ public abstract class AbstractSim implements SimAnalyzer {
 			int min = Math.min(c1.size(), c2.size());
 			int max = Math.max(c1.size(), c2.size());
 			double maxSim = ((double)min)/max;
-			if (maxSim - SimAnalysisDriver.simThresh < SimAnalyzer.TOLERANCE) {
+			if (maxSim - SimAnalysisDriver.simThresh - 0.1 < SimAnalyzer.TOLERANCE) {
 				return 0.0;
 			}
 			
@@ -226,23 +195,7 @@ public abstract class AbstractSim implements SimAnalyzer {
 			XMLWrapper xml1 = (XMLWrapper) o1;
 			XMLWrapper xml2 = (XMLWrapper) o2;
 			
-			long before = Runtime.getRuntime().freeMemory();
-			
-			if (XML_ALG.equals(DHASH)) {
-				if (xml1.deepHash == XMLWrapper.UNINITIALIZED) {
-					xml1.deepHash = DeepHash.deepHash(xml1.obj);
-				}
-				
-				if (xml2.deepHash == XMLWrapper.UNINITIALIZED) {
-					xml2.deepHash = DeepHash.deepHash(xml2.obj);
-				}
-				
-				long after = Runtime.getRuntime().freeMemory();
-				double diff = ((double)(after - before))/Math.pow(10, 6);
-				if (diff > 1000) {
-					logger.info("Large xml compare: " + xml1.obj + " " + xml2.obj);
-				}
-				
+			if (XML_ALG.equals(DHASH)) {				
 				if (xml1.deepHash == xml2.deepHash) {
 					return 1.0;
 				} else {

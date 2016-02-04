@@ -1,5 +1,7 @@
 package edu.columbia.cs.psl.ioclones.instrument;
 
+import java.util.List;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.objectweb.asm.Label;
@@ -32,6 +34,8 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 		
 	private String desc;
 	
+	private List<Integer> runtimeParamList;
+	
 	private String signature;
 	
 	private String[] exceptions;
@@ -57,6 +61,7 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 			final String superName, 
 			final String name,
 			final String desc, 
+			final List<Integer> runtimeParamList, 
 			String signature, 
 			String[] exceptions) {
 		super(Opcodes.ASM5, mv);
@@ -65,6 +70,7 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 		this.superName = superName;
 		this.name = name;
 		this.desc = desc;
+		this.runtimeParamList = runtimeParamList;
 		this.signature = signature;
 		this.exceptions = exceptions;
 		String[] parsedKeys = 
@@ -143,6 +149,9 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 					break ;
 				case SALOAD:
 					this.handlePrimitive(Short.class);
+					break ;
+				case ARRAYLENGTH:
+					this.handlePrimitive(Integer.class);
 					break ;
 				default:
 					logger.error("Invalid input type: " + opcode);
@@ -275,27 +284,29 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 			
 			this.mv.visitVarInsn(ALOAD, this.recordId);
 			this.mv.visitInsn(SWAP);
+			this.convertToInst(var);
 			if (!ser) {
 				this.mv.visitInsn(ICONST_0);
 			} else {
 				this.mv.visitInsn(ICONST_1);
 			}
-			this.convertToInst(var);
+			//this.convertToInst(var);
 			
 			this.mv.visitMethodInsn(INVOKEVIRTUAL, 
 					Type.getInternalName(IORecord.class), 
 					"registerInput", 
-					"(Ljava/lang/Object;ZI)V", 
+					"(Ljava/lang/Object;IZ)V", 
 					false);
+			return ;
 		}
 		
-		//We don't actually need this guard...
-		/*if (BytecodeUtils.xstore(opcode)) {
+		/*if (BytecodeUtils.xstore(opcode) 
+				&& this.runtimeParamList.contains(var)) {
 			this.mv.visitVarInsn(ALOAD, this.recordId);
 			this.convertToInst(var);
 			this.mv.visitMethodInsn(INVOKEVIRTUAL, 
 					Type.getInternalName(IORecord.class), 
-					"stopRegisterInput", 
+					"stopRecord", 
 					"(I)V", 
 					false);
 		}*/
@@ -552,13 +563,13 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 					"(Ljava/lang/Object;Z)V", 
 					false);
 			
-			this.mv.visitVarInsn(ALOAD, this.recordId);
+			/*this.mv.visitVarInsn(ALOAD, this.recordId);
 			this.convertToInst(var);
 			this.mv.visitMethodInsn(INVOKEVIRTUAL, 
 					Type.getInternalName(IORecord.class), 
 					"stopRegisterInput", 
 					"(I)V", 
-					false);
+					false);*/
 		}
 		this.mv.visitIincInsn(var, increment);
 	}

@@ -362,7 +362,8 @@ public class PreAnalyzer {
 							returnType, 
 							className, 
 							methodNameArgs, 
-							search);
+							search, 
+							false);
 					//ExploreValueInterpreter fvi = new ExploreValueInterpreter(args, returnType);
 					Analyzer a = new Analyzer(dvi);
 					try {
@@ -380,28 +381,21 @@ public class PreAnalyzer {
 							DependentValue val = dvi.getParamList().get(j);
 							if (val.written) {
 								LinkedList<DependentValue> deps = val.tag();
-								if (deps.size() == 0) {
-									//System.out.println("Suspicious class: " + className);
-									//System.out.println("Method name: " + methodNameArgs);
-									//System.out.println("Param idx: " + dvi.queryInputParamIndex(val.id));
-									//System.out.println("Param: " + val);
-									//System.out.println("Deps: " + val.getDeps());
-									//System.out.println("All params: " + dvi.getParamList());
-									//System.exit(-1);
-								} else {
+								if (deps.size() > 0) {
 									deps.removeFirst();
-																		
+									
 									if (!iterWritten.containsKey(j)) {
 										TreeSet<Integer> depParams = new TreeSet<Integer>();
 										iterWritten.put(j, depParams);
 									}
 									
-									for (DependentValue dep: deps) {
+									//Don't add dependency here, just mark the written val
+									/*for (DependentValue dep: deps) {
 										int checkParamId = dvi.checkValueOrigin(dep, false);
 										if (checkParamId != - 1 && checkParamId != j) {
 											iterWritten.get(j).add(checkParamId);
 										}
-									}
+									}*/
 									
 									if (show) {
 										System.out.println("Written val: " + val);
@@ -415,6 +409,7 @@ public class PreAnalyzer {
 						if (info.getWrittenParams() == null) {
 							//Initialization phase
 							info.setWrittenParams(iterWritten);
+							
 							if (show) {
 								System.out.println("----initial push: " + iterWritten);
 							}

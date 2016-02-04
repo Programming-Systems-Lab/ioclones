@@ -46,6 +46,8 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	private String methodNameArgs;
 	
 	private boolean search = false;
+	
+	private boolean addMethodDep = false;
 		
 	protected Type[] allTypes;
 	
@@ -71,7 +73,8 @@ public class DependentValueInterpreter extends BasicInterpreter {
 			Type retType, 
 			String className, 
 			String methodNameArgs, 
-			boolean search) {
+			boolean search, 
+			boolean addMethodDep) {
 		if (retType.getSort() == Type.VOID) {
 			this.initParams = true;
 		}
@@ -80,6 +83,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 		this.methodNameArgs = methodNameArgs;
 		this.allTypes = args;
 		this.search = search;
+		this.addMethodDep = addMethodDep;
 	}
 	
 	public void propagateDepToOwners(DependentValue ref, DependentValue dep) {
@@ -158,33 +162,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 		
 		return -1;
 	}
-	
-	public void inferInputParamIndices(DependentValue dv, 
-			TreeSet<Integer> record, 
-			Set<Integer> visited) {
-		if (dv == null) {
-			return ;
-		}
-		
-		if (visited.contains(dv.id)) {
-			return ;
-		}
-		
-		visited.add(dv.id);
-		
-		if (this.params.containsKey(dv.id)) {
-			record.add(this.queryInputParamIndex(dv.id));
-		}
-		
-		if (dv.getDeps() == null) {
-			return ;
-		}
-		
-		for (DependentValue dep: dv.getDeps()) {
-			inferInputParamIndices(dep, record, visited);
-		}
-	}
-		
+			
 	@Override
 	public BasicValue newValue(Type type) {
 		if (type == null) {
@@ -203,6 +181,11 @@ public class DependentValueInterpreter extends BasicInterpreter {
 			if (curType.equals(dv.getType())) {
 				this.params.put(dv.id, dv);
 				this.paramList.add(dv);
+				
+				int sort = curType.getSort();
+				if (sort == Type.DOUBLE || sort == Type.LONG) {
+					this.paramList.add(dv);
+				}
 			} else {
 				logger.error("Incompatible type: " + curType + " " + dv.getType());
 			}
@@ -354,7 +337,8 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	        	
 	            ret = (DependentValue) newValue(Type.INT_TYPE);
 	            ret.addOwner(oriVal);
-	            if (checkValueOrigin(oriVal, false) != -1) {
+	            int origin = checkValueOrigin(oriVal, false);
+	            if (origin != -1) {
 	            	ret.addInSrc(insn);
 	            }
 	            
@@ -407,7 +391,8 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				//ret.src = insn;
 				
 				DependentValue owner = (DependentValue)value;
-				if (checkValueOrigin(owner, false) != -1) {
+				origin = checkValueOrigin(owner, false);
+				if (origin != -1) {
 					ret.addInSrc(insn);
 				}
 				
@@ -465,8 +450,9 @@ public class DependentValueInterpreter extends BasicInterpreter {
 					arrRef.addDep(idx);
 				
 				ret.addOwner(arrRef);
-			
-				if (checkValueOrigin(arrRef, false) != -1) {
+				
+				int origin = checkValueOrigin(arrRef, false);
+				if (origin != -1) {
 					ret.addInSrc(insn);
 				}
 				
@@ -498,7 +484,8 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				
 				ret.addOwner(arrRef);
 				
-				if (checkValueOrigin(arrRef, false) != -1) {
+				origin = checkValueOrigin(arrRef, false);
+				if (origin != -1) {
 					ret.addInSrc(insn);
 				}
 				
@@ -522,7 +509,8 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				
 				ret.addOwner(arrRef);
 				
-				if (checkValueOrigin(arrRef, false) != -1) {
+				origin = checkValueOrigin(arrRef, false);
+				if (origin != -1) {
 					ret.addInSrc(insn);
 				}
 				
@@ -552,7 +540,8 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				
 				ret.addOwner(arrRef);
 				
-				if (checkValueOrigin(arrRef, false) != -1) {
+				origin = checkValueOrigin(arrRef, false);
+				if (origin != -1) {
 					ret.addInSrc(insn);
 				}
 				
@@ -576,8 +565,9 @@ public class DependentValueInterpreter extends BasicInterpreter {
 					arrRef.addDep(idx);
 				
 				ret.addOwner(arrRef);
-								
-				if (checkValueOrigin(arrRef, false) != -1) {
+				
+				origin = checkValueOrigin(arrRef, false);
+				if (origin != -1) {
 					ret.addInSrc(insn);
 				}
 				
@@ -749,24 +739,49 @@ public class DependentValueInterpreter extends BasicInterpreter {
 							}
 							
 							if (calleeWritten != null) {
+								boolean[] writers = new boolean[dvs.size()];
 								calleeWritten.forEach((w, deps)->{
 									DependentValue written = dvs.get(w);
+									writers[w] = true;
 									
 									if (!written.isReference()) {
 										logger.error("Suspicious written: " + className + " " + methodNameArgs + " " + written);
 									}
+									
 									int callerParam = checkValueOrigin(written, true);
 									if (this.detailed) {
 										System.out.println("Written caller param: " + callerParam);
 									}
 									
-									/*if (checkValueOrigin(written, true) != -1) {
+									/*if (callerParam != -1) {
 										for (Integer d: deps) {
 											DependentValue dep = dvs.get(d);
 											written.addDep(dep);
 										}
 									}*/
 								});
+								
+								//Guess the dependency
+								if (this.addMethodDep) {
+									for (int i = 0; i < writers.length; i++) {
+										if (writers[i]) {
+											DependentValue writer = dvs.get(i);
+											
+											for (int j = 0; j < writers.length; j++) {
+												if (j == i) {
+													continue ;
+												}
+												
+												if (writers[j]) {
+													continue ;
+												}
+												
+												DependentValue source = dvs.get(j);
+												writer.addDep(source);
+											}
+										}
+									}
+								}
 							}
 						} else {
 							logger.error("Missed class: " + calleeName + " " + methodInst.name + " " + methodInst.desc);
@@ -863,6 +878,17 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				return v;
 			} else {
 				if (v.getType().equals(w.getType())) {
+					
+					int svOrigin = checkValueOrigin(sv, false);
+					int swOrigin = checkValueOrigin(sw, false);
+					if (svOrigin != -1 && swOrigin == -1) {
+						sv.addDep(sw);
+						return v;
+					} else if (svOrigin == -1 && swOrigin == 1) {
+						sw.addDep(sv);
+						return w;
+					}
+					
 					sv.addDep(sw);					
 					return v;
 				}

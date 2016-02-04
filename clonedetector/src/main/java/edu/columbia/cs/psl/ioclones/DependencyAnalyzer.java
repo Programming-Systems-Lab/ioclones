@@ -1,5 +1,6 @@
 package edu.columbia.cs.psl.ioclones;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -15,6 +16,7 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.LdcInsnNode;
 import org.objectweb.asm.tree.MethodNode;
+import org.objectweb.asm.tree.VarInsnNode;
 import org.objectweb.asm.tree.analysis.Analyzer;
 import org.objectweb.asm.tree.analysis.AnalyzerException;
 import org.objectweb.asm.tree.analysis.Frame;
@@ -30,6 +32,8 @@ public class DependencyAnalyzer extends MethodVisitor {
 	public static final String OUTPUT_MSG = "__$$COLUMBIA_IO_OUTPUT";
 	
 	public static final String TAINTED_IN = "__$$COLUMBIA_IO_TAINT@";
+	
+	public static final String INPUT_FIELD_MSG = "__$$COLUMBIA_IO_FIELD@";
 	
 	public static final String INPUT_MSG = "__$$COLUMBIA_IO_INPUT";
 	
@@ -77,9 +81,10 @@ public class DependencyAnalyzer extends MethodVisitor {
 						returnType, 
 						className, 
 						methodNameArgs, 
+						true, 
 						true);
 				Analyzer a = new Analyzer(dvi);
-				try {		
+				try {
 					Frame[] fr = a.analyze(className, this);
 					
 					//1st round, collect vals relevant to outputs
@@ -102,14 +107,15 @@ public class DependencyAnalyzer extends MethodVisitor {
 							WrittenParam wp = new WrittenParam();
 							wp.paramIdx = j;
 							wp.deps = writtenDeps;
-							
+														
 							writtenParams.put(paramVal.id, wp);
 						}
 					}
 					
+					List<AbstractInsnNode> stopInsns= new ArrayList<AbstractInsnNode>();
 					while(insn != null) {
 						Frame fn = fr[i];
-						if(fn != null) {							
+						if(fn != null) {					
 							//does this insn create output?
 							switch(insn.getOpcode()) {
 								//The outputs are values exit after the method ends
@@ -141,7 +147,8 @@ public class DependencyAnalyzer extends MethodVisitor {
 									if (opcode >= Opcodes.IRETURN && opcode <= Opcodes.ARETURN) {
 										if (writtenParams.size() > 0) {
 											for (WrittenParam wp: writtenParams.values()) {
-												wp.retInsn = insn;
+												//wp.retInsn = insn;
+												wp.retInsns.add(insn);
 											}
 										}
 									}
@@ -150,7 +157,8 @@ public class DependencyAnalyzer extends MethodVisitor {
 								case Opcodes.RETURN:
 									if (writtenParams.size() > 0) {
 										for (WrittenParam wp: writtenParams.values()) {
-											wp.retInsn = insn;
+											//wp.retInsn = insn;
+											wp.retInsns.add(insn);
 										}
 									}
 									
@@ -229,7 +237,9 @@ public class DependencyAnalyzer extends MethodVisitor {
 					
 					for (WrittenParam wp: writtenParams.values()) {
 						String msg = TAINTED_IN + wp.paramIdx;
-						this.instructions.insertBefore(wp.retInsn, new LdcInsnNode(msg));
+						wp.retInsns.forEach(wInsn->{
+							this.instructions.insertBefore(wInsn, new LdcInsnNode(msg));
+						});
 						
 						for (DependentValue dv: wp.deps) {
 							if (touched.contains(dv.id)) {
@@ -303,6 +313,6 @@ public class DependencyAnalyzer extends MethodVisitor {
 				
 		List<DependentValue> deps;
 		
-		AbstractInsnNode retInsn;
+		List<AbstractInsnNode> retInsns = new ArrayList<AbstractInsnNode>();
 	}
 }

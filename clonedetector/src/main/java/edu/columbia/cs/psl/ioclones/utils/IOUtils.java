@@ -563,11 +563,11 @@ public class IOUtils {
 		}
 	}
 	
-	public static void collectIORecords(File iofile, List<IORecord> files, List<File> zips) {
+	public static void collectIOZips(File iofile, List<File> zips) {
 		//System.out.println("io file: " + iofile.getAbsolutePath());
 		if (iofile.isDirectory()) {
 			for (File f: iofile.listFiles()) {
-				collectIORecords(f, files, zips);
+				collectIOZips(f, zips);
 			}
 		} else {
 			if (iofile.getName().startsWith(".")) {
@@ -575,11 +575,14 @@ public class IOUtils {
 			}
 			
 			String extension = IOUtils.getExtension(iofile.getName());
-			if (extension.equals("xml")) {
+			if (extension.equals("zip")) {
+				zips.add(iofile);
+			}
+			/*if (extension.equals("xml")) {
 				files.add((IORecord)fromXML2Obj(iofile));
 			} else if (extension.equals("zip")) {
 				zips.add(iofile);
-			}
+			}*/
 		}
 	}
 	
@@ -776,7 +779,7 @@ public class IOUtils {
 			Map<Integer, ClassInfo> classMap = new HashMap<Integer, ClassInfo>();
 			while (classResults.next()) {
 				loadedCounter++;
-				if (loadedCounter % 1000 == 0) {
+				if (loadedCounter % 5000 == 0) {
 					logger.info("Loaded class: " + loadedCounter);
 				}
 				int cid = classResults.getInt("ID");
@@ -801,7 +804,7 @@ public class IOUtils {
 			int methodCounter = 0;
 			while (methodResult.next()) {
 				methodCounter++;
-				if (methodCounter % 1000 == 0) {
+				if (methodCounter % 10000 == 0) {
 					logger.info("Loaded methods: " + methodCounter);
 				}
 				

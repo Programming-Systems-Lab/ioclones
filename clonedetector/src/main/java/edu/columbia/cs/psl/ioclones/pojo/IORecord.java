@@ -36,9 +36,11 @@ public class IORecord {
 	
 	private Set<Object> outputs = new HashSet<Object>();
 	
-	public transient Collection<Object> cleanInputs;
+	private Set<Integer> stopParams = new HashSet<Integer>();
 	
-	public transient Collection<Object> cleanOutputs;
+	//public transient Collection<Object> cleanInputs;
+	
+	//public transient Collection<Object> cleanOutputs;
 	
 	private boolean stopRecord = false;
 	
@@ -71,7 +73,18 @@ public class IORecord {
 		this.inputs.set(this.inputs.size() - 2, last);
 		this.inputs.set(this.inputs.size() - 1, last2);
 	}*/
-		
+	
+	public void stopRecord(int paramId) {
+		this.stopParams.add(paramId);
+	}
+	
+	public void registerInput(Object o, int paramId, boolean ser) {
+		if (this.stopParams.contains(paramId)) {
+			return ;
+		}
+		this.registerInput(o, ser);
+	}
+	
 	public void registerInput(Object o, boolean ser) {
 		if (this.stopRecord) {
 			return ;

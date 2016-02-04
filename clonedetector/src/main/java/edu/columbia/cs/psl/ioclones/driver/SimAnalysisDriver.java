@@ -1,23 +1,15 @@
 package edu.columbia.cs.psl.ioclones.driver;
 
-import com.sun.management.HotSpotDiagnosticMXBean;
-
 import java.io.Console;
 import java.io.File;
-import java.lang.management.ManagementFactory;
 import java.lang.reflect.Method;
-import java.math.BigDecimal;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.sql.Connection;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -27,13 +19,10 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
-import javax.management.MBeanServer;
-
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.Option;
-import org.apache.commons.cli.OptionBuilder;
 import org.apache.commons.cli.Options;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -213,9 +202,8 @@ public class SimAnalysisDriver {
 		Map<String, List<File>> allZips = new HashMap<String, List<File>>();
 		for (File iorepoFile: iorepoFiles) {
 			//Don't care direct records now...
-			List<IORecord> directRecords = new ArrayList<IORecord>();
 			List<File> zips = new ArrayList<File>();
-			IOUtils.collectIORecords(iorepoFile, directRecords, zips);
+			IOUtils.collectIOZips(iorepoFile, zips);
 			
 			allZips.put(iorepoFile.getAbsolutePath(), zips);
 		}
@@ -236,13 +224,13 @@ public class SimAnalysisDriver {
 						// TODO Auto-generated method stub
 						List<IORecord> ret = new ArrayList<IORecord>();
 						IOUtils.unzipIORecords(zip, ret);
-						ret.forEach(record->{
+						/*ret.forEach(record->{
 							Set<Object> cleanInputs = NoOrderAnalyzer.cleanCollection(record.getInputs());
 							Set<Object> cleanOutputs = NoOrderAnalyzer.cleanCollection(record.getOutputs());
 							
 							record.cleanInputs = cleanInputs;
 							record.cleanOutputs = cleanOutputs;
-						});
+						});*/
 						return ret;
 					}
 				});
@@ -493,9 +481,10 @@ public class SimAnalysisDriver {
 			IOSim simObj = new IOSim(this.control, this.test);
 			SimAnalyzer analyzer = new NoOrderAnalyzer();
 			
-			double inSim = analyzer.similarity(this.control.cleanInputs, this.test.cleanInputs);			
+			double inSim = analyzer.similarity(this.control.getInputs(), this.test.getInputs());
 			long afterIn = Runtime.getRuntime().freeMemory();
-			double outSim = analyzer.similarity(this.control.cleanOutputs, this.test.cleanOutputs);
+			
+			double outSim = analyzer.similarity(this.control.getOutputs(), this.test.getOutputs());
 			long afterOut = Runtime.getRuntime().freeMemory();
 			double sim = AbstractSim.expo.correlation(inSim, outSim);
 			
