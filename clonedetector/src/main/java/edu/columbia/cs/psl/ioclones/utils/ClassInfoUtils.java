@@ -11,6 +11,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
@@ -22,6 +23,7 @@ import org.objectweb.asm.Type;
 import edu.columbia.cs.psl.ioclones.analysis.DependentValue;
 import edu.columbia.cs.psl.ioclones.pojo.ClassInfo;
 import edu.columbia.cs.psl.ioclones.pojo.MethodInfo;
+import edu.columbia.cs.psl.ioclones.pojo.ParamInfo;
 
 public class ClassInfoUtils {
 	
@@ -397,5 +399,45 @@ public class ClassInfoUtils {
 				original.put(o, copy);
 			}
 		});
+	}
+	
+	public static Type[] genMethodArgs(String methodDesc, String className) {
+		Type[] args = null;
+		
+		//This means static
+		if (className == null) {
+			args = Type.getArgumentTypes(methodDesc);
+		} else {
+			Type[] methodArgs = Type.getArgumentTypes(methodDesc);
+			args = new Type[methodArgs.length + 1];
+			args[0] = Type.getObjectType(className);
+			for (int i = 1; i < args.length; i++) {
+				args[i] = methodArgs[i - 1];
+			}
+		}
+		return args;
+	}
+	
+	public static List<ParamInfo> computeMethodArgs(Type[] args) {
+		List<ParamInfo> paramInfos = new ArrayList<ParamInfo>();
+		int curId = 0;		
+		if (args.length > 0) {
+			for (int i = 0; i < args.length; i++) {
+				ParamInfo pi = new ParamInfo();
+				Type curType = args[0];
+				pi.paramType = curType;
+				pi.runtimeIdx = curId;
+				paramInfos.add(pi);
+				
+				int curSort = curType.getSort();
+				if (curSort == Type.DOUBLE || curSort == Type.LONG) {
+					curId += 2;
+				} else {
+					curId++;
+				}
+			}
+		}
+		
+		return paramInfos;
 	}
 }

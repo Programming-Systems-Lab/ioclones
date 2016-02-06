@@ -1,8 +1,6 @@
 package edu.columbia.cs.psl.ioclones.instrument;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.TreeMap;
 
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
@@ -10,6 +8,7 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.LocalVariablesSorter;
 
+import edu.columbia.cs.psl.ioclones.pojo.ParamInfo;
 import edu.columbia.cs.psl.ioclones.utils.ClassInfoUtils;
 
 public class FlowCloneInstrumenter extends ClassVisitor {
@@ -20,7 +19,7 @@ public class FlowCloneInstrumenter extends ClassVisitor {
 	
 	private String[] interfaces;
 	
-	//private Type thisType;
+	private Type thisType;
 	
 	public FlowCloneInstrumenter(ClassVisitor cv) {
 		super(Opcodes.ASM5, cv);
@@ -35,7 +34,7 @@ public class FlowCloneInstrumenter extends ClassVisitor {
 			String[] interfaces) {
 		this.cv.visit(version, access, className, signature, superName, interfaces);
 		
-		//this.thisType = Type.getType(className);
+		this.thisType = Type.getType(className);
 		this.className = ClassInfoUtils.cleanType(className);
 		this.superName = ClassInfoUtils.cleanType(superName);
 		this.interfaces = new String[interfaces.length];
@@ -63,33 +62,21 @@ public class FlowCloneInstrumenter extends ClassVisitor {
 			return mv;
 		} else {
 			boolean isStatic = ClassInfoUtils.checkAccess(access, Opcodes.ACC_STATIC);
-			Type[] args = Type.getArgumentTypes(desc);
-			TreeMap<Integer, Type> runtimeParams = new TreeMap<Integer, Type>();
-			int curId = 0;
-			if (!isStatic) {
-				//runtimeParams.put(0, this.thisType);
-				curId = 1;
+			Type[] args = null;
+			if (isStatic) {
+				args = ClassInfoUtils.genMethodArgs(desc, null);
+			} else {
+				args = ClassInfoUtils.genMethodArgs(desc, this.thisType.getInternalName());
 			}
 			
-			if (args.length > 0) {
-				for (int i = 0; i < args.length; i++) {
-					Type curType = args[0];
-					runtimeParams.put(curId, curType);
-					int curSort = curType.getSort();
-					if (curSort == Type.DOUBLE || curSort == Type.LONG) {
-						curId += 2;
-					} else {
-						curId++;
-					}
-				}
-			}
+			List<ParamInfo> paramInfos = ClassInfoUtils.computeMethodArgs(args);
 			
 			FlowMethodObserver fmo = new FlowMethodObserver(mv, 
 					this.className, 
 					this.superName, 
 					name, 
 					desc, 
-					runtimeParams, 
+					paramInfos, 
 					signature, 
 					exceptions, 
 					isStatic);

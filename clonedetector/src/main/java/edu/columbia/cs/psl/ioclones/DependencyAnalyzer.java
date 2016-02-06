@@ -1,6 +1,5 @@
 package edu.columbia.cs.psl.ioclones;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -16,13 +15,13 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.LdcInsnNode;
 import org.objectweb.asm.tree.MethodNode;
-import org.objectweb.asm.tree.VarInsnNode;
 import org.objectweb.asm.tree.analysis.Analyzer;
 import org.objectweb.asm.tree.analysis.AnalyzerException;
 import org.objectweb.asm.tree.analysis.Frame;
 
 import edu.columbia.cs.psl.ioclones.analysis.DependentValue;
 import edu.columbia.cs.psl.ioclones.analysis.DependentValueInterpreter;
+import edu.columbia.cs.psl.ioclones.pojo.ParamInfo;
 import edu.columbia.cs.psl.ioclones.utils.ClassInfoUtils;
 
 public class DependencyAnalyzer extends MethodVisitor {
@@ -65,16 +64,12 @@ public class DependencyAnalyzer extends MethodVisitor {
 				boolean isStatic = ClassInfoUtils.checkAccess(access, Opcodes.ACC_STATIC);
 				Type[] args = null;
 				if (isStatic) {
-					args = Type.getArgumentTypes(desc);
+					args = ClassInfoUtils.genMethodArgs(this.desc, null);
 				} else {
-					Type[] methodArgs = Type.getArgumentTypes(desc);
-					args = new Type[methodArgs.length + 1];
-					args[0] = Type.getObjectType(className);
-					for (int i = 1; i < args.length; i++) {
-						args[i] = methodArgs[i - 1];
-					}
+					args = ClassInfoUtils.genMethodArgs(this.desc, className);
 				}
-				Type returnType = Type.getReturnType(desc);
+				Type returnType = Type.getReturnType(this.desc);
+				List<ParamInfo> paramInfos = ClassInfoUtils.computeMethodArgs(args);
 				
 				String methodNameArgs = ClassInfoUtils.methodNameArgs(name, desc);
 				DependentValueInterpreter dvi = new DependentValueInterpreter(args, 
@@ -99,7 +94,7 @@ public class DependencyAnalyzer extends MethodVisitor {
 							}
 							
 							WrittenParam wp = new WrittenParam();
-							wp.paramIdx = j;
+							wp.paramIdx = paramInfos.get(j).runtimeIdx;
 							wp.deps = writtenDeps;
 														
 							writtenParams.put(paramVal.id, wp);
@@ -232,7 +227,7 @@ public class DependencyAnalyzer extends MethodVisitor {
 							
 							if (inputParam.getInSrcs() != null 
 									&& inputParam.getInSrcs().size() > 0) {
-								int idx = j;
+								int idx = paramInfos.get(j).runtimeIdx;
 								inputParam.getInSrcs().forEach(check->{
 									String checkMsg = INPUT_CHECK_MSG + idx;
 									this.instructions.insert(check, new LdcInsnNode(checkMsg));

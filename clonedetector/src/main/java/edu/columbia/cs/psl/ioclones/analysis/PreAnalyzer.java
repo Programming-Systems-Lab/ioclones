@@ -69,7 +69,6 @@ public class PreAnalyzer {
 		ClassDataTraverser.collectDir(codebase, container);
 		//container = ClassDataTraverser.filter(container, "java/util/HashMap");
 		
-	
 		logger.info("Classes to analyze: " + container.size());
 		logger.info("Initialization phase");
 		int counter = 0;
@@ -176,26 +175,9 @@ public class PreAnalyzer {
 				logger.error("Error: ", ex);
 			}
 		}
+		
 		//Actually, two classes will be loaded twice from jre
 		//netscape.javascript.JSException and netscape.javascript.JSObject
-		/*logger.info("After analyzed: " + GlobalInfoRecorder.getClassInfo().size());
-		try {
-			BufferedWriter bw = new BufferedWriter(new FileWriter("ori.csv"));
-			for (String o: ori) {
-				bw.write(o + "\n");
-			}
-			bw.flush();
-			bw.close();
-			
-			bw = new BufferedWriter(new FileWriter("ana.csv"));
-			for (String a: GlobalInfoRecorder.getClassInfo().keySet()) {
-				bw.write(a + "\n");
-			}
-			bw.flush();
-			bw.close();
-		} catch (Exception ex) {
-			ex.printStackTrace();
-		}*/
 		
 		int iteration = 0;
 		do {
@@ -256,6 +238,7 @@ public class PreAnalyzer {
 							if (curIter > 12) {
 								reportChange = true;
 							}
+							
 							WriterExplorer we = new WriterExplorer(mv, 
 									access, 
 									this.className, 
@@ -347,14 +330,9 @@ public class PreAnalyzer {
 					boolean isStatic = ClassInfoUtils.checkAccess(this.access, Opcodes.ACC_STATIC);
 					Type[] args = null;
 					if (isStatic) {
-						args = Type.getArgumentTypes(this.desc);
+						args = ClassInfoUtils.genMethodArgs(this.desc, null);
 					} else {
-						Type[] methodArgs = Type.getArgumentTypes(this.desc);
-						args = new Type[methodArgs.length + 1];
-						args[0] = Type.getObjectType(className);
-						for (int i = 1; i < args.length; i++) {
-							args[i] = methodArgs[i - 1];
-						}
+						args = ClassInfoUtils.genMethodArgs(this.desc, className);
 					}
 					Type returnType = Type.getReturnType(this.desc);
 					
@@ -364,7 +342,7 @@ public class PreAnalyzer {
 							methodNameArgs, 
 							search, 
 							false);
-					//ExploreValueInterpreter fvi = new ExploreValueInterpreter(args, returnType);
+					
 					Analyzer a = new Analyzer(dvi);
 					try {
 						//Analyze callee here
@@ -379,7 +357,7 @@ public class PreAnalyzer {
 						Map<Integer, TreeSet<Integer>> iterWritten = new HashMap<Integer, TreeSet<Integer>>();
 						for (int j = 0; j < dvi.getParamList().size(); j++) {
 							DependentValue val = dvi.getParamList().get(j);
-							if (val.written) {
+							if (val.written) {								
 								LinkedList<DependentValue> deps = val.tag();
 								if (deps.size() > 0) {
 									deps.removeFirst();

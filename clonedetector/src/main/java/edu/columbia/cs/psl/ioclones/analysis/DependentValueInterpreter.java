@@ -182,11 +182,6 @@ public class DependentValueInterpreter extends BasicInterpreter {
 			if (curType.equals(dv.getType())) {
 				this.params.put(dv.id, dv);
 				this.paramList.add(dv);
-				
-				/*int sort = curType.getSort();
-				if (sort == Type.DOUBLE || sort == Type.LONG) {
-					this.paramList.add(dv);
-				}*/
 			} else {
 				logger.error("Incompatible type: " + curType + " " + dv.getType());
 			}
@@ -741,12 +736,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 							
 							if (calleeWritten != null) {
 								boolean[] writers = new boolean[dvs.size()];
-								final Map<Integer, TreeSet<Integer>> shadow = calleeWritten;
-								calleeWritten.forEach((w, deps)->{
-									if (w > dvs.size() - 1) {
-										System.exit(-1);
-									}
-									
+								calleeWritten.forEach((w, deps)->{									
 									DependentValue written = dvs.get(w);
 									writers[w] = true;
 									
