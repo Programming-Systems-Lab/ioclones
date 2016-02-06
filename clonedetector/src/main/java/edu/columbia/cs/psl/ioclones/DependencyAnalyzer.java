@@ -33,7 +33,7 @@ public class DependencyAnalyzer extends MethodVisitor {
 	
 	public static final String TAINTED_IN = "__$$COLUMBIA_IO_TAINT@";
 	
-	public static final String INPUT_FIELD_MSG = "__$$COLUMBIA_IO_FIELD@";
+	public static final String INPUT_CHECK_MSG = "__$$COLUMBIA_IO_CHECK@";
 	
 	public static final String INPUT_MSG = "__$$COLUMBIA_IO_INPUT";
 	
@@ -87,13 +87,7 @@ public class DependencyAnalyzer extends MethodVisitor {
 				try {
 					Frame[] fr = a.analyze(className, this);
 					
-					//1st round, collect vals relevant to outputs
-					Map<DependentValue, LinkedList<DependentValue>> ios = 
-							new HashMap<DependentValue, LinkedList<DependentValue>>();
-					AbstractInsnNode insn = this.instructions.getFirst();
-					int i = 0;
 					Map<Integer, WrittenParam> writtenParams = new HashMap<Integer, WrittenParam>();
-					
 					//Determine which input has been written
 					for (int j = 0; j < dvi.getParamList().size(); j++) {
 						DependentValue paramVal = dvi.getParamList().get(j);
@@ -112,7 +106,11 @@ public class DependencyAnalyzer extends MethodVisitor {
 						}
 					}
 					
-					List<AbstractInsnNode> stopInsns= new ArrayList<AbstractInsnNode>();
+					Map<DependentValue, LinkedList<DependentValue>> ios = 
+							new HashMap<DependentValue, LinkedList<DependentValue>>();
+					AbstractInsnNode insn = this.instructions.getFirst();
+					int i = 0;
+					
 					while(insn != null) {
 						Frame fn = fr[i];
 						if(fn != null) {					
@@ -143,26 +141,7 @@ public class DependencyAnalyzer extends MethodVisitor {
 										}
 									}
 									
-									int opcode = insn.getOpcode();
-									if (opcode >= Opcodes.IRETURN && opcode <= Opcodes.ARETURN) {
-										if (writtenParams.size() > 0) {
-											for (WrittenParam wp: writtenParams.values()) {
-												//wp.retInsn = insn;
-												wp.retInsns.add(insn);
-											}
-										}
-									}
-									
 									break;
-								case Opcodes.RETURN:
-									if (writtenParams.size() > 0) {
-										for (WrittenParam wp: writtenParams.values()) {
-											//wp.retInsn = insn;
-											wp.retInsns.add(insn);
-										}
-									}
-									
-									break ;
 							}
 						}
 						i++;
@@ -172,39 +151,9 @@ public class DependencyAnalyzer extends MethodVisitor {
 					if (debug) {
 						this.debug(fr);
 					}
-										
+					
 					Set<Integer> touched = new HashSet<Integer>();
 					Set<AbstractInsnNode> visitedInInsns = new HashSet<AbstractInsnNode>();
-					for (DependentValue o: ios.keySet()) {
-						LinkedList<DependentValue> inputs = ios.get(o);
-						
-						if (o.getOutSinks() != null) {
-							o.getOutSinks().forEach(sink->{
-								this.instructions.insertBefore(sink, new LdcInsnNode(OUTPUT_MSG));
-							});
-							touched.add(o.id);
-							
-							if (inputs != null) {
-								for (DependentValue input: inputs) {
-									if (input.getInSrcs() == null 
-											|| input.getInSrcs().size() == 0) {
-										continue ;
-									}
-									
-									input.getInSrcs().forEach(src->{
-										if (!visitedInInsns.contains(src)) {
-											this.instructions.insertBefore(src, new LdcInsnNode(INPUT_MSG));
-											visitedInInsns.add(src);
-										}
-									});
-									touched.add(input.id);
-								}
-							}
-						} else {
-							logger.warn("Empty inst for output: " + o);
-						}
-					}
-					
 					if (ios.size() > 0 || writtenParams.size() > 0) {
 						//Need to analyze which control instruction should be recorded
 						//Jumps will affect outputs
@@ -235,11 +184,39 @@ public class DependencyAnalyzer extends MethodVisitor {
 						});
 					}
 					
+					for (DependentValue o: ios.keySet()) {
+						LinkedList<DependentValue> inputs = ios.get(o);
+						
+						if (o.getOutSinks() != null) {
+							o.getOutSinks().forEach(sink->{
+								this.instructions.insertBefore(sink, new LdcInsnNode(OUTPUT_MSG));
+							});
+							touched.add(o.id);
+							
+							if (inputs != null) {
+								for (DependentValue input: inputs) {
+									if (input.getInSrcs() == null 
+											|| input.getInSrcs().size() == 0) {
+										continue ;
+									}
+									
+									input.getInSrcs().forEach(src->{
+										if (!visitedInInsns.contains(src)) {
+											this.instructions.insertBefore(src, new LdcInsnNode(INPUT_MSG));
+											visitedInInsns.add(src);
+										}
+									});
+									touched.add(input.id);
+								}
+							}
+						} else {
+							logger.warn("Empty inst for output: " + o);
+						}
+					}
+										
+					StringBuilder writtenBuilder = new StringBuilder();
 					for (WrittenParam wp: writtenParams.values()) {
-						String msg = TAINTED_IN + wp.paramIdx;
-						wp.retInsns.forEach(wInsn->{
-							this.instructions.insertBefore(wInsn, new LdcInsnNode(msg));
-						});
+						writtenBuilder.append(wp.paramIdx + "-");
 						
 						for (DependentValue dv: wp.deps) {
 							if (touched.contains(dv.id)) {
@@ -252,12 +229,37 @@ public class DependencyAnalyzer extends MethodVisitor {
 								continue ;
 							}
 							
+							int owner = dvi.checkValueOrigin(dv, false);
 							dv.getInSrcs().forEach(src->{
 								if (!visitedInInsns.contains(src)) {
 									this.instructions.insertBefore(src, new LdcInsnNode(INPUT_MSG));
 									visitedInInsns.add(src);
 								}
 							});
+						}
+					}
+					
+					if (writtenBuilder.length() > 0) {
+						String writtenMsg = writtenBuilder.substring(0, writtenBuilder.length() - 1);
+						writtenMsg = TAINTED_IN + writtenMsg;
+						this.instructions.insert(new LdcInsnNode(writtenMsg));
+					}
+					
+					for (int j = 0; j < dvi.getParamList().size(); j++) {
+						DependentValue inputParam = dvi.getParamList().get(j);
+						if (inputParam.needCheck) {
+							if (!isStatic && j == 0) {
+								continue ;
+							}
+							
+							if (inputParam.getInSrcs() != null 
+									&& inputParam.getInSrcs().size() > 0) {
+								int idx = j;
+								inputParam.getInSrcs().forEach(check->{
+									String checkMsg = INPUT_CHECK_MSG + idx;
+									this.instructions.insert(check, new LdcInsnNode(checkMsg));
+								});
+							}
 						}
 					}
 				} catch (AnalyzerException e) {
@@ -312,7 +314,5 @@ public class DependencyAnalyzer extends MethodVisitor {
 		int paramIdx;
 				
 		List<DependentValue> deps;
-		
-		List<AbstractInsnNode> retInsns = new ArrayList<AbstractInsnNode>();
 	}
 }

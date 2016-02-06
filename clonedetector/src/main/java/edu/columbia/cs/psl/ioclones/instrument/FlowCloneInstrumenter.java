@@ -2,6 +2,7 @@ package edu.columbia.cs.psl.ioclones.instrument;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.TreeMap;
 
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
@@ -19,6 +20,8 @@ public class FlowCloneInstrumenter extends ClassVisitor {
 	
 	private String[] interfaces;
 	
+	//private Type thisType;
+	
 	public FlowCloneInstrumenter(ClassVisitor cv) {
 		super(Opcodes.ASM5, cv);
 	}
@@ -32,6 +35,7 @@ public class FlowCloneInstrumenter extends ClassVisitor {
 			String[] interfaces) {
 		this.cv.visit(version, access, className, signature, superName, interfaces);
 		
+		//this.thisType = Type.getType(className);
 		this.className = ClassInfoUtils.cleanType(className);
 		this.superName = ClassInfoUtils.cleanType(superName);
 		this.interfaces = new String[interfaces.length];
@@ -60,24 +64,23 @@ public class FlowCloneInstrumenter extends ClassVisitor {
 		} else {
 			boolean isStatic = ClassInfoUtils.checkAccess(access, Opcodes.ACC_STATIC);
 			Type[] args = Type.getArgumentTypes(desc);
-			List<Integer> runtimeParamList = new ArrayList<Integer>();
-			int initId = 0;
+			TreeMap<Integer, Type> runtimeParams = new TreeMap<Integer, Type>();
+			int curId = 0;
 			if (!isStatic) {
-				initId = 1;
+				//runtimeParams.put(0, this.thisType);
+				curId = 1;
 			}
 			
 			if (args.length > 0) {
-				runtimeParamList.add(initId);
-				Type lastType = args[0];
-				for (int i = 1; i < args.length; i++) {
-					int lastSort = lastType.getSort();
-					int lastId = runtimeParamList.get(runtimeParamList.size() - 1);
-					if (lastSort == Type.DOUBLE || lastSort == Type.LONG) {
-						runtimeParamList.add(lastId + 2);
+				for (int i = 0; i < args.length; i++) {
+					Type curType = args[0];
+					runtimeParams.put(curId, curType);
+					int curSort = curType.getSort();
+					if (curSort == Type.DOUBLE || curSort == Type.LONG) {
+						curId += 2;
 					} else {
-						runtimeParamList.add(lastId + 1);
+						curId++;
 					}
-					lastType = args[i];
 				}
 			}
 			
@@ -86,9 +89,10 @@ public class FlowCloneInstrumenter extends ClassVisitor {
 					this.superName, 
 					name, 
 					desc, 
-					runtimeParamList, 
+					runtimeParams, 
 					signature, 
-					exceptions);
+					exceptions, 
+					isStatic);
 			LocalVariablesSorter lvs = new LocalVariablesSorter(access, desc, fmo);
 			fmo.setLocalVariablesSorter(lvs);
 			return fmo.getLocalVariablesSorter();

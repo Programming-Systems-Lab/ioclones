@@ -5,6 +5,8 @@ import java.util.*;
 import com.google.gson.reflect.TypeToken;
 import com.thoughtworks.xstream.XStream;
 
+import edu.columbia.cs.psl.ioclones.pojo.IORecord;
+
 import java.math.*;
 import java.io.*;
 
@@ -152,21 +154,27 @@ public class Test {
 		}
 	}
 
+	public void testInput(int i, double j, long k, boolean b, Object o) {
+		IORecord record = new IORecord("test123", false);
+		record.preload(1, i);
+		record.preload(2, j);
+		record.preload(4, k);
+		record.preload(6, b);
+		record.preload(7, o);
+	}
+	
 	public static void main(String[] args) {
-		//Locale.setDefault(Locale.US);
-		//new Test("A_11").run();
-		List<String> test = new ArrayList<String>();
-		test.add("test1");
-		test.add("test2");
-		test.add("test3");
-		//System.out.println(IOUtils.objToJson(null, new TypeToken<List<String>>(){}));
-		Map<Integer, TreeSet<Integer>> emptyMap = new HashMap<Integer, TreeSet<Integer>>();
-		TreeSet<Integer> emptySet = new TreeSet<Integer>();
-		//emptySet.add(2);
-		//emptyMap.put(1, emptySet);
-		System.out.println("Empty map: " + emptyMap);
-		System.out.println(IOUtils.objToJson(null, new TypeToken<HashMap<Integer, TreeSet<Integer>>>(){}));
-		System.out.println("Bootstrap path: " + System.getProperty("sun.boot.class.path"));
+		boolean[] bs = new boolean[2];
+		bs[0] = true;
+		byte[] bytes = new byte[2];
+		bytes[0] = (byte)1;
+		System.out.println("bs: " + bs[0]);
+		System.out.println("bytes: " + bytes[0]);
+		System.out.println(bytes[0] == 1);
+		short[] shorts = new short[2];
+		shorts[0] = 1;
+		char[] chars = new char[2];
+		chars[0] = 'c';
 	}
 }
 

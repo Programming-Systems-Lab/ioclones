@@ -1,6 +1,7 @@
 package edu.columbia.cs.psl.ioclones.pojo;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.apache.logging.log4j.LogManager;
@@ -10,6 +11,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 
 import edu.columbia.cs.psl.ioclones.sim.NoOrderAnalyzer;
@@ -30,21 +32,19 @@ public class IORecord {
 	
 	private int id = -1;
 	
-	//private Set<Integer> stopVar = new HashSet<Integer>();
-	
 	private Set<Object> inputs = new HashSet<Object>();
 	
 	private Set<Object> outputs = new HashSet<Object>();
 	
-	private Set<Integer> stopParams = new HashSet<Integer>();
+	private transient boolean stopRecord = false;
 	
-	//public transient Collection<Object> cleanInputs;
+	public Map<Integer, Object> preload = new HashMap<Integer, Object>();
 	
-	//public transient Collection<Object> cleanOutputs;
+	public List<Object> toSerialize = new ArrayList<Object>();
 	
-	private boolean stopRecord = false;
+	public boolean isInput = false;
 	
-	public IORecord(String methodKey) {
+	public IORecord(String methodKey, boolean isStatic) {
 		this.methodKey = methodKey;
 		if (GlobalInfoRecorder.stopRecord(methodKey)) {
 			this.stopRecord = true;
@@ -52,6 +52,10 @@ public class IORecord {
 		}
 		
 		this.id = GlobalInfoRecorder.getMethodIndex();
+		if (!isStatic) {
+			//Instance method's this will never change...
+			this.preload.put(0, null);
+		}
 		//System.out.println("Instantiate io record: " + this.methodKey + " " + this.id);
 	}
 	
@@ -63,26 +67,81 @@ public class IORecord {
 		return this.id;
 	}
 					
-	/*public void swapLastTwo() {
+	public void preload(int paramIdx, Object o) {
+		if (this.stopRecord) {
+			return ;
+		}
+		this.preload.put(paramIdx, o);
+	}
+	
+	public void queueInWritten(Object o) {
+		if (this.stopRecord) {
+			return ;
+		}
+		this.toSerialize.add(o);
+	}
+	
+	public void summarizeWrittens() {
 		if (this.stopRecord) {
 			return ;
 		}
 		
-		Object last = this.inputs.get(this.inputs.size() - 1);
-		Object last2 = this.inputs.get(this.inputs.size() - 2);
-		this.inputs.set(this.inputs.size() - 2, last);
-		this.inputs.set(this.inputs.size() - 1, last2);
-	}*/
+		this.toSerialize.forEach(o->{
+			this.registerOutput(o, true);
+		});
+	}
 	
-	public void stopRecord(int paramId) {
-		this.stopParams.add(paramId);
+	public void attemptStopPrimParam(int paramId, Object test) {
+		if (this.stopRecord) {
+			return ;
+		}
+		
+		if (test == null) {
+			this.preload.remove(paramId);
+		} else {
+			Object curObject = this.preload.get(paramId);
+			if (curObject != null) {
+				if (curObject != test) {
+					this.preload.remove(paramId);
+				}
+			}
+		}
+	}
+	
+	public void probeOwner(Object curObject, int realParamId) {
+		if (this.stopRecord) {
+			return ;
+		}
+		
+		Object realParam = this.preload.get(realParamId);
+		if (realParam == curObject) {
+			this.isInput = true;
+		} else {
+			this.isInput = false;
+		}
+	}
+	
+	public void registerValueFromInput(Object o, boolean ser) {
+		if (this.stopRecord) {
+			return ;
+		}
+		
+		if (!this.isInput) {
+			return ;
+		}
+		
+		this.isInput = false;
+		this.registerInput(o, ser);
 	}
 	
 	public void registerInput(Object o, int paramId, boolean ser) {
-		if (this.stopParams.contains(paramId)) {
+		if (this.stopRecord) {
 			return ;
 		}
-		this.registerInput(o, ser);
+		
+		if (this.preload.containsKey(paramId)) {
+			this.registerInput(o, ser);
+		}
 	}
 	
 	public void registerInput(Object o, boolean ser) {

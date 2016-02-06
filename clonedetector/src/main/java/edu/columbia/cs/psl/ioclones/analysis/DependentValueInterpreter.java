@@ -120,6 +120,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 			}
 			
 			if (this.params.containsKey(dv.id)) {
+				this.params.get(dv.id).needCheck = true;
 				return this.queryInputParamIndex(dv.id);
 			}
 			visited.add(dv);
@@ -884,13 +885,13 @@ public class DependentValueInterpreter extends BasicInterpreter {
 					if (svOrigin != -1 && swOrigin == -1) {
 						sv.addDep(sw);
 						return v;
-					} else if (svOrigin == -1 && swOrigin == 1) {
+					} else if (svOrigin == -1 && swOrigin != -1) {
 						sw.addDep(sv);
 						return w;
+					} else {						
+						sv.addDep(sw);					
+						return v;
 					}
-					
-					sv.addDep(sw);					
-					return v;
 				}
 			}
 		}
