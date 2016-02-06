@@ -642,7 +642,7 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 				this.mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, 
 						Type.getInternalName(IORecord.class), 
 						"probeOwner", 
-						"(ILjava/lang/Object;)V", 
+						"(Ljava/lang/Object;I)V", 
 						false);
 			} else if (literal.equals(DependencyAnalyzer.INPUT_COPY_0_MSG)) {
 				InputSig is = new InputSig();

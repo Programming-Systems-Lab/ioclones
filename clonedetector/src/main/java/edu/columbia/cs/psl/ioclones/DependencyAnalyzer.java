@@ -152,35 +152,18 @@ public class DependencyAnalyzer extends MethodVisitor {
 						this.debug(fr);
 					}
 					
-					Set<Integer> touched = new HashSet<Integer>();
+					//Set<Integer> touched = new HashSet<Integer>();
 					Set<AbstractInsnNode> visitedInInsns = new HashSet<AbstractInsnNode>();
 					if (ios.size() > 0 || writtenParams.size() > 0) {
-						//Need to analyze which control instruction should be recorded
-						//Jumps will affect outputs
+						//Need to analyze which control instruction should be recorded, jumps will affect outputs
 						//logger.info("Cand. single controls: " + dvi.getSingleControls().size());
 						dvi.getSingleControls().forEach((sc, val)->{
-							if (this.recordControl(val, touched)) {
-								this.instructions.insertBefore(sc, new LdcInsnNode(INPUT_MSG));
-							}
+							this.instructions.insertBefore(sc, new LdcInsnNode(INPUT_MSG));
 						});
 						
 						//logger.info("Cand. double controls: " + dvi.getDoubleControls().size());
 						dvi.getDoubleControls().forEach((dc, vals)->{
-							boolean[] record = {false, false};
-							for (int k = 0; k < vals.length; k++) {
-								DependentValue dVal = vals[k];
-								if (this.recordControl(dVal, touched)) {
-									record[k] = true;
-								}
-							}
-							
-							if (record[0] && record[1]) {
-								this.instructions.insertBefore(dc, new LdcInsnNode(INPUT_COPY_2_MSG));
-							} else if (record[0]) {
-								this.instructions.insertBefore(dc, new LdcInsnNode(INPUT_COPY_0_MSG));
-							} else if (record[1]) {
-								this.instructions.insertBefore(dc, new LdcInsnNode(INPUT_COPY_1_MSG));
-							}
+							this.instructions.insertBefore(dc, new LdcInsnNode(INPUT_COPY_2_MSG));
 						});
 					}
 					
@@ -191,7 +174,7 @@ public class DependencyAnalyzer extends MethodVisitor {
 							o.getOutSinks().forEach(sink->{
 								this.instructions.insertBefore(sink, new LdcInsnNode(OUTPUT_MSG));
 							});
-							touched.add(o.id);
+							//touched.add(o.id);
 							
 							if (inputs != null) {
 								for (DependentValue input: inputs) {
@@ -206,7 +189,7 @@ public class DependencyAnalyzer extends MethodVisitor {
 											visitedInInsns.add(src);
 										}
 									});
-									touched.add(input.id);
+									//touched.add(input.id);
 								}
 							}
 						} else {
@@ -219,11 +202,6 @@ public class DependencyAnalyzer extends MethodVisitor {
 						writtenBuilder.append(wp.paramIdx + "-");
 						
 						for (DependentValue dv: wp.deps) {
-							if (touched.contains(dv.id)) {
-								continue ;
-							}
-							touched.add(dv.id);
-							
 							if (dv.getInSrcs() == null 
 									|| dv.getInSrcs().size() == 0) {
 								continue ;

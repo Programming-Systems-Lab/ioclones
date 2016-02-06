@@ -183,10 +183,10 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				this.params.put(dv.id, dv);
 				this.paramList.add(dv);
 				
-				int sort = curType.getSort();
+				/*int sort = curType.getSort();
 				if (sort == Type.DOUBLE || sort == Type.LONG) {
 					this.paramList.add(dv);
-				}
+				}*/
 			} else {
 				logger.error("Incompatible type: " + curType + " " + dv.getType());
 			}
@@ -710,8 +710,8 @@ public class DependentValueInterpreter extends BasicInterpreter {
 					break ;
 				}
 				
-				/*if (this.className.equals("javax.naming.ldap.LdapName") 
-						&& this.methodNameArgs.equals("compareTo-(java.lang.Object)")) {
+				/*if (this.className.equals("com.sun.javafx.scene.control.skin.SplitPaneSkin") 
+						&& this.methodNameArgs.equals("layoutChildren-(D+D+D+D)")) {
 					System.out.println("Capture target: " + this.className + " " + this.methodNameArgs);
 					this.detailed = true;
 				}*/
@@ -741,7 +741,12 @@ public class DependentValueInterpreter extends BasicInterpreter {
 							
 							if (calleeWritten != null) {
 								boolean[] writers = new boolean[dvs.size()];
+								final Map<Integer, TreeSet<Integer>> shadow = calleeWritten;
 								calleeWritten.forEach((w, deps)->{
+									if (w > dvs.size() - 1) {
+										System.exit(-1);
+									}
+									
 									DependentValue written = dvs.get(w);
 									writers[w] = true;
 									

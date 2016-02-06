@@ -38,11 +38,11 @@ public class IORecord {
 	
 	private transient boolean stopRecord = false;
 	
-	public Map<Integer, Object> preload = new HashMap<Integer, Object>();
+	public transient Map<Integer, Object> preload = new HashMap<Integer, Object>();
 	
-	public List<Object> toSerialize = new ArrayList<Object>();
+	public transient List<Object> toSerialize = new ArrayList<Object>();
 	
-	public boolean isInput = false;
+	public transient boolean isInput = false;
 	
 	public IORecord(String methodKey, boolean isStatic) {
 		this.methodKey = methodKey;
