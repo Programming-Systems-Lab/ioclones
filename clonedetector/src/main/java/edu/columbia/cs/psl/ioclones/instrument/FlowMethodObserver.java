@@ -2,6 +2,7 @@ package edu.columbia.cs.psl.ioclones.instrument;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.Stack;
 import java.util.TreeMap;
 
 import org.apache.logging.log4j.LogManager;
@@ -55,10 +56,11 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 	
 	private boolean recordOutput = false;
 	
-	//private boolean recordInput = false;
 	private InputSig recordInput = null;
 	
 	private boolean thisWritten = false;
+	
+	private Stack<String> newTypes = new Stack<String>();
 	
 	//private int copySignal = -1;
 	
@@ -220,6 +222,24 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 	}
 	
 	@Override
+	public void visitTypeInsn(int opcode, String type) {
+		this.mv.visitTypeInsn(opcode, type);
+		if (opcode == Opcodes.NEW) {
+			this.mv.visitInsn(Opcodes.DUP);
+			this.newTypes.push(type);
+		} else if (opcode == Opcodes.ANEWARRAY) {
+			this.mv.visitInsn(Opcodes.DUP);
+			this.mv.visitVarInsn(Opcodes.ALOAD, this.recordId);
+			this.mv.visitInsn(Opcodes.SWAP);
+			this.mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, 
+					Type.getInternalName(IORecord.class), 
+					"blackObject", 
+					"(Ljava/lang/Object;)V", 
+					false);
+		}
+	}
+	
+	@Override
 	public void visitInsn(int opcode) {
 		/*if (!this.begin) {
 			this.mv.visitInsn(opcode);
@@ -233,32 +253,32 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 			boolean ser = false;
 			switch(opcode) {
 				case IALOAD:
-					this.handlePrimitive(Integer.class);
+					this.handlePrimitive(Integer.class, true);
 					break ;
 				case LALOAD:
-					this.handlePrimitive(Long.class);
+					this.handlePrimitive(Long.class, true);
 					break ;
 				case FALOAD:
-					this.handlePrimitive(Float.class);
+					this.handlePrimitive(Float.class, true);
 					break ;
 				case DALOAD:
-					this.handlePrimitive(Double.class);
+					this.handlePrimitive(Double.class, true);
 					break ;
 				case AALOAD:
 					ser = true;
 					this.mv.visitInsn(DUP);
 					break ;
 				case BALOAD:
-					this.handlePrimitive(Byte.class);
+					this.handlePrimitive(Byte.class, true);
 					break ;
 				case CALOAD:
-					this.handlePrimitive(Character.class);
+					this.handlePrimitive(Character.class, true);
 					break ;
 				case SALOAD:
-					this.handlePrimitive(Short.class);
+					this.handlePrimitive(Short.class, true);
 					break ;
 				case ARRAYLENGTH:
-					this.handlePrimitive(Integer.class);
+					this.handlePrimitive(Integer.class, true);
 					break ;
 				default:
 					logger.error("Invalid input type: " + opcode);
@@ -286,19 +306,19 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 			switch(opcode) {
 				case IASTORE:
 				case IRETURN:
-					this.handlePrimitive(Integer.class);
+					this.handlePrimitive(Integer.class, true);
 					break ;
 				case LASTORE:
 				case LRETURN:
-					this.handlePrimitive(Long.class);
+					this.handlePrimitive(Long.class, true);
 					break ;
 				case FASTORE:
 				case FRETURN:
-					this.handlePrimitive(Float.class);
+					this.handlePrimitive(Float.class, true);
 					break ;
 				case DASTORE:
 				case DRETURN:
-					this.handlePrimitive(Double.class);
+					this.handlePrimitive(Double.class, true);
 					break ;
 				case AASTORE:
 				case ARETURN:
@@ -307,13 +327,13 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 					break ;
 				case BASTORE:
 					//No matter byte ore boolean, goes to byte
-					this.handlePrimitive(Byte.class);
+					this.handlePrimitive(Byte.class, true);
 					break ;
 				case CASTORE:
-					this.handlePrimitive(Character.class);
+					this.handlePrimitive(Character.class, true);
 					break ;
 				case SASTORE:
-					this.handlePrimitive(Short.class);
+					this.handlePrimitive(Short.class, true);
 					break ;
 				default:
 					logger.error("Invalid output type: " + opcode);
@@ -368,6 +388,16 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 	public void visitIntInsn(int opcode, int operand) {
 		//System.out.println(opcode);
 		this.mv.visitIntInsn(opcode, operand);
+		if (opcode == Opcodes.NEWARRAY) {
+			this.mv.visitInsn(Opcodes.DUP);
+			this.mv.visitVarInsn(Opcodes.ALOAD, this.recordId);
+			this.mv.visitInsn(Opcodes.SWAP);
+			this.mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, 
+					Type.getInternalName(IORecord.class), 
+					"blackObject", 
+					"(Ljava/lang/Object;)V", 
+					false);
+		}
 	}
 	
 	@Override
@@ -380,16 +410,16 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 			boolean ser = false;
 			switch(opcode) {
 				case ILOAD:
-					this.handlePrimitive(Integer.class);
+					this.handlePrimitive(Integer.class, true);
 					break ;
 				case LLOAD:
-					this.handlePrimitive(Long.class);
+					this.handlePrimitive(Long.class, true);
 					break ;
 				case FLOAD:
-					this.handlePrimitive(Float.class);
+					this.handlePrimitive(Float.class, true);
 					break ;
 				case DLOAD:
-					this.handlePrimitive(Double.class);
+					this.handlePrimitive(Double.class, true);
 					break ;
 				case ALOAD:
 					ser = true;
@@ -419,20 +449,27 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 			return ;
 		}
 		
-		if (BytecodeUtils.xstore(opcode)) {
+		if (opcode == ISTORE 
+				|| opcode == FSTORE 
+				|| opcode == LSTORE 
+				|| opcode == DSTORE) {
 			ParamInfo checkParam = this.checkParam(var);
-			
 			if (checkParam != null) {
 				this.mv.visitVarInsn(ALOAD, this.recordId);
 				this.convertToInst(var);
 				
-				Type paramType = checkParam.paramType;
-				int paramSort = paramType.getSort();
-				if (paramSort == Type.OBJECT 
-						|| paramSort == Type.ARRAY) {
-					this.mv.visitVarInsn(Opcodes.ALOAD, var);
-				} else {
-					this.mv.visitInsn(Opcodes.ACONST_NULL);
+				if (opcode == ISTORE) {
+					this.mv.visitVarInsn(ILOAD, var);
+					this.handlePrimitive(Integer.class, false);
+				} else if (opcode == FSTORE) {
+					this.mv.visitVarInsn(FLOAD, var);
+					this.handlePrimitive(Float.class, false);
+				} else if (opcode == LSTORE) {
+					this.mv.visitVarInsn(LLOAD, var);
+					this.handlePrimitive(Long.class, false);
+				} else if (opcode == DSTORE) {
+					this.mv.visitVarInsn(DLOAD, var);
+					this.handlePrimitive(Double.class, false);
 				}
 				
 				this.mv.visitMethodInsn(INVOKEVIRTUAL, 
@@ -508,7 +545,7 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 				case IFGE:
 				case IFGT:
 				case IFLE:
-					this.handlePrimitive(Integer.class);
+					this.handlePrimitive(Integer.class, true);
 					this.mv.visitVarInsn(ALOAD, this.recordId);
 					this.mv.visitInsn(SWAP);
 					this.mv.visitInsn(ICONST_0);
@@ -601,7 +638,7 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 		if (this.recordInput != null) {
 			this.recordInput = null;
 			
-			this.handlePrimitive(Integer.class);
+			this.handlePrimitive(Integer.class, true);
 			this.mv.visitVarInsn(ALOAD, this.recordId);
 			this.mv.visitInsn(SWAP);
 			this.mv.visitInsn(ICONST_0);
@@ -620,7 +657,7 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 		if (this.recordInput != null) {
 			this.recordInput = null;
 			
-			this.handlePrimitive(Integer.class);
+			this.handlePrimitive(Integer.class, true);
 			this.mv.visitVarInsn(ALOAD, this.recordId);
 			this.mv.visitInsn(SWAP);
 			this.mv.visitInsn(ICONST_0);
@@ -641,18 +678,14 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 			if (literal.equals(DependencyAnalyzer.INPUT_MSG)) {
 				InputSig is = new InputSig();
 				this.recordInput = is;
-			} else if (literal.startsWith(DependencyAnalyzer.INPUT_CHECK_MSG)) {
-				String ownerString = literal.split("@")[1];
-				int ownerId = Integer.valueOf(ownerString);
-				
+			} else if (literal.equals(DependencyAnalyzer.INPUT_CHECK_MSG)) {				
 				this.mv.visitInsn(Opcodes.DUP);
 				this.mv.visitVarInsn(Opcodes.ALOAD, this.recordId);
 				this.mv.visitInsn(Opcodes.SWAP);
-				this.convertToInst(ownerId);
 				this.mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, 
 						Type.getInternalName(IORecord.class), 
 						"probeOwner", 
-						"(Ljava/lang/Object;I)V", 
+						"(Ljava/lang/Object;)V", 
 						false);
 			} else if (literal.equals(DependencyAnalyzer.INPUT_COPY_0_MSG)) {
 				InputSig is = new InputSig();
@@ -733,6 +766,41 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 		this.mv.visitIincInsn(var, increment);
 	}
 	
+	@Override
+	public void visitMultiANewArrayInsn(String desc, int dims) {
+		this.mv.visitMultiANewArrayInsn(desc, dims);
+		
+		this.mv.visitInsn(Opcodes.DUP);
+		this.mv.visitVarInsn(Opcodes.ALOAD, this.recordId);
+		this.mv.visitInsn(Opcodes.SWAP);
+		this.mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, 
+				Type.getInternalName(IORecord.class), 
+				"blackObject", 
+				"(Ljava/lang/Object;)V", 
+				false);
+	}
+	
+	@Override
+	public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
+		this.mv.visitMethodInsn(opcode, owner, name, desc, itf);
+		if (this.newTypes.size() > 0) {
+			if (name.equals("<init>")) {
+				String curType = this.newTypes.pop();
+				if (!curType.equals(owner)) {
+					logger.error("Suspicious new session: " + curType + " " + owner);
+				} else {
+					this.mv.visitVarInsn(Opcodes.ALOAD, this.recordId);
+					this.mv.visitInsn(Opcodes.SWAP);
+					this.mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, 
+							Type.getInternalName(IORecord.class), 
+							"blackObject", 
+							"(Ljava/lang/Object;)V", 
+							false);
+				}
+			}
+		}
+	}
+	
 	private void convertToInst(int num) {
 		if (num == 1) {
 			this.mv.visitInsn(Opcodes.ICONST_1);
@@ -757,23 +825,23 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 		boolean ser = false;
 		int sort = type.getSort();
 		if (sort == Type.INT) {
-			this.handlePrimitive(Integer.class);
+			this.handlePrimitive(Integer.class, true);
 		} else if (sort == Type.SHORT) {
-			this.handlePrimitive(Short.class);
+			this.handlePrimitive(Short.class, true);
 		} else if (sort == Type.BYTE) {
-			this.handlePrimitive(Byte.class);
+			this.handlePrimitive(Byte.class, true);
 		} else if (sort == Type.CHAR) {
-			this.handlePrimitive(Character.class);
+			this.handlePrimitive(Character.class, true);
 		} else if (sort == Type.BOOLEAN) {
 			//Convert boolean to byte, because of BALOAD, BASTORE
-			this.handlePrimitive(Byte.class);
+			this.handlePrimitive(Byte.class, true);
 			//this.handlePrimitive(Boolean.class);
 		} else if (sort == Type.FLOAT) {
-			this.handlePrimitive(Float.class);
+			this.handlePrimitive(Float.class, true);
 		} else if (sort == Type.LONG) {
-			this.handlePrimitive(Long.class);
+			this.handlePrimitive(Long.class, true);
 		} else if (sort == Type.DOUBLE) {
-			this.handlePrimitive(Double.class);
+			this.handlePrimitive(Double.class, true);
 		} else if (type.equals(Type.getType(String.class))) {
 			this.mv.visitInsn(Opcodes.DUP);
 		} else if (sort == Type.ARRAY || sort == Type.OBJECT) {
@@ -783,65 +851,83 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 		return ser;
 	}
 	
-	private void handlePrimitive(Class<?> primClass) {
+	private void handlePrimitive(Class<?> primClass, boolean dup) {
 		if (primClass.equals(Integer.class)) {
-			this.mv.visitInsn(Opcodes.DUP);
+			if (dup) {
+				this.mv.visitInsn(Opcodes.DUP);
+			}
 			this.mv.visitMethodInsn(Opcodes.INVOKESTATIC, 
 					Type.getInternalName(primClass), 
 					VALUE_OF, 
 					"(I)Ljava/lang/Integer;", 
 					false);
 		} else if (primClass.equals(Float.class)) {
-			this.mv.visitInsn(Opcodes.DUP);
+			if (dup) {
+				this.mv.visitInsn(Opcodes.DUP);
+			}
 			this.mv.visitMethodInsn(Opcodes.INVOKESTATIC, 
 					Type.getInternalName(primClass), 
 					VALUE_OF, 
 					"(F)Ljava/lang/Float;", 
 					false);
 		} else if (primClass.equals(Boolean.class)) {
-			this.mv.visitInsn(Opcodes.DUP);
+			if (dup) {
+				this.mv.visitInsn(Opcodes.DUP);
+			}
 			this.mv.visitMethodInsn(Opcodes.INVOKESTATIC, 
 					Type.getInternalName(primClass), 
 					VALUE_OF, 
 					"(Z)Ljava/lang/Boolean;", 
 					false);
 		} else if (primClass.equals(Byte.class)) {
-			this.mv.visitInsn(Opcodes.DUP);
+			if (dup) {
+				this.mv.visitInsn(Opcodes.DUP);
+			}
 			this.mv.visitMethodInsn(Opcodes.INVOKESTATIC, 
 					Type.getInternalName(primClass), 
 					VALUE_OF, 
 					"(B)Ljava/lang/Byte;", 
 					false);
 		} else if (primClass.equals(Character.class)) {
-			this.mv.visitInsn(Opcodes.DUP);
+			if (dup) {
+				this.mv.visitInsn(Opcodes.DUP);
+			}
 			this.mv.visitMethodInsn(Opcodes.INVOKESTATIC, 
 					Type.getInternalName(primClass), 
 					VALUE_OF, 
 					"(C)Ljava/lang/Character;", 
 					false);
 		} else if (primClass.equals(Short.class)) {
-			this.mv.visitInsn(Opcodes.DUP);
+			if (dup) {
+				this.mv.visitInsn(Opcodes.DUP);
+			}
 			this.mv.visitMethodInsn(Opcodes.INVOKESTATIC, 
 					Type.getInternalName(primClass), 
 					VALUE_OF, 
 					"(S)Ljava/lang/Short;", 
 					false);
 		} else if (primClass.equals(Boolean.class)) {
-			this.mv.visitInsn(Opcodes.DUP);
+			if (dup) {
+				this.mv.visitInsn(Opcodes.DUP);
+			}
 			this.mv.visitMethodInsn(Opcodes.INVOKESTATIC, 
 					Type.getInternalName(primClass), 
 					VALUE_OF, 
 					"(Z)Ljava/lang/Boolean;", 
 					false);
 		} else if (primClass.equals(Long.class)) {
-			this.mv.visitInsn(Opcodes.DUP2);
+			if (dup) {
+				this.mv.visitInsn(Opcodes.DUP2);
+			}
 			this.mv.visitMethodInsn(Opcodes.INVOKESTATIC, 
 					Type.getInternalName(primClass), 
 					VALUE_OF, 
 					"(J)Ljava/lang/Long;", 
 					false);
 		} else if (primClass.equals(Double.class)) {
-			this.mv.visitInsn(Opcodes.DUP2);
+			if (dup) {
+				this.mv.visitInsn(Opcodes.DUP2);
+			}
 			this.mv.visitMethodInsn(Opcodes.INVOKESTATIC, 
 					Type.getInternalName(primClass), 
 					VALUE_OF, 

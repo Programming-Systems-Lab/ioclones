@@ -18,11 +18,9 @@ public class DependentValue extends BasicValue {
 	private boolean flowsToOutput;
 	
 	//public transient DependentValue owner;
-	private transient Set<DependentValue> owners;
+	private transient HashSet<DependentValue> owners;
 	
 	public transient boolean written = false;
-	
-	public transient boolean needCheck = false;
 	
 	private HashSet<DependentValue> deps;
 	

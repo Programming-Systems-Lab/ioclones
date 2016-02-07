@@ -42,7 +42,9 @@ public class IORecord {
 	
 	public transient List<Object> toSerialize = new ArrayList<Object>();
 	
-	public transient boolean isInput = false;
+	public transient HashSet<Object> blackObject = new HashSet<Object>();
+	
+	public transient boolean isInput = true;
 	
 	public IORecord(String methodKey, boolean isStatic) {
 		this.methodKey = methodKey;
@@ -91,36 +93,45 @@ public class IORecord {
 		});
 	}
 	
+	/**
+	 * For primitive type and string
+	 * @param paramId
+	 * @param test
+	 */
 	public void attemptStopPrimParam(int paramId, Object test) {
 		if (this.stopRecord) {
 			return ;
 		}
 		
+		if (!this.preload.containsKey(paramId)) {
+			return ;
+		}
+		
+		//For iinc
 		if (test == null) {
 			this.preload.remove(paramId);
-		} else {
-			Object curObject = this.preload.get(paramId);
-			if (curObject != null) {
-				if (curObject != test) {
-					this.preload.remove(paramId);
-				}
-			}
+		}	
+		
+		Object preval = this.preload.get(paramId);
+		if (!preval.equals(test)) {
+			this.preload.remove(paramId);
 		}
 	}
 	
-	public void probeOwner(Object curObject, int realParamId) {
+	public void blackObject(Object o) {
+		this.blackObject.add(o);
+	}
+	
+	public void probeOwner(Object curObject) {
 		if (this.stopRecord) {
 			return ;
 		}
 		
-		Object realParam = this.preload.get(realParamId);
-		if (realParam == curObject) {
-			this.isInput = true;
-		} else {
+		if (this.blackObject.contains(curObject)) {
 			this.isInput = false;
 		}
 	}
-	
+		
 	public void registerValueFromInput(Object o, boolean ser) {
 		if (this.stopRecord) {
 			return ;
@@ -130,7 +141,7 @@ public class IORecord {
 			return ;
 		}
 		
-		this.isInput = false;
+		this.isInput = true;
 		this.registerInput(o, ser);
 	}
 	

@@ -1,6 +1,7 @@
 package edu.columbia.cs.psl.ioclones.analysis;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -37,6 +38,8 @@ public class DependentValueInterpreter extends BasicInterpreter {
 		
 	private static Logger logger = LogManager.getLogger(DependentValueInterpreter.class);
 	
+	private static int CLASSMEMBER_REP = Integer.MAX_VALUE;
+	
 	public transient boolean hasCallees = false;
 	
 	public transient boolean detailed = false;
@@ -60,6 +63,8 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	protected boolean idxDep = false;
 	
 	protected Map<Integer, DependentValue> params = new HashMap<Integer, DependentValue>();
+	
+	protected Set<Integer> classMemberPool = new HashSet<Integer>();
 	
 	protected List<DependentValue> paramList = new ArrayList<DependentValue>();
 	
@@ -86,42 +91,28 @@ public class DependentValueInterpreter extends BasicInterpreter {
 		this.addMethodDep = addMethodDep;
 	}
 	
-	public void propagateDepToOwners(DependentValue ref, DependentValue dep) {
+	public Collection<Integer> queryPropagateValue(DependentValue ref, 
+			DependentValue dep, 
+			boolean markWritten) {
 		LinkedList<DependentValue> queue = new LinkedList<DependentValue>();
 		Set<DependentValue> visited = new HashSet<DependentValue>();
 		queue.add(ref);
-		while (queue.size() > 0) {
-			DependentValue dv = queue.removeFirst();
-			dv.addDep(dep);
-			
-			dv.written = true;
-			visited.add(dv);
-			
-			if (dv.getOwners() != null) {
-				dv.getOwners().forEach(o->{
-					if (!visited.contains(o) && !queue.contains(o)) {
-						queue.add(o);
-					}
-				});
-			}
-		}
-	}
-	
-	public int checkValueOrigin(DependentValue val, boolean markWritten) {		
-		Set<DependentValue> visited = new HashSet<DependentValue>();
-		LinkedList<DependentValue> queue = new LinkedList<DependentValue>();
-		queue.add(val);
 		
+		TreeSet<Integer> owners = new TreeSet<Integer>();
 		while (queue.size() > 0) {
 			DependentValue dv = queue.removeFirst();
+			if (dep != null) {
+				dv.addDep(dep);
+			}
 			
 			if (markWritten) {
 				dv.written = true;
+				System.out.println("Written dv: " + dv);
 			}
 			
 			if (this.params.containsKey(dv.id)) {
-				this.params.get(dv.id).needCheck = true;
-				return this.queryInputParamIndex(dv.id);
+				int ownerId = this.queryInputParamIndex(dv.id);
+				owners.add(ownerId);
 			}
 			visited.add(dv);
 			
@@ -133,10 +124,9 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				});
 			}
 		}
-		
-		return -1;
+		return owners;
 	}
-	
+		
 	public Map<Integer, DependentValue> getParams() {
 		return this.params;
 	}
@@ -257,6 +247,9 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				DependentValue ret = new DependentValue(Type.getType(((FieldInsnNode) insn).desc));
 				//ret.src = insn;
 				ret.addInSrc(insn);
+				if (ret.isReference()) {
+					this.classMemberPool.add(ret.id);
+				}
 				//return newValue(Type.getType(((FieldInsnNode) insn).desc));
 				return ret;
 			case NEW:
@@ -333,8 +326,9 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	        	
 	            ret = (DependentValue) newValue(Type.INT_TYPE);
 	            ret.addOwner(oriVal);
-	            int origin = checkValueOrigin(oriVal, false);
-	            if (origin != -1) {
+	            
+	            Collection<Integer> arrOrigins = queryPropagateValue(oriVal, null, false);
+	            if (arrOrigins.size() > 0) {
 	            	ret.addInSrc(insn);
 	            }
 	            
@@ -387,8 +381,9 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				//ret.src = insn;
 				
 				DependentValue owner = (DependentValue)value;
-				origin = checkValueOrigin(owner, false);
-				if (origin != -1) {
+				Collection<Integer> fieldOrigins = this.queryPropagateValue(owner, null, false);
+				
+				if (fieldOrigins.size() > 0) {
 					ret.addInSrc(insn);
 				}
 				
@@ -447,8 +442,8 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				
 				ret.addOwner(arrRef);
 				
-				int origin = checkValueOrigin(arrRef, false);
-				if (origin != -1) {
+				Collection<Integer> arrOrigin = this.queryPropagateValue(arrRef, null, false);
+				if (arrOrigin.size() > 0) {
 					ret.addInSrc(insn);
 				}
 				
@@ -480,8 +475,8 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				
 				ret.addOwner(arrRef);
 				
-				origin = checkValueOrigin(arrRef, false);
-				if (origin != -1) {
+				arrOrigin = this.queryPropagateValue(arrRef, null, false);
+				if (arrOrigin.size() > 0) {
 					ret.addInSrc(insn);
 				}
 				
@@ -505,8 +500,8 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				
 				ret.addOwner(arrRef);
 				
-				origin = checkValueOrigin(arrRef, false);
-				if (origin != -1) {
+				arrOrigin = this.queryPropagateValue(arrRef, null, false);
+				if (arrOrigin.size() > 0) {
 					ret.addInSrc(insn);
 				}
 				
@@ -536,8 +531,8 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				
 				ret.addOwner(arrRef);
 				
-				origin = checkValueOrigin(arrRef, false);
-				if (origin != -1) {
+				arrOrigin = this.queryPropagateValue(arrRef, null, false);
+				if (arrOrigin.size() > 0) {
 					ret.addInSrc(insn);
 				}
 				
@@ -562,8 +557,8 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				
 				ret.addOwner(arrRef);
 				
-				origin = checkValueOrigin(arrRef, false);
-				if (origin != -1) {
+				arrOrigin = this.queryPropagateValue(arrRef, null, false);
+				if (arrOrigin.size() > 0) {
 					ret.addInSrc(insn);
 				}
 				
@@ -599,9 +594,10 @@ public class DependentValueInterpreter extends BasicInterpreter {
 					return null;
 				}
 				
+				System.out.println("PUTFIELD");
 				DependentValue objRef = (DependentValue) value1;
 				DependentValue written = (DependentValue) value2;
-				propagateDepToOwners(objRef, written);
+				this.queryPropagateValue(objRef, written, true);
 				/*if (polluteInput) {
 					written.addOutSink(insn);
 				}*/
@@ -626,11 +622,11 @@ public class DependentValueInterpreter extends BasicInterpreter {
 		DependentValue val = (DependentValue)val3;
 				
 		//Should we care about the idx?
-		if (this.idxDep)
-			this.propagateDepToOwners(objRef, idx);
+		if (this.idxDep) {
+			this.queryPropagateValue(objRef, idx, true);
+		}
 		
-		this.propagateDepToOwners(objRef, val);
-		
+		this.queryPropagateValue(objRef, val, true);
 		//val.addOwner(objRef);
 		
 		return super.ternaryOperation(insn, val1, val2, val3);
@@ -744,10 +740,10 @@ public class DependentValueInterpreter extends BasicInterpreter {
 										logger.error("Suspicious written: " + className + " " + methodNameArgs + " " + written);
 									}
 									
-									int callerParam = checkValueOrigin(written, true);
+									/*int callerParam = checkValueOrigin(written, true);
 									if (this.detailed) {
 										System.out.println("Written caller param: " + callerParam);
-									}
+									}*/
 									
 									/*if (callerParam != -1) {
 										for (Integer d: deps) {
@@ -832,8 +828,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	
 	@Override
 	public BasicValue merge(BasicValue v, BasicValue w) {
-		//System.out.println("V: " + v);
-		//System.out.println("W: " + w);
+		//System.out.println("Merging: " + v + " " + w);
 		if (v == BasicValue.UNINITIALIZED_VALUE 
 				&& w == BasicValue.UNINITIALIZED_VALUE) {
 			return v;
@@ -874,18 +869,48 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				return v;
 			} else {
 				if (v.getType().equals(w.getType())) {
-					
-					int svOrigin = checkValueOrigin(sv, false);
-					int swOrigin = checkValueOrigin(sw, false);
-					if (svOrigin != -1 && swOrigin == -1) {
+					Collection<Integer> svOrigins = this.queryPropagateValue(sv, null, false);
+					Collection<Integer> swOrigins = this.queryPropagateValue(sw, null, false);
+					//System.out.println("V: " + sv);
+					//System.out.println("W: " + sw);
+					if (svOrigins.size() > 0 && swOrigins.size() == 0) {
 						sv.addDep(sw);
+						sv.addOwner(sw);
+						if (sv.written) {
+							this.queryPropagateValue(sv, null, true);
+						}
+						
+						//System.out.println("SV owner: " + sv.getOwners());
 						return v;
-					} else if (svOrigin == -1 && swOrigin != -1) {
+					} else if (svOrigins.size() == 0 && swOrigins.size() > 0) {
 						sw.addDep(sv);
+						sw.addOwner(sv);
+						if (sw.written) {
+							this.queryPropagateValue(sw, null, true);
+						}
+						
+						//System.out.println("SW owner: " + sw.getOwners());
 						return w;
-					} else {						
-						sv.addDep(sw);					
-						return v;
+					} else {
+						//System.out.println("SW written: " + sw.written);
+						//System.out.println("SV written: " + sv.written);
+						if (sw.written) {
+							sw.addDep(sv);
+							sw.addOwner(sv);
+							this.queryPropagateValue(sw, null, true);
+							//System.out.println("SW owner: " + sw.getOwners());
+							return w;
+						} else {
+							sv.addDep(sw);
+							sv.addOwner(sw);
+							if (sv.written) {
+								this.queryPropagateValue(sv, null, true);
+							}
+							
+							//System.out.println("SV owner: " + sv.getOwners());
+							return v;
+						}
+						
 					}
 				}
 			}

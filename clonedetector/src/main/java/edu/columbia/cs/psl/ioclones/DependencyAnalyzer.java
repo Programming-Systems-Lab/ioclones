@@ -32,7 +32,7 @@ public class DependencyAnalyzer extends MethodVisitor {
 	
 	public static final String TAINTED_IN = "__$$COLUMBIA_IO_TAINT@";
 	
-	public static final String INPUT_CHECK_MSG = "__$$COLUMBIA_IO_CHECK@";
+	public static final String INPUT_CHECK_MSG = "__$$COLUMBIA_IO_CHECK";
 	
 	public static final String INPUT_MSG = "__$$COLUMBIA_IO_INPUT";
 	
@@ -202,7 +202,6 @@ public class DependencyAnalyzer extends MethodVisitor {
 								continue ;
 							}
 							
-							int owner = dvi.checkValueOrigin(dv, false);
 							dv.getInSrcs().forEach(src->{
 								if (!visitedInInsns.contains(src)) {
 									this.instructions.insertBefore(src, new LdcInsnNode(INPUT_MSG));
@@ -220,17 +219,16 @@ public class DependencyAnalyzer extends MethodVisitor {
 					
 					for (int j = 0; j < dvi.getParamList().size(); j++) {
 						DependentValue inputParam = dvi.getParamList().get(j);
-						if (inputParam.needCheck) {
+						if (inputParam.isReference() 
+								&& !ClassInfoUtils.isImmutable(inputParam.getType())) {
 							if (!isStatic && j == 0) {
 								continue ;
 							}
 							
 							if (inputParam.getInSrcs() != null 
 									&& inputParam.getInSrcs().size() > 0) {
-								int idx = paramInfos.get(j).runtimeIdx;
 								inputParam.getInSrcs().forEach(check->{
-									String checkMsg = INPUT_CHECK_MSG + idx;
-									this.instructions.insert(check, new LdcInsnNode(checkMsg));
+									this.instructions.insert(check, new LdcInsnNode(INPUT_CHECK_MSG));
 								});
 							}
 						}
