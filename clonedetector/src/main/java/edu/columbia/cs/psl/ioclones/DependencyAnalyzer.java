@@ -6,6 +6,12 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -76,166 +82,174 @@ public class DependencyAnalyzer extends MethodVisitor {
 						returnType, 
 						className, 
 						methodNameArgs, 
-						true, 
-						true);
+						false, 
+						false);
+				
 				Analyzer a = new Analyzer(dvi);
 				try {
 					Frame[] fr = a.analyze(className, this);
-					
-					Map<Integer, WrittenParam> writtenParams = new HashMap<Integer, WrittenParam>();
-					//Determine which input has been written
-					for (int j = 0; j < dvi.getParamList().size(); j++) {
-						DependentValue paramVal = dvi.getParamList().get(j);
-						if (paramVal.written) {
-							LinkedList<DependentValue> writtenDeps = paramVal.tag();
-							
-							if (writtenDeps.size() > 0) {
-								writtenDeps.removeFirst();
+					//System.out.println("Merge count: " + dvi.mergeCounter);
+					if (!dvi.giveup) {
+						Map<Integer, WrittenParam> writtenParams = new HashMap<Integer, WrittenParam>();
+						//Determine which input has been written
+						for (int j = 0; j < dvi.getParamList().size(); j++) {
+							DependentValue paramVal = dvi.getParamList().get(j);
+							if (paramVal.written) {
+								LinkedList<DependentValue> writtenDeps = paramVal.tag();
+								
+								if (writtenDeps.size() > 0) {
+									writtenDeps.removeFirst();
+								}
+								
+								WrittenParam wp = new WrittenParam();
+								wp.paramIdx = paramInfos.get(j).runtimeIdx;
+								wp.deps = writtenDeps;
+															
+								writtenParams.put(paramVal.id, wp);
 							}
-							
-							WrittenParam wp = new WrittenParam();
-							wp.paramIdx = paramInfos.get(j).runtimeIdx;
-							wp.deps = writtenDeps;
-														
-							writtenParams.put(paramVal.id, wp);
 						}
-					}
-					
-					Map<DependentValue, LinkedList<DependentValue>> ios = 
-							new HashMap<DependentValue, LinkedList<DependentValue>>();
-					AbstractInsnNode insn = this.instructions.getFirst();
-					int i = 0;
-					
-					while(insn != null) {
-						Frame fn = fr[i];
-						if(fn != null) {					
-							//does this insn create output?
-							switch(insn.getOpcode()) {
-								//The outputs are values exit after the method ends
-								//Include return value and values written to input objs
-								case Opcodes.IRETURN:
-								case Opcodes.LRETURN:
-								case Opcodes.FRETURN:
-								case Opcodes.DRETURN:
-								case Opcodes.ARETURN:
-								case Opcodes.PUTSTATIC:
-									//What are we returning?
-									DependentValue retVal = (DependentValue)fn.getStack(fn.getStackSize() - 1);
-									if (!writtenParams.containsKey(retVal.id)) {
-										LinkedList<DependentValue> toOutput = retVal.tag();
-										retVal.addOutSink(insn);
+						
+						Map<DependentValue, LinkedList<DependentValue>> ios = 
+								new HashMap<DependentValue, LinkedList<DependentValue>>();
+						AbstractInsnNode insn = this.instructions.getFirst();
+						int i = 0;
+						
+						while(insn != null) {
+							Frame fn = fr[i];
+							if(fn != null) {					
+								//does this insn create output?
+								switch(insn.getOpcode()) {
+									//The outputs are values exit after the method ends
+									//Include return value and values written to input objs
+									case Opcodes.IRETURN:
+									case Opcodes.LRETURN:
+									case Opcodes.FRETURN:
+									case Opcodes.DRETURN:
+									case Opcodes.ARETURN:
+									case Opcodes.PUTSTATIC:
+										//What are we returning?
+										DependentValue retVal = (DependentValue)fn.getStack(fn.getStackSize() - 1);
+										if (!writtenParams.containsKey(retVal.id)) {
+											LinkedList<DependentValue> toOutput = retVal.tag();
+											retVal.addOutSink(insn);
+											
+											//The first will be the ret itself
+											if (toOutput.size() > 0) {
+												toOutput.removeFirst();
+												ios.put(retVal, toOutput);
+											} else {
+												//This means that this output has been analyzed before (merge)
+												logger.warn("Visited val: " + retVal);
+												logger.warn("Corresponding inst: " + insn);
+											}
+										}
 										
-										//The first will be the ret itself
-										if (toOutput.size() > 0) {
-											toOutput.removeFirst();
-											ios.put(retVal, toOutput);
-										} else {
-											//This means that this output has been analyzed before (merge)
-											logger.warn("Visited val: " + retVal);
-											logger.warn("Corresponding inst: " + insn);
-										}
-									}
-									
-									break;
-							}
-						}
-						i++;
-						insn = insn.getNext();
-					}
-					
-					if (debug) {
-						this.debug(fr);
-					}
-					
-					//Set<Integer> touched = new HashSet<Integer>();
-					Set<AbstractInsnNode> visitedInInsns = new HashSet<AbstractInsnNode>();
-					if (ios.size() > 0 || writtenParams.size() > 0) {
-						//Need to analyze which control instruction should be recorded, jumps will affect outputs
-						//logger.info("Cand. single controls: " + dvi.getSingleControls().size());
-						dvi.getSingleControls().forEach((sc, val)->{
-							this.instructions.insertBefore(sc, new LdcInsnNode(INPUT_MSG));
-						});
-						
-						//logger.info("Cand. double controls: " + dvi.getDoubleControls().size());
-						dvi.getDoubleControls().forEach((dc, vals)->{
-							this.instructions.insertBefore(dc, new LdcInsnNode(INPUT_COPY_2_MSG));
-						});
-					}
-					
-					for (DependentValue o: ios.keySet()) {
-						LinkedList<DependentValue> inputs = ios.get(o);
-						
-						if (o.getOutSinks() != null) {
-							o.getOutSinks().forEach(sink->{
-								this.instructions.insertBefore(sink, new LdcInsnNode(OUTPUT_MSG));
-							});
-							//touched.add(o.id);
-							
-							if (inputs != null) {
-								for (DependentValue input: inputs) {
-									if (input.getInSrcs() == null 
-											|| input.getInSrcs().size() == 0) {
-										continue ;
-									}
-									
-									input.getInSrcs().forEach(src->{
-										if (!visitedInInsns.contains(src)) {
-											this.instructions.insertBefore(src, new LdcInsnNode(INPUT_MSG));
-											visitedInInsns.add(src);
-										}
-									});
-									//touched.add(input.id);
+										break;
 								}
 							}
-						} else {
-							logger.warn("Empty inst for output: " + o);
+							i++;
+							insn = insn.getNext();
 						}
-					}
-										
-					StringBuilder writtenBuilder = new StringBuilder();
-					for (WrittenParam wp: writtenParams.values()) {
-						writtenBuilder.append(wp.paramIdx + "-");
 						
-						for (DependentValue dv: wp.deps) {
-							if (dv.getInSrcs() == null 
-									|| dv.getInSrcs().size() == 0) {
-								continue ;
-							}
+						if (debug) {
+							this.debug(fr);
+						}
+						
+						//Set<Integer> touched = new HashSet<Integer>();
+						Set<AbstractInsnNode> visitedInInsns = new HashSet<AbstractInsnNode>();
+						if (ios.size() > 0 || writtenParams.size() > 0) {
+							//Need to analyze which control instruction should be recorded, jumps will affect outputs
+							//logger.info("Cand. single controls: " + dvi.getSingleControls().size());
+							dvi.getSingleControls().forEach((sc, val)->{
+								this.instructions.insertBefore(sc, new LdcInsnNode(INPUT_MSG));
+							});
 							
-							dv.getInSrcs().forEach(src->{
-								if (!visitedInInsns.contains(src)) {
-									this.instructions.insertBefore(src, new LdcInsnNode(INPUT_MSG));
-									visitedInInsns.add(src);
-								}
+							//logger.info("Cand. double controls: " + dvi.getDoubleControls().size());
+							dvi.getDoubleControls().forEach((dc, vals)->{
+								this.instructions.insertBefore(dc, new LdcInsnNode(INPUT_COPY_2_MSG));
 							});
 						}
-					}
-					
-					if (writtenBuilder.length() > 0) {
-						String writtenMsg = writtenBuilder.substring(0, writtenBuilder.length() - 1);
-						writtenMsg = TAINTED_IN + writtenMsg;
-						this.instructions.insert(new LdcInsnNode(writtenMsg));
-					}
-					
-					for (int j = 0; j < dvi.getParamList().size(); j++) {
-						DependentValue inputParam = dvi.getParamList().get(j);
-						if (inputParam.isReference() 
-								&& !ClassInfoUtils.isImmutable(inputParam.getType())) {
-							if (!isStatic && j == 0) {
-								continue ;
-							}
+						
+						for (DependentValue o: ios.keySet()) {
+							LinkedList<DependentValue> inputs = ios.get(o);
 							
-							if (inputParam.getInSrcs() != null 
-									&& inputParam.getInSrcs().size() > 0) {
-								inputParam.getInSrcs().forEach(check->{
-									this.instructions.insert(check, new LdcInsnNode(INPUT_CHECK_MSG));
+							if (o.getOutSinks() != null) {
+								o.getOutSinks().forEach(sink->{
+									this.instructions.insertBefore(sink, new LdcInsnNode(OUTPUT_MSG));
+								});
+								//touched.add(o.id);
+								
+								if (inputs != null) {
+									for (DependentValue input: inputs) {
+										if (input.getInSrcs() == null 
+												|| input.getInSrcs().size() == 0) {
+											continue ;
+										}
+										
+										input.getInSrcs().forEach(src->{
+											if (!visitedInInsns.contains(src)) {
+												this.instructions.insertBefore(src, new LdcInsnNode(INPUT_MSG));
+												visitedInInsns.add(src);
+											}
+										});
+										//touched.add(input.id);
+									}
+								}
+							} else {
+								logger.warn("Empty inst for output: " + o);
+							}
+						}
+											
+						StringBuilder writtenBuilder = new StringBuilder();
+						for (WrittenParam wp: writtenParams.values()) {
+							writtenBuilder.append(wp.paramIdx + "-");
+							
+							for (DependentValue dv: wp.deps) {
+								if (dv.getInSrcs() == null 
+										|| dv.getInSrcs().size() == 0) {
+									continue ;
+								}
+								
+								dv.getInSrcs().forEach(src->{
+									if (!visitedInInsns.contains(src)) {
+										this.instructions.insertBefore(src, new LdcInsnNode(INPUT_MSG));
+										visitedInInsns.add(src);
+									}
 								});
 							}
 						}
+						
+						if (writtenBuilder.length() > 0) {
+							String writtenMsg = writtenBuilder.substring(0, writtenBuilder.length() - 1);
+							writtenMsg = TAINTED_IN + writtenMsg;
+							this.instructions.insert(new LdcInsnNode(writtenMsg));
+						}
+						
+						for (int j = 0; j < dvi.getParamList().size(); j++) {
+							DependentValue inputParam = dvi.getParamList().get(j);
+							if (inputParam.isReference() 
+									&& !ClassInfoUtils.isImmutable(inputParam.getType())) {
+								if (!isStatic && j == 0) {
+									continue ;
+								}
+								
+								if (inputParam.getInSrcs() != null 
+										&& inputParam.getInSrcs().size() > 0) {
+									inputParam.getInSrcs().forEach(check->{
+										this.instructions.insert(check, new LdcInsnNode(INPUT_CHECK_MSG));
+									});
+								}
+							}
+						}
+					} else {
+						logger.warn("Incomplete: " +  className + " " + name + " " + desc);
+						logger.warn("Inst/callee size: " + this.instructions.size() + " " + dvi.calleeNum);
 					}
-				} catch (AnalyzerException e) {
-					e.printStackTrace();
+				} catch (Exception ex) {
+					//ex.printStackTrace();
+					logger.error("Error: ", ex);
 				}
+				
 				super.visitEnd();
 				this.accept(cmv);
 			}

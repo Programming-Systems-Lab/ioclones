@@ -17,7 +17,6 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.FieldInsnNode;
-import org.objectweb.asm.tree.IincInsnNode;
 import org.objectweb.asm.tree.InvokeDynamicInsnNode;
 import org.objectweb.asm.tree.LdcInsnNode;
 import org.objectweb.asm.tree.MethodInsnNode;
@@ -27,7 +26,6 @@ import org.objectweb.asm.tree.analysis.AnalyzerException;
 import org.objectweb.asm.tree.analysis.BasicInterpreter;
 import org.objectweb.asm.tree.analysis.BasicValue;
 
-import edu.columbia.cs.psl.ioclones.pojo.CalleeRecord;
 import edu.columbia.cs.psl.ioclones.pojo.ClassInfo;
 import edu.columbia.cs.psl.ioclones.pojo.MethodInfo;
 import edu.columbia.cs.psl.ioclones.utils.ClassInfoUtils;
@@ -74,6 +72,20 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	
 	protected Map<AbstractInsnNode, DependentValue> singelControls = new HashMap<AbstractInsnNode, DependentValue>();
 	
+	private long startTime = 0L;
+	
+	public long timeLimit = 5000;
+	
+	public boolean giveup = false;
+	
+	public int calleeNum = 0;
+	
+	public Set<AbstractInsnNode> visitedCallees = new HashSet<AbstractInsnNode>();
+	
+	public boolean show = false;
+	
+	public int mergeCounter = 0;
+	
 	public DependentValueInterpreter(Type[] args, 
 			Type retType, 
 			String className, 
@@ -89,6 +101,15 @@ public class DependentValueInterpreter extends BasicInterpreter {
 		this.allTypes = args;
 		this.search = search;
 		this.addMethodDep = addMethodDep;
+		/*if (className.equals("sun/plugin2/applet/Plugin2Manager$AppletExecutionRunnable") 
+				&& methodNameArgs.equals("run-()")) {
+			this.show = true;
+			logger.info("Target method: " + className + " " + methodNameArgs);
+		}*/
+		this.startTime = System.currentTimeMillis();
+		if (this.search) {
+			this.timeLimit = Long.MAX_VALUE;
+		}
 	}
 	
 	public Collection<Integer> queryPropagateValue(DependentValue ref, 
@@ -101,13 +122,16 @@ public class DependentValueInterpreter extends BasicInterpreter {
 		TreeSet<Integer> owners = new TreeSet<Integer>();
 		while (queue.size() > 0) {
 			DependentValue dv = queue.removeFirst();
+			if (visited.contains(dv)) {
+				continue ;
+			}
+			
 			if (dep != null) {
 				dv.addDep(dep);
 			}
 			
 			if (markWritten) {
 				dv.written = true;
-				System.out.println("Written dv: " + dv);
 			}
 			
 			if (this.params.containsKey(dv.id)) {
@@ -153,9 +177,24 @@ public class DependentValueInterpreter extends BasicInterpreter {
 		
 		return -1;
 	}
+	
+	private synchronized void timeCheck() {
+		if (System.currentTimeMillis() - this.startTime > this.timeLimit) {
+			this.giveup = true;
+		}
+	}
+	
+	private synchronized void increCallee() {
+		this.calleeNum++;
+	}
 			
 	@Override
 	public BasicValue newValue(Type type) {
+		this.timeCheck();
+		if (this.giveup) {
+			return super.newValue(type);
+		}
+		
 		if (type == null) {
 			return BasicValue.UNINITIALIZED_VALUE;
 		} else if (type.getSort() == Type.VOID) {
@@ -183,6 +222,10 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	
 	@Override
 	public BasicValue newOperation(final AbstractInsnNode insn) throws AnalyzerException {
+		this.timeCheck();
+		if (this.giveup) {
+			return super.newOperation(insn);
+		}
 		//System.out.println("New op: " + insn);
 		
 		switch (insn.getOpcode()) {
@@ -264,6 +307,10 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	
 	@Override
 	public BasicValue copyOperation(AbstractInsnNode insn, BasicValue value) throws AnalyzerException {
+		this.timeCheck();
+		if (this.giveup) {
+			return super.copyOperation(insn, value);
+		}
 		//System.out.println("Copy op: " + insn + " " + value);
 		
 		DependentValue dv = (DependentValue) value;
@@ -285,6 +332,10 @@ public class DependentValueInterpreter extends BasicInterpreter {
 
 	@Override
 	public BasicValue unaryOperation(AbstractInsnNode insn, BasicValue value) throws AnalyzerException {
+		this.timeCheck();
+		if (this.giveup) {
+			return super.unaryOperation(insn, value);
+		}
 		//System.out.println("Unary op: " + insn + " " + value);
 		
 		DependentValue oriVal = null;
@@ -320,9 +371,6 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	        case ARRAYLENGTH:
 	            //return BasicValue.INT_VALUE;
 	        	oriVal = (DependentValue) value;
-	        	if (this.convertMap.containsKey(oriVal.id)) {
-	        		return this.convertMap.get(oriVal.id);
-	        	}
 	        	
 	            ret = (DependentValue) newValue(Type.INT_TYPE);
 	            ret.addOwner(oriVal);
@@ -332,7 +380,6 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	            	ret.addInSrc(insn);
 	            }
 	            
-	            this.convertMap.put(oriVal.id, ret);
 	            return ret;
 	        case FNEG:
 	        case I2F:
@@ -414,7 +461,10 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				DependentValue checked = (DependentValue) value;
 				return checked;
 			case INSTANCEOF:
-				DependentValue instanceVal = (DependentValue) value;
+				//DependentValue instanceVal = (DependentValue) value;
+				DependentValue objRef = (DependentValue) value;
+				DependentValue instanceVal = (DependentValue) newValue(Type.INT_TYPE);
+				instanceVal.addDep(objRef);
 				return instanceVal;
 			default:
 				return super.unaryOperation(insn, value);
@@ -423,6 +473,10 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	
 	@Override
 	public BasicValue binaryOperation(final AbstractInsnNode insn, final BasicValue value1, final BasicValue value2) throws AnalyzerException {
+		this.timeCheck();
+		if (this.giveup) {
+			return super.binaryOperation(insn, value1, value2);
+		}
 		//System.out.println("Binary op: " + insn + " " + value1 + " " + value2);
 		
 		DependentValue ret = null;
@@ -594,7 +648,6 @@ public class DependentValueInterpreter extends BasicInterpreter {
 					return null;
 				}
 				
-				System.out.println("PUTFIELD");
 				DependentValue objRef = (DependentValue) value1;
 				DependentValue written = (DependentValue) value2;
 				this.queryPropagateValue(objRef, written, true);
@@ -614,6 +667,10 @@ public class DependentValueInterpreter extends BasicInterpreter {
 			BasicValue val1, 
 			BasicValue val2, 
 			BasicValue val3) throws AnalyzerException {
+		this.timeCheck();
+		if (this.giveup) {
+			return super.ternaryOperation(insn, val1, val2, val3);
+		}
 		//System.out.println("Ternary op: " + insn + " " + val1 + " " + val2 + " " + val3);
 		
 		DependentValue objRef = (DependentValue)val1;
@@ -635,6 +692,17 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	@Override
 	public BasicValue naryOperation(AbstractInsnNode insn,
             List values) throws AnalyzerException {
+		this.increCallee();
+		if ((insn instanceof MethodInsnNode)) {
+			if (!visitedCallees.contains(insn)) {
+				this.visitedCallees.add(insn);
+			}
+		}
+		
+		this.timeCheck();
+		if (this.giveup) {
+			return super.naryOperation(insn, values);
+		}
 		//System.out.println("Nary op: " + insn + " " + values);
 		
 		List<DependentValue> dvs = (List<DependentValue>) values;
@@ -646,7 +714,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 			case INVOKEINTERFACE:
 				MethodInsnNode methodInst = (MethodInsnNode) insn;
 				Type retType = Type.getReturnType(methodInst.desc);
-				
+								
 				DependentValue ret = (DependentValue) newValue(retType);
 				
 				if (methodInst.owner.equals("java/lang/Object") && methodInst.name.equals("<init>")) {
@@ -695,14 +763,15 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				boolean shouldCheck = false;
 				//Do query only in the searching mode
 				for (DependentValue dv: dvs) {
-					if (dv.isReference()) {
+					if (dv.isReference() 
+							&& !ClassInfoUtils.isImmutable(dv.getType())) {
 						shouldCheck = true;
 					}
 					break ;
 				}
 				
-				/*if (this.className.equals("com.sun.javafx.scene.control.skin.SplitPaneSkin") 
-						&& this.methodNameArgs.equals("layoutChildren-(D+D+D+D)")) {
+				/*if (this.className.equals("java.io.Writer") 
+						&& this.methodNameArgs.equals("write-([C)")) {
 					System.out.println("Capture target: " + this.className + " " + this.methodNameArgs);
 					this.detailed = true;
 				}*/
@@ -734,6 +803,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 								boolean[] writers = new boolean[dvs.size()];
 								calleeWritten.forEach((w, deps)->{									
 									DependentValue written = dvs.get(w);
+									written.written = true;
 									writers[w] = true;
 									
 									if (!written.isReference()) {
@@ -778,7 +848,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 						} else {
 							logger.error("Missed class: " + calleeName + " " + methodInst.name + " " + methodInst.desc);
 							logger.error("Current class: " + this.className);
-						}	
+						}
 					}
 				}
 				
@@ -821,6 +891,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	public void returnOperation(AbstractInsnNode insn, 
 			BasicValue value, 
 			BasicValue expected) throws AnalyzerException {
+		this.timeCheck();
 		//System.out.println("Return op: " + insn + " " + value + " " + expected);
 		super.returnOperation(insn, value, expected);
 		//Bind instruction at analyzer
@@ -828,7 +899,17 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	
 	@Override
 	public BasicValue merge(BasicValue v, BasicValue w) {
-		//System.out.println("Merging: " + v + " " + w);
+		this.timeCheck();
+		if (this.giveup) {
+			return super.merge(v, w);
+		}
+		
+		if (this.show) {
+			this.mergeCounter++;
+			//System.out.println("Merging: " + v + " " + w);
+		}
+		
+		
 		if (v == BasicValue.UNINITIALIZED_VALUE 
 				&& w == BasicValue.UNINITIALIZED_VALUE) {
 			return v;
@@ -871,46 +952,37 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				if (v.getType().equals(w.getType())) {
 					Collection<Integer> svOrigins = this.queryPropagateValue(sv, null, false);
 					Collection<Integer> swOrigins = this.queryPropagateValue(sw, null, false);
-					//System.out.println("V: " + sv);
-					//System.out.println("W: " + sw);
+					
 					if (svOrigins.size() > 0 && swOrigins.size() == 0) {
 						sv.addDep(sw);
 						sv.addOwner(sw);
-						if (sv.written) {
+						if (sv.written || sw.written) {
 							this.queryPropagateValue(sv, null, true);
 						}
 						
-						//System.out.println("SV owner: " + sv.getOwners());
+						if (this.show)
+							System.out.println("SV: " + sv);
 						return v;
 					} else if (svOrigins.size() == 0 && swOrigins.size() > 0) {
 						sw.addDep(sv);
 						sw.addOwner(sv);
-						if (sw.written) {
+						if (sv.written || sw.written) {
 							this.queryPropagateValue(sw, null, true);
 						}
 						
-						//System.out.println("SW owner: " + sw.getOwners());
+						if (this.show)
+							System.out.println("SW: " + sw);
 						return w;
 					} else {
-						//System.out.println("SW written: " + sw.written);
-						//System.out.println("SV written: " + sv.written);
-						if (sw.written) {
-							sw.addDep(sv);
-							sw.addOwner(sv);
-							this.queryPropagateValue(sw, null, true);
-							//System.out.println("SW owner: " + sw.getOwners());
-							return w;
-						} else {
-							sv.addDep(sw);
-							sv.addOwner(sw);
-							if (sv.written) {
-								this.queryPropagateValue(sv, null, true);
-							}
-							
-							//System.out.println("SV owner: " + sv.getOwners());
-							return v;
+						sv.addDep(sw);
+						sv.addOwner(sw);
+						if (sv.written || sw.written) {
+							this.queryPropagateValue(sv, null, true);
 						}
 						
+						if (this.show)
+							System.out.println("SV, SW ties: " + sv + " " + sw);
+						return v;
 					}
 				}
 			}
@@ -922,9 +994,15 @@ public class DependentValueInterpreter extends BasicInterpreter {
 			return v;
 		}
 		
-		//System.out.println("Touch merging objects");
-		if(v.getType().getDescriptor().equals("Ljava/lang/Object;"))
+		if (this.show) {
+			System.out.println("Touch merging objects");
+			System.out.println("Check v, w: " + v + " " + w);
+			System.exit(1);
+		}
+		
+		if(v.getType().getDescriptor().equals("Ljava/lang/Object;")) {
 			return v;
+		}
 		
 		BasicValue r = new DependentValue(Type.getType(Object.class));
 		//System.out.println();

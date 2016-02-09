@@ -85,6 +85,8 @@ public class PreAnalyzer {
 				ClassReader analysisReader = new ClassReader(copy);
 				ClassWriter analysisWriter = new ClassWriter(ClassWriter.COMPUTE_MAXS);
 				ClassVisitor cv = new ClassVisitor(Opcodes.ASM5, analysisWriter) {
+					String internalClassName;
+					
 					String className;
 					
 					String superName;
@@ -100,6 +102,7 @@ public class PreAnalyzer {
 							String[] interfaces) {
 						super.visit(version, access, name, signature, superName, interfaces);
 						
+						this.internalClassName = name;
 						this.className = ClassInfoUtils.cleanType(name);
 						//logger.info("Name: " + this.className);
 						ori.add(this.className);
@@ -158,7 +161,7 @@ public class PreAnalyzer {
 						} else {
 							WriterExplorer we = new WriterExplorer(mv, 
 									access, 
-									this.className, 
+									this.internalClassName, 
 									name, 
 									desc, 
 									signature, 
@@ -196,6 +199,7 @@ public class PreAnalyzer {
 				ClassReader cr = new ClassReader(copy);
 				ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS);
 				ClassVisitor cv = new ClassVisitor(Opcodes.ASM5, cw) {
+					String internalClassName;
 					
 					String className;
 					
@@ -209,6 +213,7 @@ public class PreAnalyzer {
 							String superName, 
 							String[] interfaces) {
 						super.visit(version, access, name, signature, superName, interfaces);
+						this.internalClassName = name;
 						this.className = ClassInfoUtils.cleanType(name);
 						this.classInfo = GlobalInfoRecorder.queryClassInfo(this.className);
 					}
@@ -241,7 +246,7 @@ public class PreAnalyzer {
 							
 							WriterExplorer we = new WriterExplorer(mv, 
 									access, 
-									this.className, 
+									this.internalClassName, 
 									name, 
 									desc, 
 									signature, 
@@ -323,7 +328,7 @@ public class PreAnalyzer {
 						ownerClass.addMethodInfo(methodNameArgs, info);
 					}
 					
-					if (info.leaf) {
+					if (info.leaf || info.undetermined) {
 						return ;
 					}
 					
@@ -343,81 +348,94 @@ public class PreAnalyzer {
 							search, 
 							false);
 					
+					StringBuilder giveupReport = new StringBuilder();
 					Analyzer a = new Analyzer(dvi);
 					try {
 						//Analyze callee here
-						boolean show = false;
-						/*if (ownerClass.getClassName().equals("javax.naming.ldap.LdapName") 
-								&& methodNameArgs.equals("compareTo-(java.lang.Object)")) {
-							System.out.println("Owner calss: " + ownerClass.getClassName() + " " + methodNameArgs);
-							show = true;
-						}*/
-						
 						Frame[] fr = a.analyze(className, this);
-						Map<Integer, TreeSet<Integer>> iterWritten = new HashMap<Integer, TreeSet<Integer>>();
-						for (int j = 0; j < dvi.getParamList().size(); j++) {
-							DependentValue val = dvi.getParamList().get(j);
-							if (val.written) {								
-								LinkedList<DependentValue> deps = val.tag();
-								if (deps.size() > 0) {
-									deps.removeFirst();
-									
-									if (!iterWritten.containsKey(j)) {
-										TreeSet<Integer> depParams = new TreeSet<Integer>();
-										iterWritten.put(j, depParams);
-									}
-									
-									//Don't add dependency here, just mark the written val
-									/*for (DependentValue dep: deps) {
-										int checkParamId = dvi.checkValueOrigin(dep, false);
-										if (checkParamId != - 1 && checkParamId != j) {
-											iterWritten.get(j).add(checkParamId);
+						
+						if (!dvi.giveup) {
+							boolean show = false;
+							/*if (ownerClass.getClassName().equals("sun.plugin2.applet.Plugin2Manager$AppletExecutionRunnable") 
+									&& methodNameArgs.equals("run-()")) {
+								System.out.println("Owner calss: " + ownerClass.getClassName() + " " + methodNameArgs);
+								show = true;
+								System.out.println("Inst/callee count: " + this.instructions.size() + " " + dvi.calleeNum);
+							}*/
+							
+							Map<Integer, TreeSet<Integer>> iterWritten = new HashMap<Integer, TreeSet<Integer>>();
+							for (int j = 0; j < dvi.getParamList().size(); j++) {
+								DependentValue val = dvi.getParamList().get(j);
+								if (val.written) {								
+									LinkedList<DependentValue> deps = val.tag();
+									if (deps.size() > 0) {
+										deps.removeFirst();
+										
+										if (!iterWritten.containsKey(j)) {
+											TreeSet<Integer> depParams = new TreeSet<Integer>();
+											iterWritten.put(j, depParams);
 										}
-									}*/
-									
-									if (show) {
-										System.out.println("Written val: " + val);
-										System.out.println("Deps: " + deps);
-										System.out.println("Iter writtens: " + iterWritten);
+										
+										//Don't add dependency here, just mark the written val
+										/*for (DependentValue dep: deps) {
+											int checkParamId = dvi.checkValueOrigin(dep, false);
+											if (checkParamId != - 1 && checkParamId != j) {
+												iterWritten.get(j).add(checkParamId);
+											}
+										}*/
+										
+										if (show) {
+											System.out.println("Written val: " + val);
+											System.out.println("Deps: " + deps);
+											System.out.println("Iter writtens: " + iterWritten);
+										}
 									}
 								}
 							}
-						}
-						
-						if (info.getWrittenParams() == null) {
-							//Initialization phase
-							info.setWrittenParams(iterWritten);
+							
+							if (info.getWrittenParams() == null) {
+								//Initialization phase
+								info.setWrittenParams(iterWritten);
+								
+								if (show) {
+									System.out.println("----initial push: " + iterWritten);
+								}
+								
+								if (!dvi.hasCallees) {
+									info.leaf = true;
+								}
+								
+								return ;
+							}
 							
 							if (show) {
-								System.out.println("----initial push: " + iterWritten);
+								System.out.println("----Special check (last): " + info.getWrittenParams());
+								System.out.println("(now): " + iterWritten);
 							}
 							
-							if (!dvi.hasCallees) {
-								info.leaf = true;
+							if (!info.getWrittenParams().equals(iterWritten)) {
+								if (reportChange) {
+									logger.info("Changed: " + ownerClass.getClassName() + " " + methodNameArgs);
+									logger.info("Last: " + info.getWrittenParams());
+									logger.info("Now: " + iterWritten);
+								}
+								ClassInfoUtils.unionMap(iterWritten, info.getWrittenParams());
+								
+								if (show) {
+									System.out.println("After merging: " + info.getWrittenParams());
+								}
+								
+								GlobalInfoRecorder.increChangeCounter();
+								//info.setWrittenParams(iterWritten);
 							}
-							
-							return ;
-						}
-						
-						if (show) {
-							System.out.println("----Special check (last): " + info.getWrittenParams());
-							System.out.println("(now): " + iterWritten);
-						}
-						
-						if (!info.getWrittenParams().equals(iterWritten)) {
-							if (reportChange) {
-								logger.info("Changed: " + ownerClass.getClassName() + " " + methodNameArgs);
-								logger.info("Last: " + info.getWrittenParams());
-								logger.info("Now: " + iterWritten);
-							}
-							ClassInfoUtils.unionMap(iterWritten, info.getWrittenParams());
-							
-							if (show) {
-								System.out.println("After merging: " + info.getWrittenParams());
-							}
-							
-							GlobalInfoRecorder.increChangeCounter();
-							//info.setWrittenParams(iterWritten);
+						} else {
+							logger.warn("Timeout for: " + className + " " + methodNameArgs);
+							logger.warn("Inst/call size: " + this.instructions.size() + " " + dvi.calleeNum);
+							logger.warn("Actual size: " + dvi.visitedCallees.size());
+							Map<Integer, TreeSet<Integer>> emptyWritten = new HashMap<Integer, TreeSet<Integer>>();
+							info.setWrittenParams(emptyWritten);
+							info.undetermined = true;
+							//giveupReport.append(className + "," + methodNameArgs + "," + this.instructions.size() + "," + dvi.calleeNum);
 						}
 					} catch (Exception ex) {
 						logger.info("Error: ", ex);

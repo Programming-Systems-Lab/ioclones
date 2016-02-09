@@ -17,6 +17,8 @@ public class MethodInfo {
 	
 	public transient boolean leaf = false;
 	
+	public boolean undetermined = false;
+	
 	private Map<Integer, TreeSet<Integer>> writtenParams;
 	
 	private int level = -1;

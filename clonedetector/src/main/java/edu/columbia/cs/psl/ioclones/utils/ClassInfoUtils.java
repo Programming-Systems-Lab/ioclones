@@ -424,7 +424,7 @@ public class ClassInfoUtils {
 		if (args.length > 0) {
 			for (int i = 0; i < args.length; i++) {
 				ParamInfo pi = new ParamInfo();
-				Type curType = args[0];
+				Type curType = args[i];
 				pi.paramType = curType;
 				pi.runtimeIdx = curId;
 				paramInfos.add(pi);

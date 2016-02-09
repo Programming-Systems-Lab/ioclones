@@ -98,8 +98,8 @@ public class QueryInterface {
 	
 	public static void main(String[] args) {
 		try {
-			String className = "java.io.ObjectInputStream";
-			String methodName = "readObject-()";
+			String className = "java.io.Writer";
+			String methodName = "write-([C)";
 			
 			Class.forName("org.sqlite.JDBC");
 			String dbpath = "jdbc:sqlite:" + IODriver.profileDir + "/methodeps.db";

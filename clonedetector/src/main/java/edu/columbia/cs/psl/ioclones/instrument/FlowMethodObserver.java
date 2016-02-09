@@ -745,10 +745,12 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 					VALUE_OF, 
 					"(I)Ljava/lang/Integer;", 
 					false);
+			this.convertToInst(var);
+			this.mv.visitInsn(ICONST_0);
 			this.mv.visitMethodInsn(INVOKEVIRTUAL, 
 					Type.getInternalName(IORecord.class), 
-					"registerPrimitiveInput", 
-					"(Ljava/lang/Object;I)V", 
+					"registerInput", 
+					"(Ljava/lang/Object;IZ)V", 
 					false);
 		}
 		
@@ -802,7 +804,9 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 	}
 	
 	private void convertToInst(int num) {
-		if (num == 1) {
+		if (num == 0) {
+			this.mv.visitInsn(Opcodes.ICONST_0);
+		} else if (num == 1) {
 			this.mv.visitInsn(Opcodes.ICONST_1);
 		} else if (num == 2) {
 			this.mv.visitInsn(Opcodes.ICONST_2);
