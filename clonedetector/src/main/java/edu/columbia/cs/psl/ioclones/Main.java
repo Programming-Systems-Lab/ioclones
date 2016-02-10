@@ -88,7 +88,15 @@ public class Main {
 				} else if (isSynthetic || isNative || isInterface || isAbstract) {
 					return mv;
 				} else {
-					mv = new DependencyAnalyzer(className, access, name, desc, signature, exceptions, mv, true);
+					mv = new DependencyAnalyzer(className, 
+							access, 
+							name, 
+							desc, 
+							signature, 
+							exceptions, 
+							mv, 
+							true, 
+							true);
 					//mv = new CalleeAnalyzer(className, access, name, desc, signature, exceptions, mv, true);
 					return mv;
 				}

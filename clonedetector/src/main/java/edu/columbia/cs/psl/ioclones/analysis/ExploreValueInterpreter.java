@@ -26,7 +26,7 @@ public class ExploreValueInterpreter extends DependentValueInterpreter {
 	private static final Logger logger = LogManager.getLogger(ExploreValueInterpreter.class);
 	
 	public ExploreValueInterpreter(Type[] args, Type retType) {
-		super(args, retType, null, null, true, false);
+		super(args, retType, null, null, true, false, false);
 	}
 	
 	@Override

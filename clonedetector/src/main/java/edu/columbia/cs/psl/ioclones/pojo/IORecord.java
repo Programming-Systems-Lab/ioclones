@@ -62,10 +62,10 @@ public class IORecord {
 			this.preload.put(0, null);
 		}
 		
-		if (this.methodKey.equals("R5P1Y11.uwi.A-<init>-(java.util.Scanner+java.io.PrintWriter)")) {
+		/*if (this.methodKey.equals("R5P1Y11.uwi.A-<init>-(java.util.Scanner+java.io.PrintWriter)")) {
 			this.show = true;
 			System.out.println("IO: " + this.id);
-		}
+		}*/
 	}
 	
 	public String getMethodKey() {
@@ -240,8 +240,9 @@ public class IORecord {
 		}
 		
 		if (insert == null) {
-			logger.warn("Null new obj: " + insert);
-			logger.warn("Original obj: " + o);
+			//The filter will filter out PrintWriter, Scanner, Reader, Writer in BlackConverter
+			//logger.warn("Null new obj: " + insert);
+			//logger.warn("Original obj: " + o);
 			return ;
 		}
 		

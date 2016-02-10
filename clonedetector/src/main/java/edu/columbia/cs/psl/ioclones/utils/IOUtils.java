@@ -30,6 +30,7 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Scanner;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.zip.ZipEntry;
@@ -294,8 +295,8 @@ public class IOUtils {
 		try {
 			XStream xstream = getXStream();
 			String objString = xstream.toXML(obj);
-			logger.info("obj: " + obj);
-			logger.info("objString: " + objString);
+			//logger.info("obj: " + obj);
+			//logger.info("objString: " + objString);
 			/*if (obj.getClass().isArray()) {
 				System.out.println(Array.getLength(obj));
 			}*/
@@ -929,8 +930,12 @@ public class IOUtils {
 	}
 	
 	public static void main(String[] args) {
-		loadMethodIODeps("methodeps");
-		System.out.println("Loaded class info: " + GlobalInfoRecorder.getClassInfo().size());
+		//loadMethodIODeps("methodeps");
+		//System.out.println("Loaded class info: " + GlobalInfoRecorder.getClassInfo().size());
+		Scanner scanner = new Scanner(System.in);
+		XStream xstream = new XStream();
+		System.out.println("Original: " + scanner);
+		System.out.println("Obj string: " + xstream.toXML(scanner));
 	}
 	
 	/*public static void main(String[] args) throws Exception {

@@ -49,6 +49,8 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	private boolean search = false;
 	
 	private boolean addMethodDep = false;
+	
+	private boolean trackStatic = false;
 		
 	protected Type[] allTypes;
 	
@@ -91,7 +93,8 @@ public class DependentValueInterpreter extends BasicInterpreter {
 			String className, 
 			String methodNameArgs, 
 			boolean search, 
-			boolean addMethodDep) {
+			boolean addMethodDep, 
+			boolean trackStatic) {
 		if (retType.getSort() == Type.VOID) {
 			this.initParams = true;
 		}
@@ -101,6 +104,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 		this.allTypes = args;
 		this.search = search;
 		this.addMethodDep = addMethodDep;
+		this.trackStatic = trackStatic;
 		/*if (className.equals("sun/plugin2/applet/Plugin2Manager$AppletExecutionRunnable") 
 				&& methodNameArgs.equals("run-()")) {
 			this.show = true;
@@ -138,6 +142,12 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				int ownerId = this.queryInputParamIndex(dv.id);
 				owners.add(ownerId);
 			}
+			
+			if (this.trackStatic 
+					&& this.classMemberPool.contains(dv.id)) {
+				owners.add(CLASSMEMBER_REP);
+			}
+			
 			visited.add(dv);
 			
 			if (dv.getOwners() != null) {
@@ -288,11 +298,15 @@ public class DependentValueInterpreter extends BasicInterpreter {
 				return BasicValue.RETURNADDRESS_VALUE;
 			case GETSTATIC:
 				DependentValue ret = new DependentValue(Type.getType(((FieldInsnNode) insn).desc));
-				//ret.src = insn;
-				ret.addInSrc(insn);
-				if (ret.isReference()) {
-					this.classMemberPool.add(ret.id);
+				
+				if (this.trackStatic) {
+					ret.addInSrc(insn);
+					if (ret.isReference() 
+							&& !ClassInfoUtils.isImmutable(ret.getType())) {
+						this.classMemberPool.add(ret.id);
+					}
 				}
+				
 				//return newValue(Type.getType(((FieldInsnNode) insn).desc));
 				return ret;
 			case NEW:

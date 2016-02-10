@@ -102,7 +102,15 @@ public class FlowCloneTransformer implements ClassFileTransformer {
 					} else if (name.equals("hashCode") && desc.equals("()I")) {
 						return mv;
 					} else {
-						mv = new DependencyAnalyzer(this.className, access, name, desc, signature, exceptions, mv, false);
+						mv = new DependencyAnalyzer(this.className, 
+								access, 
+								name, 
+								desc, 
+								signature, 
+								exceptions, 
+								mv, 
+								true, 
+								false);
 						return mv;
 					}
 				}

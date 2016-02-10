@@ -38,6 +38,8 @@ public class DependencyAnalyzer extends MethodVisitor {
 	
 	public static final String TAINTED_IN = "__$$COLUMBIA_IO_TAINT@";
 	
+	public static final String TAINTED_STATIC = "__$$COLUMBIA_IO_TAINTSTATIC";
+	
 	public static final String INPUT_CHECK_MSG = "__$$COLUMBIA_IO_CHECK";
 	
 	public static final String INPUT_MSG = "__$$COLUMBIA_IO_INPUT";
@@ -55,6 +57,7 @@ public class DependencyAnalyzer extends MethodVisitor {
 			String signature, 
 			String[] exceptions, 
 			final MethodVisitor cmv, 
+			boolean trackStatic, 
 			boolean debug) {
 		
 		super(Opcodes.ASM5, 
@@ -83,7 +86,8 @@ public class DependencyAnalyzer extends MethodVisitor {
 						className, 
 						methodNameArgs, 
 						true, 
-						true);
+						true, 
+						trackStatic);
 				
 				Analyzer a = new Analyzer(dvi);
 				try {
@@ -109,6 +113,10 @@ public class DependencyAnalyzer extends MethodVisitor {
 							}
 						}
 						
+						//Only for written static...
+						Map<DependentValue, LinkedList<DependentValue>> writtenStatics = 
+								new HashMap<DependentValue, LinkedList<DependentValue>>();
+						
 						Map<DependentValue, LinkedList<DependentValue>> ios = 
 								new HashMap<DependentValue, LinkedList<DependentValue>>();
 						AbstractInsnNode insn = this.instructions.getFirst();
@@ -118,33 +126,46 @@ public class DependencyAnalyzer extends MethodVisitor {
 							Frame fn = fr[i];
 							if(fn != null) {					
 								//does this insn create output?
-								switch(insn.getOpcode()) {
-									//The outputs are values exit after the method ends
-									//Include return value and values written to input objs
-									case Opcodes.IRETURN:
-									case Opcodes.LRETURN:
-									case Opcodes.FRETURN:
-									case Opcodes.DRETURN:
-									case Opcodes.ARETURN:
-									case Opcodes.PUTSTATIC:
-										//What are we returning?
-										DependentValue retVal = (DependentValue)fn.getStack(fn.getStackSize() - 1);
-										if (!writtenParams.containsKey(retVal.id)) {
-											LinkedList<DependentValue> toOutput = retVal.tag();
-											retVal.addOutSink(insn);
-											
-											//The first will be the ret itself
-											if (toOutput.size() > 0) {
-												toOutput.removeFirst();
-												ios.put(retVal, toOutput);
-											} else {
-												//This means that this output has been analyzed before (merge)
-												logger.warn("Visited val: " + retVal);
-												logger.warn("Corresponding inst: " + insn);
-											}
-										}
+								int opcode = insn.getOpcode();
+								if (opcode >= Opcodes.IRETURN && opcode <= Opcodes.ARETURN) {
+									//What are we returning?
+									DependentValue retVal = (DependentValue)fn.getStack(fn.getStackSize() - 1);
+									if (!writtenParams.containsKey(retVal.id)) {
+										LinkedList<DependentValue> toOutput = retVal.tag();
+										retVal.addOutSink(insn);
 										
-										break;
+										//The first will be the ret itself
+										if (toOutput.size() > 0) {
+											toOutput.removeFirst();
+											ios.put(retVal, toOutput);
+										} else {
+											//This means that this output has been analyzed before (merge)
+											logger.warn("Visited val: " + retVal);
+											logger.warn("Corresponding inst: " + insn);
+										}
+									}
+								} else if (trackStatic && opcode == Opcodes.PUTSTATIC) {
+									DependentValue retVal = (DependentValue)fn.getStack(fn.getStackSize() - 1);
+									if (!writtenParams.containsKey(retVal.id)) {
+										LinkedList<DependentValue> toOutput = retVal.tag();
+										retVal.addOutSink(insn);
+										
+										//The first will be the ret itself
+										if (toOutput.size() > 0) {
+											toOutput.removeFirst();
+											
+											if (retVal.isReference() 
+													&& !ClassInfoUtils.isImmutable(retVal.getType())) {
+												writtenStatics.put(retVal, toOutput);
+											} else {
+												ios.put(retVal, toOutput);
+											}
+										} else {
+											//This means that this output has been analyzed before (merge)
+											logger.warn("Visited val for static: " + retVal);
+											logger.warn("Corresponding inst: " + insn);
+										}
+									}
 								}
 							}
 							i++;
@@ -223,6 +244,31 @@ public class DependencyAnalyzer extends MethodVisitor {
 							String writtenMsg = writtenBuilder.substring(0, writtenBuilder.length() - 1);
 							writtenMsg = TAINTED_IN + writtenMsg;
 							this.instructions.insert(new LdcInsnNode(writtenMsg));
+						}
+						
+						if (trackStatic) {
+							for (DependentValue wStatic: writtenStatics.keySet()) {
+								LinkedList<DependentValue> sDeps = writtenStatics.get(wStatic);
+								
+								wStatic.getOutSinks().forEach(sSink->{
+									this.instructions.insertBefore(sSink, new LdcInsnNode(TAINTED_STATIC));
+								});
+								
+								if (sDeps != null) {
+									for (DependentValue sDep: sDeps) {
+										if (sDep.getInSrcs() == null || sDep.getInSrcs().size() == 0) {
+											continue ;
+										}
+										
+										sDep.getInSrcs().forEach(sIn->{
+											if (!visitedInInsns.contains(sIn)) {
+												this.instructions.insertBefore(sIn, new LdcInsnNode(INPUT_MSG));
+												visitedInInsns.add(sIn);
+											}
+										});
+									}
+								}
+							}
 						}
 						
 						for (int j = 0; j < dvi.getParamList().size(); j++) {
