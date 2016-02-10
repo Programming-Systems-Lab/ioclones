@@ -9,6 +9,7 @@ import java.sql.Connection;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -29,6 +30,7 @@ import org.apache.logging.log4j.Logger;
 
 import edu.columbia.cs.psl.ioclones.pojo.IORecord;
 import edu.columbia.cs.psl.ioclones.sim.AbstractSim;
+import edu.columbia.cs.psl.ioclones.sim.AbstractSim.DHSComparator;
 import edu.columbia.cs.psl.ioclones.sim.NoOrderAnalyzer;
 import edu.columbia.cs.psl.ioclones.sim.SimAnalyzer;
 import edu.columbia.cs.psl.ioclones.utils.IOUtils;
@@ -58,6 +60,7 @@ public class SimAnalysisDriver {
 		options.addOption("db", true, "DB URL");
 		options.addOption("user", true, "DB Username");
 		options.addOption("pw", true, "DB Password");
+		options.addOption("lenFilter",false, "Length filter");
 		
 		options.getOption("cb").setRequired(true);
 		options.getOption("io").setRequired(true);
@@ -128,9 +131,17 @@ public class SimAnalysisDriver {
 		for (File iorepoFile: iorepoFiles) {
 			sb.append(iorepoFile.getAbsolutePath() + " ");
 		}
+		
+		boolean lenFilter = false;
+		if (cmd.hasOption("lenFilter")) {
+			lenFilter = true;
+		}
+		AbstractSim.lenFilter = lenFilter;
+		
 		logger.info("IO Repos: " + sb.toString());
 		logger.info("XML alg: " + AbstractSim.XML_ALG);
 		logger.info("Exhaustive mode: " + exhaustive);
+		logger.info("Length filter: " + lenFilter);
 		logger.info("Export name: " + exportName);
 		
 		String db = null;
@@ -367,20 +378,26 @@ public class SimAnalysisDriver {
 				IOSim simObj = simF.get();
 				if (simObj != null) {
 					String key = simObj.methodKeys;
+					boolean show = false;
 					if (toExport.containsKey(key)) {
 						IOSim curSim = toExport.get(key);
 						if ((simObj.sim - curSim.sim) > SimAnalyzer.TOLERANCE) {
 							toExport.put(key, simObj);
+							show = true;
 						}
 					} else {
 						toExport.put(key, simObj);
 						cloneCounter++;
+						show = true;
 					}
-					logger.info("Comp. key: " + simObj.methodKeys);
-					logger.info("Mehtod keys: " + simObj.methodIds);
-					logger.info("Best sim.: " + simObj.sim);
-					logger.info("Input sim.:" + simObj.inSim);
-					logger.info("Output sim: " + simObj.outSim);
+					
+					if (show) {
+						logger.info("Comp. key: " + simObj.methodKeys);
+						logger.info("Mehtod keys: " + simObj.methodIds);
+						logger.info("Best sim.: " + simObj.sim);
+						logger.info("Input sim.:" + simObj.inSim);
+						logger.info("Output sim: " + simObj.outSim);
+					}
 				}
 			} catch (Exception ex) {
 				logger.error("Error: ", ex);
@@ -457,14 +474,6 @@ public class SimAnalysisDriver {
 		
 		private IORecord test;
 		
-		public void setControl(IORecord control) {
-			this.control = control;
-		}
-		
-		public void setTest(IORecord test) {
-			this.test = test;
-		}
-		
 		public void setInvokeId(int invokeId) {
 			this.invokeId = invokeId;
 		}
@@ -476,22 +485,64 @@ public class SimAnalysisDriver {
 				logger.info("Invoking #" + this.invokeId);
 			}
 			
-			long beforeMem = Runtime.getRuntime().freeMemory();
+			//Compute the best sim here, try to filter out unnecessary computation
+			List<Object> controlIn = control.sortedInputs;
+			List<Object> controlOut = control.sortedOutputs;
+			
+			List<Object> testIn = test.sortedInputs;
+			List<Object> testOut = test.sortedOutputs;
+			
+			int maxIn, minIn;
+			maxIn = minIn = 0;
+			if (controlIn == null || testIn == null) {
+				maxIn = 0;
+				minIn = 0;
+			} else {
+				maxIn = Math.max(controlIn.size(), testIn.size());
+				minIn = Math.min(controlIn.size(), testIn.size());
+			}
+			
+			double bestIn = -1.0;
+			if (maxIn == 0) {
+				bestIn = 0;
+			} else {
+				bestIn = ((double)minIn)/maxIn;
+			}
+			
+			int maxOut, minOut;
+			maxOut = minOut = 0;
+			if (controlOut == null || testOut == null) {
+				maxOut = 0;
+				minOut = 0;
+			} else {
+				maxOut = Math.max(controlOut.size(), testOut.size());
+				minOut = Math.min(controlOut.size(), testOut.size());
+			}
+			
+			double bestOut = -1;
+			if (maxOut == 0) {
+				bestOut = 0;
+			} else {
+				bestOut = ((double)minOut)/maxOut;
+			}
+			
+			double bestSim = AbstractSim.linear.correlation(bestIn, bestOut);
+			if (Double.compare(bestSim, simThresh) < 0) {
+				return null;
+			}
 			
 			IOSim simObj = new IOSim(this.control, this.test);
-			SimAnalyzer analyzer = new NoOrderAnalyzer();
+			NoOrderAnalyzer analyzer = new NoOrderAnalyzer();
 			
-			double inSim = analyzer.similarity(this.control.getInputs(), this.test.getInputs());
-			long afterIn = Runtime.getRuntime().freeMemory();
+			double inSim = analyzer.similarity(controlIn, testIn);
+			double outSim = analyzer.similarity(controlOut, testOut);
+			//double sim = AbstractSim.expo.correlation(inSim, outSim);
+			double sim = AbstractSim.linear.correlation(inSim, outSim);
 			
-			double outSim = analyzer.similarity(this.control.getOutputs(), this.test.getOutputs());
-			long afterOut = Runtime.getRuntime().freeMemory();
-			double sim = AbstractSim.expo.correlation(inSim, outSim);
+			//long afterMem = Runtime.getRuntime().freeMemory();
+			//double memDiff = ((double)(afterMem - beforeMem))/Math.pow(10, 6);
 			
-			long afterMem = Runtime.getRuntime().freeMemory();
-			double memDiff = ((double)(afterMem - beforeMem))/Math.pow(10, 6);
-			
-			if (memDiff > 1000) {
+			/*if (memDiff > 1000) {
 				logger.info("Large comp: " + this.control.getMethodKey() + " " + this.control.getId() + " " + this.test.getMethodKey() + " " + this.test.getId());
 				logger.info("Mem diff: " + memDiff);
 				logger.info("After in: " + ((double)(afterIn - beforeMem))/Math.pow(10, 6));
@@ -505,24 +556,15 @@ public class SimAnalysisDriver {
 				System.gc();
 				
 				show = true;
-				
-				/*MBeanServer server = ManagementFactory.getPlatformMBeanServer();
-				HotSpotDiagnosticMXBean diagBean = 
-						ManagementFactory.newPlatformMXBeanProxy(server, 
-								"com.sun.management:type=HotSpotDiagnostic", 
-								HotSpotDiagnosticMXBean.class);
-				File heapFile = new File("heap-test.hprof");
-				logger.info("Dumping information: " + heapFile.getAbsolutePath());
-				diagBean.dumpHeap(heapFile.getAbsolutePath(), true);
-				System.exit(-1);*/
-			}
+			}*/
 			
 			if (show) {
 				logger.info("End #" + this.invokeId);
-				logger.info("Used mem: " + memDiff);
+				//logger.info("Used mem: " + memDiff);
 			}
 			
-			if (sim - simThresh > SimAnalyzer.TOLERANCE) {
+			int result = Double.compare(sim, simThresh);
+			if (result >= 0) {
 				simObj.sim = sim;
 				simObj.inSim = inSim;
 				simObj.outSim = outSim;

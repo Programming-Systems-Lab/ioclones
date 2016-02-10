@@ -14,6 +14,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 
+import edu.columbia.cs.psl.ioclones.sim.AbstractSim;
 import edu.columbia.cs.psl.ioclones.sim.NoOrderAnalyzer;
 import edu.columbia.cs.psl.ioclones.utils.GlobalInfoRecorder;
 import edu.columbia.cs.psl.ioclones.utils.IOUtils;
@@ -22,20 +23,20 @@ public class IORecord {
 	
 	private static final Logger logger = LogManager.getLogger(IORecord.class);
 	
-	private Comparator<Object> dhComparator = new Comparator<Object>(){
-		public int compare(Object o1, Object o2) {
-			return o1.hashCode() > o2.hashCode()?1:(o1.hashCode() < o2.hashCode()?-1:0);
-		}
-	};
+	private Comparator<Object> dhComparator = new AbstractSim.DHSComparator();
 	
 	private String methodKey;
 	
 	private int id = -1;
 	
-	private Set<Object> inputs = new HashSet<Object>();
+	private transient Set<Object> inputs = new HashSet<Object>();
 	
-	private Set<Object> outputs = new HashSet<Object>();
+	private transient Set<Object> outputs = new HashSet<Object>();
 	
+	public List<Object> sortedInputs;
+	
+	public List<Object> sortedOutputs;
+		
 	private transient boolean stopRecord = false;
 	
 	public transient Map<Integer, Object> preload = new HashMap<Integer, Object>();
@@ -45,6 +46,8 @@ public class IORecord {
 	public transient HashSet<Object> blackObject = new HashSet<Object>();
 	
 	public transient boolean isInput = true;
+	
+	public transient boolean show = false;
 	
 	public IORecord(String methodKey, boolean isStatic) {
 		this.methodKey = methodKey;
@@ -58,7 +61,11 @@ public class IORecord {
 			//Instance method's this will never change...
 			this.preload.put(0, null);
 		}
-		//System.out.println("Instantiate io record: " + this.methodKey + " " + this.id);
+		
+		if (this.methodKey.equals("R5P1Y11.uwi.A-<init>-(java.util.Scanner+java.io.PrintWriter)")) {
+			this.show = true;
+			System.out.println("IO: " + this.id);
+		}
 	}
 	
 	public String getMethodKey() {
@@ -74,9 +81,17 @@ public class IORecord {
 			return ;
 		}
 		this.preload.put(paramIdx, o);
+		
+		if (this.show) {
+			System.out.println("Preload: " + this.preload);
+		}
 	}
 	
 	public void queueInWritten(Object o) {
+		if (this.show) {
+			System.out.println("Queue in written: " + o);
+		}
+		
 		if (this.stopRecord) {
 			return ;
 		}
@@ -84,6 +99,10 @@ public class IORecord {
 	}
 	
 	public void summarizeWrittens() {
+		if (this.show) {
+			System.out.println("Summarize writtens");
+		}
+		
 		if (this.stopRecord) {
 			return ;
 		}
@@ -99,6 +118,10 @@ public class IORecord {
 	 * @param test
 	 */
 	public void attemptStopPrimParam(int paramId, Object test) {
+		if (this.show) {
+			System.out.println("Attempt stop prim: " + paramId + " " + test);
+		}
+		
 		if (this.stopRecord) {
 			return ;
 		}
@@ -119,10 +142,18 @@ public class IORecord {
 	}
 	
 	public void blackObject(Object o) {
+		if (this.show) {
+			System.out.println("Black obj: " + o);
+		}
+		
 		this.blackObject.add(o);
 	}
 	
 	public void probeOwner(Object curObject) {
+		if (this.show) {
+			System.out.println("Probe: " + curObject);
+		}
+		
 		if (this.stopRecord) {
 			return ;
 		}
@@ -133,6 +164,10 @@ public class IORecord {
 	}
 		
 	public void registerValueFromInput(Object o, boolean ser) {
+		if (this.show) {
+			System.out.println("Registr val from input: " + o);
+		}
+		
 		if (this.stopRecord) {
 			return ;
 		}
@@ -146,6 +181,10 @@ public class IORecord {
 	}
 	
 	public void registerInput(Object o, int paramId, boolean ser) {
+		if (this.show) {
+			System.out.println("Register input with param: " + o + " " + paramId);
+		}
+		
 		if (this.stopRecord) {
 			return ;
 		}
@@ -156,6 +195,10 @@ public class IORecord {
 	}
 	
 	public void registerInput(Object o, boolean ser) {
+		if (this.show) {
+			System.out.println("Register input: " + o);
+		}
+		
 		if (this.stopRecord) {
 			return ;
 		}
@@ -163,6 +206,11 @@ public class IORecord {
 	}
 		
 	public void registerOutput(Object o, boolean ser) {
+		if (this.show) {
+			System.out.println("Register output: " + o);
+			System.out.println("Ending: " + this.id);
+		}
+		
 		if (this.stopRecord) {
 			return ;
 		}
@@ -170,42 +218,75 @@ public class IORecord {
 	}
 	
 	private void registerObj(Object o, boolean ser, boolean input) {
+		if (this.show) {
+			System.out.println("Register obj: " + input);
+		}
+		
 		if (IOUtils.shouldRemove(o)) {
 			return ;
 		}
 		
-		if (o == null) {
-			ser = false;
+		if (this.show) {
+			System.out.println("Pass removal check");
 		}
+		
+		/*if (o == null) {
+			ser = false;
+		}*/
 		
 		Object insert = o;
 		if (ser) {
 			insert = IOUtils.newObject(o);
 		}
 		
+		if (insert == null) {
+			logger.warn("Null new obj: " + insert);
+			logger.warn("Original obj: " + o);
+			return ;
+		}
+		
+		if (this.show) {
+			System.out.println("New object: " + insert);
+		}
+		
 		Object cleanObj = NoOrderAnalyzer.cleanObject(insert);
+		//Except primitive types including string, others are serialized as xml wrapper
 		if (input) {
 			this.inputs.add(cleanObj);
 		} else {
 			this.outputs.add(cleanObj);
 		}
 	}
+	
+	public void finalizeIOs() {
+		IOUtils.cleanNonSerializables(this.inputs);
+		IOUtils.cleanNonSerializables(this.outputs);
+		
+		List<Object> sortedIn = new ArrayList<Object>(this.inputs);
+		List<Object> sortedOut = new ArrayList<Object>(this.outputs);
+		
+		Collections.sort(sortedIn, this.dhComparator);
+		Collections.sort(sortedOut, this.dhComparator);
+		
+		this.sortedInputs = sortedIn;
+		this.sortedOutputs = sortedOut;
+	}
 				
-	public Collection<Object> getInputs() {
+	/*public Collection<Object> getInputs() {
 		return this.inputs;
 	}
 	
 	public Collection<Object> getOutputs() {
 		return this.outputs;
-	}
+	}*/
 		
 	@Override
 	public String toString() {
 		StringBuilder sb = new StringBuilder();
 		sb.append("Method: " + this.methodKey + "\n");
 		sb.append("ID: " + this.id + "\n");
-		sb.append("Inputs: " + this.inputs + "\n");
-		sb.append("Outputs: " + this.outputs + "\n");
+		sb.append("Inputs: " + this.sortedInputs + "\n");
+		sb.append("Outputs: " + this.sortedOutputs + "\n");
 		return sb.toString();
 	}
 	
@@ -220,43 +301,37 @@ public class IORecord {
 			return false;
 		}
 		
-		/*String tmpInput = IOUtils.fromObj2XML(tmp.getInputs());
-		String thisInput = IOUtils.fromObj2XML(this.inputs);
-		if (!tmpInput.equals(thisInput)) {
-			return false;
-		}*/
-		
-		if (tmp.getInputs().size() != this.inputs.size()) {
+		if (tmp.sortedInputs.size() != this.sortedInputs.size()) {
 			return false;
 		}
 		
-		if (tmp.getOutputs().size() != this.outputs.size()) {
+		if (tmp.sortedOutputs.size() != this.sortedOutputs.size()) {
 			return false;
 		}
 		
-		List<Object> myInput = new ArrayList<Object>(this.inputs);
-		List<Object> tmpInput = new ArrayList<Object>(tmp.getInputs());
-		
-		Collections.sort(myInput, this.dhComparator);
-		Collections.sort(tmpInput, this.dhComparator);
-		
-		for (int i = 0; i < myInput.size(); i++) {
-			Object myObj = myInput.get(i);
-			Object tmpObj = tmpInput.get(i);
+		for (int i = 0; i < this.sortedInputs.size(); i++) {
+			Object myObj = this.sortedInputs.get(i);
+			Object tmpObj = tmp.sortedInputs.get(i);
+			
+			if (myObj == null) {
+				System.out.println("Current method: " + this.methodKey);
+				System.out.println("Something wrong: " + this.sortedInputs);
+				System.out.println(this.inputs);
+			}
 			
 			if (!myObj.equals(tmpObj)) {
 				return false;
 			}
 		}
 		
-		List<Object> myOutput = new ArrayList<Object>(this.outputs);
-		List<Object> tmpOutput = new ArrayList<Object>(tmp.getOutputs());
-		Collections.sort(myOutput, this.dhComparator);
-		Collections.sort(tmpOutput, this.dhComparator);
-		
-		for (int i = 0; i < myOutput.size(); i++) {
-			Object myObj = myOutput.get(i);
-			Object tmpObj = tmpOutput.get(i);
+		for (int i = 0; i < this.sortedOutputs.size(); i++) {
+			Object myObj = this.sortedOutputs.get(i);
+			Object tmpObj = tmp.sortedOutputs.get(i);
+			
+			if (myObj == null) {
+				System.out.println("Something wrong: " + this.sortedOutputs);
+				System.out.println(this.outputs);
+			}
 			
 			if (!myObj.equals(tmpObj)) {
 				return false;
@@ -270,13 +345,13 @@ public class IORecord {
 	public int hashCode() {
 		int result = 17;
 		
-		int inHash = this.inputs.hashCode();		
-		int outHash = this.outputs.hashCode();
+		int inHash = this.sortedInputs.hashCode();		
+		int outHash = this.sortedOutputs.hashCode();
 		
 		//String inputString = IOUtils.fromObj2XML(this.inputs);
 		//String outputString = IOUtils.fromObj2XML(this.outputs);
 		
-		result = 31 * this.methodKey.hashCode();
+		result = 31 * result + this.methodKey.hashCode();
 		result = 31 * result + inHash;
 		result = 31 * result + outHash;
 		return result;

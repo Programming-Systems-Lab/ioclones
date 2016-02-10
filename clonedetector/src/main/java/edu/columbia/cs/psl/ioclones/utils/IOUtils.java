@@ -294,6 +294,8 @@ public class IOUtils {
 		try {
 			XStream xstream = getXStream();
 			String objString = xstream.toXML(obj);
+			logger.info("obj: " + obj);
+			logger.info("objString: " + objString);
 			/*if (obj.getClass().isArray()) {
 				System.out.println(Array.getLength(obj));
 			}*/
@@ -370,7 +372,6 @@ public class IOUtils {
 				continue ;
 			}
 			
-			Class objClass = o.getClass();
 			if (shouldRemove(o)) {
 				it.remove();
 				logger.info("Remove obj: " + o);
@@ -380,7 +381,7 @@ public class IOUtils {
 	
 	public static boolean shouldRemove(Object o) {
 		if (o == null) {
-			return false;
+			return true;
 		}
 		
 		Class objClass = o.getClass();

@@ -84,8 +84,9 @@ public class GlobalInfoRecorder {
 			}
 			
 			recordCounter++;
-			if (io.getInputs().size() == 0 
-					&& io.getOutputs().size() == 0) {
+			io.finalizeIOs();
+			if (io.sortedInputs.size() == 0 
+					&& io.sortedOutputs.size() == 0) {
 				logger.info("Empty io record: " + io.getMethodKey());
 				return ;
 			}
@@ -147,10 +148,7 @@ public class GlobalInfoRecorder {
 					}*/
 					
 					ios.forEach(io->{
-						//logger.info(io);
-						IOUtils.cleanNonSerializables(io.getInputs());
-						IOUtils.cleanNonSerializables(io.getOutputs());
-						
+						//logger.info(io);						
 						//String filePath = classDir.getAbsolutePath() + "/" + methodName + "-" + io.getId() + ".xml";
 						StringBuilder sb = new StringBuilder();
 						sb.append(pkgName + "/");

@@ -53,6 +53,7 @@ public class NoOrderAnalyzer extends AbstractSim {
 			try {
 				Collection<Object> collection = (Collection<Object>) o;
 				Collection<Object> ret = (Collection<Object>) clazz.newInstance();
+				//List<Object> ret = new ArrayList<Object>();
 				collection.forEach(element->{
 					Object clean = cleanObject(element);
 					ret.add(clean);
@@ -90,39 +91,15 @@ public class NoOrderAnalyzer extends AbstractSim {
 	
 	@Override
 	public double similarity(Collection<Object> c1, Collection<Object> c2) {
-		if (c1.size() == 0 && c2.size() == 0) {
-			return 1;
-		}
-		
-		if (c1.size() == 0) {
+		if (c1 == null || c2 == null) {
 			return 0;
 		}
 		
-		if (c2.size() == 0) {
+		if (c1.size() == 0 || c2.size() == 0) {
 			return 0;
 		}
-				
+						
 		return this.compareObject(c1, c2);
-		
-		/*while (it1.hasNext()) {
-			Object o1 = it1.next();
-			
-			while (it2.hasNext()) {
-				Object o2 = it2.next();
-				
-				if (this.compareObject(o1, o2)) {
-					commonSet.add(o1);
-					it2.remove();
-					break ;
-				}
-			}
-		}
-		
-		int intersect = commonSet.size();
-		int union = clean1.size() + clean2.size() - intersect;
-		double jaccard = ((double)intersect)/union;
-		
-		return jaccard;*/
 	}
 	
 	public static void main(String[] args) {
@@ -158,10 +135,10 @@ public class NoOrderAnalyzer extends AbstractSim {
 		System.out.println("T2 size: " + (double)t2Diff/Math.pow(10, 6));
 		
 		long curMem = Runtime.getRuntime().freeMemory();
-		System.out.println("Original input size: " + test.getInputs().size());
+		System.out.println("Original input size: " + test.sortedInputs.size());
 		NoOrderAnalyzer noa = new NoOrderAnalyzer();
-		Set<Object> cleanInputs = NoOrderAnalyzer.cleanCollection(test.getInputs());
-		Set<Object> cleanInput2 = NoOrderAnalyzer.cleanCollection(test2.getInputs());
+		Set<Object> cleanInputs = NoOrderAnalyzer.cleanCollection(test.sortedInputs);
+		Set<Object> cleanInput2 = NoOrderAnalyzer.cleanCollection(test2.sortedInputs);
 		long afterCleanInputs = Runtime.getRuntime().freeMemory();
 		long cleanDiff = afterCleanInputs - curMem;
 		System.out.println("Clean inputs mem: " + (double)cleanDiff/Math.pow(10, 6));

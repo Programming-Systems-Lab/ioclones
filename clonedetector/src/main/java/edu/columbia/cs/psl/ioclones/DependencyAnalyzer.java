@@ -82,8 +82,8 @@ public class DependencyAnalyzer extends MethodVisitor {
 						returnType, 
 						className, 
 						methodNameArgs, 
-						false, 
-						false);
+						true, 
+						true);
 				
 				Analyzer a = new Analyzer(dvi);
 				try {

@@ -770,8 +770,8 @@ public class DependentValueInterpreter extends BasicInterpreter {
 					break ;
 				}
 				
-				/*if (this.className.equals("java.io.Writer") 
-						&& this.methodNameArgs.equals("write-([C)")) {
+				/*if (this.className.equals("mergeSortRec") 
+						&& this.methodNameArgs.equals("mergeSortRec-([I)")) {
 					System.out.println("Capture target: " + this.className + " " + this.methodNameArgs);
 					this.detailed = true;
 				}*/
