@@ -1,7 +1,5 @@
 package edu.columbia.cs.psl.ioclones.pojo;
 
-import com.cedarsoftware.util.DeepEquals;
-
 import edu.columbia.cs.psl.ioclones.utils.DeepHash;
 
 public class XMLWrapper {
@@ -14,8 +12,7 @@ public class XMLWrapper {
 	
 	public XMLWrapper(Object obj) {
 		this.obj = obj;
-		//this.deepHash = DeepHash.deepHash(this.obj);
-		this.deepHash = DeepEquals.deepHashCode(this.obj);
+		this.deepHash = DeepHash.deepHash(this.obj);
 	}
 		
 	@Override

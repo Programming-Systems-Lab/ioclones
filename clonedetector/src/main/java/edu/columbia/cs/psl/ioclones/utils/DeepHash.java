@@ -7,6 +7,7 @@ import com.cedarsoftware.util.ReflectionUtils;
 
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
+import java.math.BigDecimal;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -52,14 +53,30 @@ public class DeepHash {
                 stack.addAll(0, ((Map)obj).values());
                 continue;
             }
-
-            if (obj instanceof Double || obj instanceof Float)
+            
+            if (obj instanceof Double) {
+            	double d = (double) obj;
+            	BigDecimal bd = new BigDecimal(d).setScale(2, BigDecimal.ROUND_HALF_UP);
+            	Double after = new Double(bd.doubleValue());
+            	hash += after.hashCode();
+            	continue ;
+            }
+            
+            if (obj instanceof Float) {
+            	float f = (float) obj;
+            	BigDecimal bd = new BigDecimal(f).setScale(2, BigDecimal.ROUND_HALF_UP);
+            	Float after = new Float(bd.floatValue());
+            	hash += after.hashCode();
+            	hash += after.hashCode();
+            }
+            
+            /*if (obj instanceof Double || obj instanceof Float)
             {
             	// just take the integral value for hashcode
             	// equality tests things more comprehensively
             	stack.add(Math.round(((Number) obj).doubleValue()));
             	continue;
-            }
+            }*/
             
             if (DeepEquals.hasCustomHashCode(obj.getClass()))
             {   // A real hashCode() method exists, call it.

@@ -174,5 +174,9 @@ public class Test {
 		out.flush();
 		out.close();*/
 	}
+	
+	public static class DupProj2 {
+		boolean eof = false;
+	}
 }
 
