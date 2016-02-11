@@ -90,7 +90,8 @@ public class DependencyAnalyzer extends MethodVisitor {
 						methodNameArgs, 
 						true, 
 						true, 
-						trackStatic);
+						trackStatic, 
+						trackWriter);
 				
 				Analyzer a = new Analyzer(dvi);
 				try {

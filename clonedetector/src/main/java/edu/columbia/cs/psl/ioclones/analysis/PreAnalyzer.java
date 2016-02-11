@@ -347,6 +347,7 @@ public class PreAnalyzer {
 							methodNameArgs, 
 							search, 
 							false, 
+							false, 
 							false);
 					
 					StringBuilder giveupReport = new StringBuilder();

@@ -97,7 +97,8 @@ public class DependentValueInterpreter extends BasicInterpreter {
 			String methodNameArgs, 
 			boolean search, 
 			boolean addMethodDep, 
-			boolean trackStatic) {
+			boolean trackStatic, 
+			boolean trackWriter) {
 		if (retType.getSort() == Type.VOID) {
 			this.initParams = true;
 		}
@@ -108,6 +109,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 		this.search = search;
 		this.addMethodDep = addMethodDep;
 		this.trackStatic = trackStatic;
+		this.trackWriter = trackWriter;
 		/*if (className.equals("sun/plugin2/applet/Plugin2Manager$AppletExecutionRunnable") 
 				&& methodNameArgs.equals("run-()")) {
 			this.show = true;
@@ -776,10 +778,12 @@ public class DependentValueInterpreter extends BasicInterpreter {
 					}
 				}
 				
-				String ownerName = ClassInfoUtils.cleanType(methodInst.owner);
-				if (ClassInfoUtils.isWritable(ownerName) && !methodInst.name.equals("<init>")) {
-					//Leave the writer for instrumenter, which is easier
-					return ret;
+				if (this.trackWriter) {
+					String ownerName = ClassInfoUtils.cleanType(methodInst.owner);
+					if (ClassInfoUtils.isWritable(ownerName) && !methodInst.name.equals("<init>")) {
+						//Leave the writer for instrumenter, which is easier
+						return ret;
+					}
 				}
 								
 				//Check if this callee is possible to write inputs

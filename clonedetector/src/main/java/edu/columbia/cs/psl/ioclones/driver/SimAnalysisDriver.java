@@ -31,6 +31,7 @@ import org.apache.logging.log4j.Logger;
 import edu.columbia.cs.psl.ioclones.pojo.IORecord;
 import edu.columbia.cs.psl.ioclones.sim.AbstractSim;
 import edu.columbia.cs.psl.ioclones.sim.AbstractSim.DHSComparator;
+import edu.columbia.cs.psl.ioclones.sim.FastAnalyzer;
 import edu.columbia.cs.psl.ioclones.sim.NoOrderAnalyzer;
 import edu.columbia.cs.psl.ioclones.sim.SimAnalyzer;
 import edu.columbia.cs.psl.ioclones.utils.IOUtils;
@@ -318,7 +319,7 @@ public class SimAnalysisDriver {
 					String testClass = test.getMethodKey().split("-")[0];
 					int testDot = testClass.lastIndexOf(".");
 					String testPkg = testClass.substring(0, testDot);
-					if (controlPkg.equals(testPkg)) {
+					if (controlPkg.toLowerCase().equals(testPkg.toLowerCase())) {
 						continue ;
 					}
 					
@@ -532,7 +533,8 @@ public class SimAnalysisDriver {
 			}
 			
 			IOSim simObj = new IOSim(this.control, this.test);
-			NoOrderAnalyzer analyzer = new NoOrderAnalyzer();
+			//NoOrderAnalyzer analyzer = new NoOrderAnalyzer();
+			FastAnalyzer analyzer = new FastAnalyzer();
 			
 			double inSim = analyzer.similarity(controlIn, testIn);
 			double outSim = analyzer.similarity(controlOut, testOut);

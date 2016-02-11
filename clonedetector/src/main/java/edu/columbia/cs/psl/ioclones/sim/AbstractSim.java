@@ -128,11 +128,7 @@ public abstract class AbstractSim implements SimAnalyzer {
 			//No array, not other collection, since all arrays/collections are converted to list
 			Collection<Object> c1 = (Collection<Object>) o1;
 			Collection<Object> c2 = (Collection<Object>) o2;
-			
-			if (c1.size() == 0 && c2.size() == 0) {
-				return 1.0;
-			}
-			
+						
 			if (c1.size() == 0 || c2.size() == 0) {
 				return 0.0;
 			}
@@ -202,15 +198,13 @@ public abstract class AbstractSim implements SimAnalyzer {
 			double simSum = 0.0;
 			for (Object key1: c1.keySet()) {
 				Object val1 = c1.get(key1);
+				Object val2 = c2.get(key1);
 				
-				for (Object key2: c2.keySet()) {
-					Object val2 = c2.get(key2);
-					simSum += this.compareObject(val1, val2);
-				}
+				simSum += this.compareObject(val1, val2);
 			}
 			
-			double simRank = (CONSTANT * simSum)/(c1.size() * c2.size());
-			return simRank;
+			double sim = simSum/Math.max(c1.size(), c2.size());
+			return sim;
 		} else if ((o1 instanceof XMLWrapper) && (o2 instanceof XMLWrapper)) {
 			XMLWrapper xml1 = (XMLWrapper) o1;
 			XMLWrapper xml2 = (XMLWrapper) o2;
