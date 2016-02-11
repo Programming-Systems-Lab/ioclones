@@ -2,6 +2,8 @@ package edu.columbia.cs.psl.ioclones.utils;
 
 import java.util.*;
 
+import org.objectweb.asm.Type;
+
 import com.google.gson.reflect.TypeToken;
 import com.thoughtworks.xstream.XStream;
 
@@ -164,17 +166,13 @@ public class Test {
 	}
 	
 	public static void main(String[] args) {
-		boolean[] bs = new boolean[2];
-		bs[0] = true;
-		byte[] bytes = new byte[2];
-		bytes[0] = (byte)1;
-		System.out.println("bs: " + bs[0]);
-		System.out.println("bytes: " + bytes[0]);
-		System.out.println(bytes[0] == 1);
-		short[] shorts = new short[2];
-		shorts[0] = 1;
-		char[] chars = new char[2];
-		chars[0] = 'c';
+		/*XStream xstream = new XStream();
+		PrintWriter out = new PrintWriter(System.out);
+		System.out.println("Before: " + xstream.toXML(out));
+		out.printf("%.12f\n", 0.18);
+		System.out.println("After: " + xstream.toXML(out));
+		out.flush();
+		out.close();*/
 	}
 }
 

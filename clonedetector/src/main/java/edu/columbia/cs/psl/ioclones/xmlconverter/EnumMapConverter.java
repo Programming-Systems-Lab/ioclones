@@ -15,7 +15,7 @@ import com.thoughtworks.xstream.io.HierarchicalStreamWriter;
 
 public class EnumMapConverter implements Converter {
 	
-	private final static Logger logger = LogManager.getLogger(EnumMapConverter.class);
+	//private final static Logger logger = LogManager.getLogger(EnumMapConverter.class);
 	
 	private static Map<Class, Map<String, Enum>> enumRecorder = new HashMap<Class, Map<String, Enum>>();
 	
@@ -61,7 +61,7 @@ public class EnumMapConverter implements Converter {
         
         try {
         	if (!enumRecorder.containsKey(type)) {
-        		logger.warn("No enum type from recorder, try enum valueOf: " + type.getName());
+        		//logger.warn("No enum type from recorder, try enum valueOf: " + type.getName());
         		return Enum.valueOf(type, name);
         	} else {
         		return enumRecorder.get(type).get(name);

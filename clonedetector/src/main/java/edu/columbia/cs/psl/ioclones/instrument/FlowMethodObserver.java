@@ -137,6 +137,13 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 			Type paramType = pi.paramType;
 			int paramSort = paramType.getSort();
 			
+			/*if (this.methodKey.equals("R5P1Y13.vot.A-getExp-(I+J)")) {
+				System.out.println("Capture: R5P1Y13.vot.A-getExp-(I+J)");
+				logger.info("Desc id: " + start);
+				logger.info("Runtime id: " + paramId);
+				logger.info("Param type: " + paramType);
+			}*/
+			
 			this.mv.visitVarInsn(Opcodes.ALOAD, this.recordId);
 			this.convertToInst(paramId);
 			
@@ -147,7 +154,7 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 							Type.getInternalName(Integer.class), 
 							VALUE_OF, 
 							"(I)Ljava/lang/Integer;", 
-							false);
+							false);					
 					break ;
 				case Type.SHORT:
 					this.mv.visitVarInsn(Opcodes.ILOAD, paramId);
@@ -474,7 +481,7 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 				
 				this.mv.visitMethodInsn(INVOKEVIRTUAL, 
 						Type.getInternalName(IORecord.class), 
-						"attemptStopParam", 
+						"attemptStopPrimParam", 
 						"(ILjava/lang/Object;)V", 
 						false);
 			}
@@ -769,7 +776,7 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 			this.mv.visitInsn(Opcodes.ACONST_NULL);
 			this.mv.visitMethodInsn(INVOKEVIRTUAL, 
 					Type.getInternalName(IORecord.class), 
-					"attemptStopParam", 
+					"attemptStopPrimParam", 
 					"(ILjava/lang/Object;)V", 
 					false);
 			
@@ -793,6 +800,71 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 	
 	@Override
 	public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
+		if (this.recordOutput) {
+			this.recordOutput = false;
+			
+			Type[] args = Type.getArgumentTypes(desc);
+			WriterFlow[] infos = new WriterFlow[args.length];
+			
+			for (int i = args.length - 1; i >= 0; i--) {
+				Type curType = args[i];
+				int curLocal = this.lvs.newLocal(curType);
+				int curSort = curType.getSort();
+				if (curSort == Type.OBJECT || curSort == Type.ARRAY) {
+					this.mv.visitVarInsn(ASTORE, curLocal);
+				} else if (curSort == Type.FLOAT) {
+					this.mv.visitVarInsn(FSTORE, curLocal);
+				} else if (curSort == Type.LONG) {
+					this.mv.visitVarInsn(LSTORE, curLocal);
+				} else if (curSort == Type.DOUBLE) {
+					this.mv.visitVarInsn(DSTORE, curLocal);
+				} else {
+					this.mv.visitVarInsn(ISTORE, curLocal);
+				}
+				WriterFlow wf = new WriterFlow();
+				wf.newVar = curLocal;
+				wf.dataType = curType;
+				
+				infos[i] = wf;
+			}
+			
+			for (int i = 0; i < infos.length; i++) {
+				WriterFlow wf = infos[i];
+				int sort = wf.dataType.getSort();
+				boolean ser = false;
+				if (sort == Type.OBJECT || sort == Type.ARRAY) {
+					this.mv.visitVarInsn(ALOAD, wf.newVar);
+					ser = this.handleType(wf.dataType);
+				} else if (sort == Type.LONG) {
+					this.mv.visitVarInsn(LLOAD, wf.newVar);
+					ser = this.handleType(wf.dataType);
+				} else if (sort == Type.DOUBLE) {
+					this.mv.visitVarInsn(DLOAD, wf.newVar);
+					ser = this.handleType(wf.dataType);
+				} else if (sort == Type.FLOAT){
+					this.mv.visitVarInsn(FLOAD, wf.newVar);
+					ser = this.handleType(wf.dataType);
+				} else {
+					this.mv.visitVarInsn(ILOAD, wf.newVar);
+					ser = this.handleType(wf.dataType);
+				}
+				
+				this.mv.visitVarInsn(ALOAD, this.recordId);
+				this.mv.visitInsn(SWAP);
+				if (ser) {
+					this.mv.visitInsn(ICONST_1);
+				} else {
+					this.mv.visitInsn(ICONST_0);
+				}
+				
+				this.mv.visitMethodInsn(INVOKEVIRTUAL, 
+						Type.getInternalName(IORecord.class), 
+						"registerOutput", 
+						"(Ljava/lang/Object;Z)V", 
+						false);
+			}
+		}
+		
 		this.mv.visitMethodInsn(opcode, owner, name, desc, itf);
 		if (this.newTypes.size() > 0) {
 			if (name.equals("<init>")) {
@@ -961,5 +1033,11 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 	
 	public static class InputSig {
 		int msg = -1;
+	}
+	
+	public static class WriterFlow {
+		int newVar;
+		
+		Type dataType;
 	}
 }

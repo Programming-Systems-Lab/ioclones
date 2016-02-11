@@ -78,6 +78,7 @@ public class FlowCloneTransformer implements ClassFileTransformer {
 			ClassReader analysisReader = new ClassReader(cw1.toByteArray());
 			ClassWriter analysisWriter = new ClassWriter(ClassWriter.COMPUTE_MAXS);
 			FlowCloneInstrumenter fci = new FlowCloneInstrumenter(new CheckClassAdapter(analysisWriter, false));
+			//FlowCloneInstrumenter fci = new FlowCloneInstrumenter(analysisWriter);
 			ClassVisitor cv = new ClassVisitor(Opcodes.ASM5, fci) {
 				String className;
 
@@ -109,6 +110,7 @@ public class FlowCloneTransformer implements ClassFileTransformer {
 								signature, 
 								exceptions, 
 								mv, 
+								true, 
 								true, 
 								false);
 						return mv;

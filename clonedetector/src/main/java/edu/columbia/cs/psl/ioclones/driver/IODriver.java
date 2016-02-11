@@ -34,7 +34,7 @@ public class IODriver {
 		logger.info("Loading class info");
 		//IOUtils.unzipClassInfo();
 		IOUtils.loadMethodIODeps("cb");
-		
+				
 		String className = args[0];
 		String[] newArgs = new String[args.length - 1];
 		for (int i = 1; i < args.length; i++) {
@@ -44,9 +44,6 @@ public class IODriver {
 		try {
 			logger.info("Executing: " + className);
 			Class targetClass = Class.forName(className);
-			Method mainMethod = targetClass.getMethod("main", String[].class);
-			mainMethod.setAccessible(true);
-			mainMethod.invoke(null, (Object)newArgs);
 			
 			File iorepo = new File(iorepoDir);
 			if (!iorepo.exists()) {
@@ -70,6 +67,10 @@ public class IODriver {
 					ShutdownLogger.finalFlush();
 				}
 			});
+			
+			Method mainMethod = targetClass.getMethod("main", String[].class);
+			mainMethod.setAccessible(true);
+			mainMethod.invoke(null, (Object)newArgs);
 		} catch (Exception ex) {
 			logger.error("Error: ", ex);
 		}

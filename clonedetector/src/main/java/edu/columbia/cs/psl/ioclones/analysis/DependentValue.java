@@ -22,6 +22,8 @@ public class DependentValue extends BasicValue {
 	
 	public transient boolean written = false;
 	
+	public transient boolean flown = false;
+	
 	private HashSet<DependentValue> deps;
 	
 	//public AbstractInsnNode src;

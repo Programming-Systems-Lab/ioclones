@@ -1,5 +1,6 @@
 package edu.columbia.cs.psl.ioclones;
 
+import java.io.Flushable;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -20,6 +21,7 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.LdcInsnNode;
+import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.analysis.Analyzer;
 import org.objectweb.asm.tree.analysis.AnalyzerException;
@@ -58,6 +60,7 @@ public class DependencyAnalyzer extends MethodVisitor {
 			String[] exceptions, 
 			final MethodVisitor cmv, 
 			boolean trackStatic, 
+			boolean trackWriter, 
 			boolean debug) {
 		
 		super(Opcodes.ASM5, 
@@ -113,6 +116,11 @@ public class DependencyAnalyzer extends MethodVisitor {
 							}
 						}
 						
+						//Only for value flows to Flushable & Appendable
+						//Output vals cannot be captured here, do it in instrumenter
+						Map<AbstractInsnNode, LinkedList<DependentValue>> flowToWriters = 
+								new HashMap<AbstractInsnNode, LinkedList<DependentValue>>();
+						
 						//Only for written static...
 						Map<DependentValue, LinkedList<DependentValue>> writtenStatics = 
 								new HashMap<DependentValue, LinkedList<DependentValue>>();
@@ -164,6 +172,32 @@ public class DependencyAnalyzer extends MethodVisitor {
 											//This means that this output has been analyzed before (merge)
 											logger.warn("Visited val for static: " + retVal);
 											logger.warn("Corresponding inst: " + insn);
+										}
+									}
+								} else if (trackWriter && 
+										(opcode == Opcodes.INVOKEVIRTUAL || opcode == Opcodes.INVOKEINTERFACE)) {
+									MethodInsnNode methodInsn = (MethodInsnNode) insn;
+									
+									if (!methodInsn.name.equals("<init>")) {
+										Type[] methodArgs = Type.getArgumentTypes(methodInsn.desc);
+										if (methodArgs.length > 0) {
+											String ownerName = methodInsn.owner.replace("/", ".");
+											boolean writable = ClassInfoUtils.isWritable(ownerName);
+											if (writable) {
+												//logger.info("Capture writable: " + ownerName);
+												int ptr = fn.getStackSize() - 1;
+												int counter = 0;
+												while (counter < methodArgs.length) {
+													DependentValue dv = (DependentValue)fn.getStack(ptr - counter);
+													counter++;
+													
+													LinkedList<DependentValue> deps = dv.tag();
+													if (deps.size() > 0) {
+														deps.removeFirst();
+													}
+													flowToWriters.put(insn, deps);
+												}
+											}
 										}
 									}
 								}
@@ -267,6 +301,26 @@ public class DependencyAnalyzer extends MethodVisitor {
 											}
 										});
 									}
+								}
+							}
+						}
+						
+						if (trackWriter) {
+							for (AbstractInsnNode writeMethod: flowToWriters.keySet()) {
+								this.instructions.insertBefore(writeMethod, new LdcInsnNode(OUTPUT_MSG));
+								
+								LinkedList<DependentValue> fw = flowToWriters.get(writeMethod);
+								for (DependentValue fwd: fw) {
+									if (fwd.getInSrcs() == null || fwd.getInSrcs().size() == 0) {
+										continue ;
+									}
+									
+									fwd.getInSrcs().forEach(fwdIn->{
+										if (visitedInInsns.contains(fwdIn)) {
+											this.instructions.insertBefore(fwdIn, new LdcInsnNode(INPUT_MSG));
+											visitedInInsns.add(fwdIn);
+										}
+									});
 								}
 							}
 						}

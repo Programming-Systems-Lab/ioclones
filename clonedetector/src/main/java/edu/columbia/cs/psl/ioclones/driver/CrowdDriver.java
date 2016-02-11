@@ -70,8 +70,9 @@ public class CrowdDriver {
 			}
 		}
 		
-		int coreNum = Runtime.getRuntime().availableProcessors();
-		logger.info("Processor number: " + coreNum);
+		//int coreNum = Runtime.getRuntime().availableProcessors();
+		//logger.info("Processor number: " + coreNum);
+		int coreNum = 1;
 		ExecutorService executor = Executors.newFixedThreadPool(coreNum);
 		List<Future<Void>> resultList = new ArrayList<Future<Void>>();
 		executables.forEach(c->{
@@ -126,6 +127,7 @@ public class CrowdDriver {
 			commands.add("java");
 			commands.add("-Xmx6g");
 			commands.add("-javaagent:target/CloneDetector-0.0.1-SNAPSHOT.jar");
+			commands.add("-noverify");
 			commands.add("-cp");
 			commands.add("target/CloneDetector-0.0.1-SNAPSHOT.jar:" + this.executePath);
 			commands.add("edu.columbia.cs.psl.ioclones.driver.IODriver");

@@ -71,6 +71,16 @@ public class FlowCloneInstrumenter extends ClassVisitor {
 			
 			List<ParamInfo> paramInfos = ClassInfoUtils.computeMethodArgs(args);
 			
+			/*if (this.className.equals("R5P1Y13.vot.A") && name.equals("getExp")) {
+				System.out.println("Capture: R5P1Y13.vot.A-getExp-(I+J)");
+				for (int i = 0; i < paramInfos.size(); i++) {
+					System.out.println("Desc id: " + i);
+					System.out.println("Runtime id: " + paramInfos.get(i).runtimeIdx);
+					System.out.println("Type: " + paramInfos.get(i).paramType);
+				}
+				System.exit(1);
+			}*/
+			
 			FlowMethodObserver fmo = new FlowMethodObserver(mv, 
 					this.className, 
 					this.superName, 

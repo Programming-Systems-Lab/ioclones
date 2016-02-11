@@ -87,7 +87,7 @@ public class GlobalInfoRecorder {
 			io.finalizeIOs();
 			if (io.sortedInputs.size() == 0 
 					&& io.sortedOutputs.size() == 0) {
-				logger.info("Empty io record: " + io.getMethodKey());
+				//logger.info("Empty io record: " + io.getMethodKey());
 				return ;
 			}
 			

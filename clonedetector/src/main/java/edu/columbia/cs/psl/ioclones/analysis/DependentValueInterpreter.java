@@ -1,5 +1,6 @@
 package edu.columbia.cs.psl.ioclones.analysis;
 
+import java.io.Flushable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -51,6 +52,8 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	private boolean addMethodDep = false;
 	
 	private boolean trackStatic = false;
+	
+	private boolean trackWriter = false;
 		
 	protected Type[] allTypes;
 	
@@ -773,6 +776,12 @@ public class DependentValueInterpreter extends BasicInterpreter {
 					}
 				}
 				
+				String ownerName = ClassInfoUtils.cleanType(methodInst.owner);
+				if (ClassInfoUtils.isWritable(ownerName) && !methodInst.name.equals("<init>")) {
+					//Leave the writer for instrumenter, which is easier
+					return ret;
+				}
+								
 				//Check if this callee is possible to write inputs
 				boolean shouldCheck = false;
 				//Do query only in the searching mode

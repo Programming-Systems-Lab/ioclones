@@ -49,6 +49,8 @@ public class IORecord {
 	
 	public transient boolean show = false;
 	
+	public transient boolean removeShow = false;
+	
 	public IORecord(String methodKey, boolean isStatic) {
 		this.methodKey = methodKey;
 		if (GlobalInfoRecorder.stopRecord(methodKey)) {
@@ -62,8 +64,9 @@ public class IORecord {
 			this.preload.put(0, null);
 		}
 		
-		/*if (this.methodKey.equals("R5P1Y11.uwi.A-<init>-(java.util.Scanner+java.io.PrintWriter)")) {
-			this.show = true;
+		/*if (this.methodKey.equals("R5P1Y13.vot.A-getExp-(I+J)")) {
+			//this.show = true;
+			this.removeShow = true;
 			System.out.println("IO: " + this.id);
 		}*/
 	}
@@ -82,8 +85,8 @@ public class IORecord {
 		}
 		this.preload.put(paramIdx, o);
 		
-		if (this.show) {
-			System.out.println("Preload: " + this.preload);
+		if (this.removeShow) {
+			System.out.println("Preload: " + " "  + paramIdx + " " + this.preload);
 		}
 	}
 	
@@ -118,7 +121,7 @@ public class IORecord {
 	 * @param test
 	 */
 	public void attemptStopPrimParam(int paramId, Object test) {
-		if (this.show) {
+		if (this.removeShow) {
 			System.out.println("Attempt stop prim: " + paramId + " " + test);
 		}
 		
@@ -136,8 +139,18 @@ public class IORecord {
 		}	
 		
 		Object preval = this.preload.get(paramId);
+		if (preval == null) {
+			if (this.removeShow) {
+				logger.info("Already removed: " + this.methodKey + " " + paramId);
+			}
+			return ;
+		}
+		
 		if (!preval.equals(test)) {
 			this.preload.remove(paramId);
+			if (this.removeShow) {
+				System.out.println("Param removed: " + this.methodKey + " " + paramId);
+			}
 		}
 	}
 	

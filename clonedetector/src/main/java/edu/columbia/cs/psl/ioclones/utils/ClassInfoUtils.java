@@ -8,6 +8,7 @@ import java.util.Collection;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -38,6 +39,8 @@ public class ClassInfoUtils {
 	private static final File libDir = new File(System.getProperty("user.home") + "/.m2");
 	
 	private static final Set<Type> immutables = new HashSet<Type>();
+	
+	private static final HashMap<String, Boolean> writableCache = new HashMap<String, Boolean>();
 		
 	static {
 		Type stringType = Type.getType(String.class);
@@ -336,6 +339,40 @@ public class ClassInfoUtils {
 		}
 		
 		return writtenParams;
+	}
+	
+	public static boolean isWritable(String className) {		
+		if (writableCache.containsKey(className)) {
+			return writableCache.get(className);
+		}
+		
+		LinkedList<String> queue = new LinkedList<String>();
+		queue.add(className);
+		//logger.info("Entry class name: " + className);
+		while (queue.size() > 0) {
+			String curName = queue.removeFirst();
+			if (curName.equals("java.io.Writer") || curName.equals("java.io.OutputStream")) {
+				writableCache.put(className, true);
+				return true;
+			}
+			
+			ClassInfo ci = GlobalInfoRecorder.queryClassInfo(curName);
+			/*if (ci == null) {
+				logger.info("No class info: " + curName);
+				System.exit(-1);
+			}*/
+			
+			if (ci.getParent() != null) {
+				queue.add(ci.getParent());
+			}
+			
+			if (ci.getInterfaces().size() > 0) {
+				queue.addAll(ci.getInterfaces());
+			}
+		}
+		
+		writableCache.put(className, false);
+		return false;
 	}
 	
 	public static Map<Integer, TreeSet<Integer>> searchUp(String className, 
