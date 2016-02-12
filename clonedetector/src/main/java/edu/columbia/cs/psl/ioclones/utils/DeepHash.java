@@ -2,6 +2,9 @@ package edu.columbia.cs.psl.ioclones.utils;
 
 import java.util.Set;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import com.cedarsoftware.util.DeepEquals;
 import com.cedarsoftware.util.ReflectionUtils;
 
@@ -14,6 +17,7 @@ import java.util.LinkedList;
 import java.util.Map;
 
 public class DeepHash {
+	private static final Logger logger = LogManager.getLogger(DeepHash.class);
 	
 	public static int deepHash(Object obj) {
 		Set<Object> visited = new HashSet<>();
@@ -56,6 +60,14 @@ public class DeepHash {
             
             if (obj instanceof Double) {
             	double d = (double) obj;
+            	if (Double.isNaN(d)) {
+            		logger.info("Catch nan: " + d);
+            		continue ;
+            	} else if (Double.isInfinite(d)) {
+            		logger.info("Cath infinite: " + d);
+            		d = Double.MAX_VALUE;
+            	}
+            	
             	BigDecimal bd = new BigDecimal(d).setScale(2, BigDecimal.ROUND_HALF_UP);
             	Double after = new Double(bd.doubleValue());
             	hash += after.hashCode();

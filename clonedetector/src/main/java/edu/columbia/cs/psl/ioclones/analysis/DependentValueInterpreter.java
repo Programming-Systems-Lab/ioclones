@@ -968,7 +968,12 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	public BasicValue merge(BasicValue v, BasicValue w) {
 		this.timeCheck();
 		if (this.giveup) {
-			return super.merge(v, w);
+			//return super.merge(v, w);
+			if (w.getSize() > v.getSize()) {
+				return w;
+			} else {
+				return v;
+			}
 		}
 		
 		/*if (this.show) {
@@ -1047,9 +1052,9 @@ public class DependentValueInterpreter extends BasicInterpreter {
 		}
 		
 		if (w.getSize() > v.getSize()) {
-			return new DependentValue(w.getType());
+			return w;
 		} else {
-			return new DependentValue(v.getType());
+			return v;
 		} 
 		
 		/*BasicValue r = new DependentValue(Type.getType(Object.class));
