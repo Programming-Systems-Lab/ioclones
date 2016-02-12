@@ -22,6 +22,8 @@ import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
+import org.objectweb.asm.tree.AbstractInsnNode;
+import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.analysis.Analyzer;
 import org.objectweb.asm.tree.analysis.Frame;
@@ -350,7 +352,6 @@ public class PreAnalyzer {
 							false, 
 							false);
 					
-					StringBuilder giveupReport = new StringBuilder();
 					Analyzer a = new Analyzer(dvi);
 					try {
 						//Analyze callee here
@@ -363,6 +364,13 @@ public class PreAnalyzer {
 								System.out.println("Owner calss: " + ownerClass.getClassName() + " " + methodNameArgs);
 								show = true;
 								System.out.println("Inst/callee count: " + this.instructions.size() + " " + dvi.calleeNum);
+								System.out.println("2282 instruction: " + this.instructions.get(2282).getOpcode());
+								System.out.println("Last instruction: " + this.instructions.get(2281).getOpcode());
+								AbstractInsnNode last = this.instructions.get(2281);
+								if (last instanceof MethodInsnNode) {
+									MethodInsnNode tmp = (MethodInsnNode)last;
+									System.out.println("Got you: " + tmp.owner + " " + tmp.name + " " + tmp.desc);
+								}
 							}*/
 							
 							Map<Integer, TreeSet<Integer>> iterWritten = new HashMap<Integer, TreeSet<Integer>>();
@@ -421,7 +429,8 @@ public class PreAnalyzer {
 									logger.info("Last: " + info.getWrittenParams());
 									logger.info("Now: " + iterWritten);
 								}
-								ClassInfoUtils.unionMap(iterWritten, info.getWrittenParams());
+								//ClassInfoUtils.unionMap(iterWritten, info.getWrittenParams());
+								info.setWrittenParams(iterWritten);
 								
 								if (show) {
 									System.out.println("After merging: " + info.getWrittenParams());
@@ -441,6 +450,7 @@ public class PreAnalyzer {
 						}
 					} catch (Exception ex) {
 						logger.info("Error: ", ex);
+						logger.info("Current class & name: " + className + " " + methodNameArgs);
 					}
 				}
 			});

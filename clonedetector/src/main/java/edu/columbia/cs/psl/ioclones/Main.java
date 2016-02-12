@@ -29,7 +29,7 @@ public class Main {
 	public static void main(String[] args) throws FileNotFoundException, IOException {
 		//logger.info("Loading class info");
 		//IOUtils.unzipClassInfo();
-		IOUtils.loadMethodIODeps("cb");
+		//IOUtils.loadMethodIODeps("cb");
 		
 		File clazz = new File(args[0]);
 
@@ -96,7 +96,7 @@ public class Main {
 							exceptions, 
 							mv, 
 							true,
-							true, 
+							false, 
 							true);
 					//mv = new CalleeAnalyzer(className, access, name, desc, signature, exceptions, mv, true);
 					return mv;
