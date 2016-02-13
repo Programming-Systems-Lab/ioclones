@@ -43,10 +43,7 @@ public class FastAnalyzer extends AbstractSim {
 		double sameCounter = 0;
 		for (int i = 0; i < deep1.length; i++) {
 			int hash1 = deep1[i];
-			
-			double bestSim = 0.0;
-			int bestMatch = -1;
-			
+						
 			for (int j = 0; j < deep2.length; j++) {
 				if (simRecord[j] == 1) {
 					continue ;

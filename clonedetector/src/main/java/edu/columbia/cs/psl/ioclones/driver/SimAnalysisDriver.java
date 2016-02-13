@@ -493,7 +493,7 @@ public class SimAnalysisDriver {
 			List<Object> testIn = test.sortedInputs;
 			List<Object> testOut = test.sortedOutputs;
 			
-			int maxIn, minIn;
+			/*int maxIn, minIn;
 			maxIn = minIn = 0;
 			if (controlIn == null || testIn == null) {
 				maxIn = 0;
@@ -530,7 +530,7 @@ public class SimAnalysisDriver {
 			double bestSim = AbstractSim.linear.correlation(bestIn, bestOut);
 			if (Double.compare(bestSim, simThresh) < 0) {
 				return null;
-			}
+			}*/
 			
 			IOSim simObj = new IOSim(this.control, this.test);
 			//NoOrderAnalyzer analyzer = new NoOrderAnalyzer();
@@ -538,8 +538,12 @@ public class SimAnalysisDriver {
 			
 			double inSim = analyzer.similarity(controlIn, testIn);
 			double outSim = analyzer.similarity(controlOut, testOut);
-			//double sim = AbstractSim.expo.correlation(inSim, outSim);
-			double sim = AbstractSim.linear.correlation(inSim, outSim);
+			if (inSim == 0.0 && outSim == 0.0) {
+				return null;
+			}
+			
+			//double sim = AbstractSim.linear.correlation(inSim, outSim);
+			double sim = AbstractSim.expo.correlation(inSim, outSim);
 			
 			//long afterMem = Runtime.getRuntime().freeMemory();
 			//double memDiff = ((double)(afterMem - beforeMem))/Math.pow(10, 6);
