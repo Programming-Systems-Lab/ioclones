@@ -12,6 +12,17 @@ import com.thoughtworks.xstream.io.HierarchicalStreamReader;
 import com.thoughtworks.xstream.io.HierarchicalStreamWriter;
 
 public class BlackConverter implements Converter {
+	
+	public static boolean shouldBlock(Class clazz) {
+		if (Reader.class.isAssignableFrom(clazz) 
+				|| Writer.class.isAssignableFrom(clazz) 
+				|| Scanner.class.isAssignableFrom(clazz)
+				|| StringTokenizer.class.isAssignableFrom(clazz)) {
+			return true;
+		} else {
+			return false;
+		}
+	}
 
 	@Override
 	public boolean canConvert(Class arg0) {
@@ -23,10 +34,11 @@ public class BlackConverter implements Converter {
 		/*if (Reader.class.isAssignableFrom(arg0) || Writer.class.isAssignableFrom(arg0) || StringTokenizer.class.isAssignableFrom(arg0)) {
 			System.out.println("Capture one");
 		}*/
-		return Reader.class.isAssignableFrom(arg0) 
+		/*return Reader.class.isAssignableFrom(arg0) 
 				|| Writer.class.isAssignableFrom(arg0) 
 				|| Scanner.class.isAssignableFrom(arg0)
-				|| StringTokenizer.class.isAssignableFrom(arg0);
+				|| StringTokenizer.class.isAssignableFrom(arg0);*/
+		return shouldBlock(arg0);
 	}
 
 	@Override

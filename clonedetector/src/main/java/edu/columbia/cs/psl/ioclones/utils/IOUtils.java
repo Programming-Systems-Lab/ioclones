@@ -150,6 +150,9 @@ public class IOUtils {
 											blackFields.add(fieldKey);
 										}
 										return false;
+									} else if (BlackConverter.shouldBlock(f.getType())) {
+										//Don't serialize reader, writer, scanner, stringtokenizer
+										return false;
 									} else {
 										return super.shouldSerializeMember(definedIn, fieldName);
 									}
@@ -538,6 +541,11 @@ public class IOUtils {
 				//System.out.println("Cur entry: " + curEntry.getName());
 				
 				if (curEntry.isDirectory()) {
+					continue ;
+				}
+				
+				String entryName = curEntry.getName();
+				if (entryName.contains("<init>") || entryName.contains("<clinit>")) {
 					continue ;
 				}
 				

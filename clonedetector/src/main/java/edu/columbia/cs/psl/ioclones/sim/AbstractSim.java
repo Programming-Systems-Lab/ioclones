@@ -33,7 +33,7 @@ public abstract class AbstractSim implements SimAnalyzer {
 	
 	public static final double EXP_CONSTANT = 2;
 	
-	public static final double WEIGHT = 0.7;
+	public static final double WEIGHT = 0.6;
 	
 	public static String XML_ALG = null;
 	

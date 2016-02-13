@@ -234,25 +234,25 @@ public class DependencyAnalyzer extends MethodVisitor {
 									this.instructions.insertBefore(sink, new LdcInsnNode(OUTPUT_MSG));
 								});
 								//touched.add(o.id);
-								
-								if (inputs != null) {
-									for (DependentValue input: inputs) {
-										if (input.getInSrcs() == null 
-												|| input.getInSrcs().size() == 0) {
-											continue ;
-										}
-										
-										input.getInSrcs().forEach(src->{
-											if (!visitedInInsns.contains(src)) {
-												this.instructions.insertBefore(src, new LdcInsnNode(INPUT_MSG));
-												visitedInInsns.add(src);
-											}
-										});
-										//touched.add(input.id);
-									}
-								}
 							} else {
 								logger.warn("Empty inst for output: " + o);
+							}
+							
+							if (inputs != null) {
+								for (DependentValue input: inputs) {
+									if (input.getInSrcs() == null 
+											|| input.getInSrcs().size() == 0) {
+										continue ;
+									}
+									
+									input.getInSrcs().forEach(src->{
+										if (!visitedInInsns.contains(src)) {
+											this.instructions.insertBefore(src, new LdcInsnNode(INPUT_MSG));
+											visitedInInsns.add(src);
+										}
+									});
+									//touched.add(input.id);
+								}
 							}
 						}
 											

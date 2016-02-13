@@ -61,10 +61,10 @@ public class DeepHash {
             if (obj instanceof Double) {
             	double d = (double) obj;
             	if (Double.isNaN(d)) {
-            		logger.info("Catch nan: " + d);
+            		//logger.info("Catch nan: " + d);
             		continue ;
             	} else if (Double.isInfinite(d)) {
-            		logger.info("Cath infinite: " + d);
+            		//logger.info("Catch infinite: " + d);
             		d = Double.MAX_VALUE;
             	}
             	
