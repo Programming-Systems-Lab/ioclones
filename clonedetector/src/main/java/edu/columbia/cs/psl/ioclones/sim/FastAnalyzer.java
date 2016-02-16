@@ -82,6 +82,9 @@ public class FastAnalyzer extends AbstractSim {
 		
 		System.out.println(DeepHash.deepHash(2.915));
 		System.out.println(DeepHash.deepHash(2.92));
+		System.out.println(DeepHash.deepHash(0.9));
+		System.out.println(DeepHash.deepHash(0.899));
+		System.out.println(DeepHash.deepHash(0.0));
 	}
 
 }

@@ -357,10 +357,10 @@ public class ClassInfoUtils {
 			}
 			
 			ClassInfo ci = GlobalInfoRecorder.queryClassInfo(curName);
-			/*if (ci == null) {
+			if (ci == null) {
 				logger.info("No class info: " + curName);
 				System.exit(-1);
-			}*/
+			}
 			
 			if (ci.getParent() != null) {
 				queue.add(ci.getParent());
