@@ -58,6 +58,7 @@ public class GroundTruthCollector {
 		}
 		Set<String> truth = collectTruth(truthFile);
 		System.out.println("Ground truth: " + truth.size());
+		//System.out.println(truth);
 		
 		System.out.println("DB path: ");
 		String db = scanner.nextLine();

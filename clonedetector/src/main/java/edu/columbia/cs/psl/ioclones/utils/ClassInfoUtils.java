@@ -358,8 +358,9 @@ public class ClassInfoUtils {
 			
 			ClassInfo ci = GlobalInfoRecorder.queryClassInfo(curName);
 			if (ci == null) {
-				logger.info("No class info: " + curName);
-				System.exit(-1);
+				logger.error("No class info: " + curName);
+				//System.exit(-1);
+				return false;
 			}
 			
 			if (ci.getParent() != null) {

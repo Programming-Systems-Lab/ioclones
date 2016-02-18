@@ -903,7 +903,8 @@ public class DependentValueInterpreter extends BasicInterpreter {
 												}
 												
 												DependentValue source = dvs.get(j);
-												writer.addDep(source);
+												//writer.addDep(source);
+												this.queryPropagateValue(writer, source, true);
 											}
 										}
 									}
