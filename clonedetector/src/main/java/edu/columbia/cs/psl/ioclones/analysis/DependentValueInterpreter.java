@@ -67,7 +67,9 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	
 	protected Map<Integer, DependentValue> params = new HashMap<Integer, DependentValue>();
 	
-	protected Set<Integer> classMemberPool = new HashSet<Integer>();
+	//protected Set<Integer> classMemberPool = new HashSet<Integer>();
+	
+	protected Map<Integer, DependentValue> classMemberPool = new HashMap<Integer, DependentValue>();
 	
 	protected List<DependentValue> paramList = new ArrayList<DependentValue>();
 	
@@ -150,7 +152,7 @@ public class DependentValueInterpreter extends BasicInterpreter {
 			}
 			
 			if (this.trackStatic 
-					&& this.classMemberPool.contains(dv.id)) {
+					&& this.classMemberPool.containsKey(dv.id)) {
 				owners.add(CLASSMEMBER_REP);
 			}
 			
@@ -181,6 +183,10 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	
 	public Map<AbstractInsnNode, DependentValue> getSingleControls() {
 		return this.singelControls;
+	}
+	
+	public Map<Integer, DependentValue> getClassMemberPool() {
+		return this.classMemberPool;
 	}
 	
 	public int queryInputParamIndex(int symbolicId) {
@@ -317,7 +323,8 @@ public class DependentValueInterpreter extends BasicInterpreter {
 					ret.addInSrc(insn);
 					if (ret.isReference() 
 							&& !ClassInfoUtils.isImmutable(ret.getType())) {
-						this.classMemberPool.add(ret.id);
+						//this.classMemberPool.add(ret.id);
+						this.classMemberPool.put(ret.id, ret);
 					}
 				}
 				
@@ -812,7 +819,10 @@ public class DependentValueInterpreter extends BasicInterpreter {
 					if (ClassInfoUtils.isWritable(ownerName) && !methodInst.name.equals("<init>")) {
 						//Leave the writer for instrumenter, which is easier
 						return ret;
-					}
+					} /*else if (ClassInfoUtils.isReadable(ownerName) 
+							&& (methodInst.name.equals("read") || methodInst.name.equals("readLine"))) {
+						return ret;
+					}*/
 				}
 								
 				//Check if this callee is possible to write inputs

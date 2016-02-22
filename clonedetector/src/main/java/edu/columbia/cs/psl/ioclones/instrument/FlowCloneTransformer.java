@@ -111,6 +111,7 @@ public class FlowCloneTransformer implements ClassFileTransformer {
 								exceptions, 
 								mv, 
 								true, 
+								false, 
 								true, 
 								false);
 						return mv;

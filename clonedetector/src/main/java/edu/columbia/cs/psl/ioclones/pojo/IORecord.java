@@ -173,6 +173,8 @@ public class IORecord {
 		
 		if (this.blackObject.contains(curObject)) {
 			this.isInput = false;
+		} else {
+			this.isInput = true;
 		}
 	}
 		
@@ -185,12 +187,11 @@ public class IORecord {
 			return ;
 		}
 		
-		if (!this.isInput) {
-			return ;
+		if (this.isInput) {
+			this.registerInput(o, ser);
 		}
 		
 		this.isInput = true;
-		this.registerInput(o, ser);
 	}
 	
 	public void registerInput(Object o, int paramId, boolean ser) {

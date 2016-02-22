@@ -720,6 +720,15 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 						"queueInWritten", 
 						"(Ljava/lang/Object;)V", 
 						false);
+			} else if (literal.equals(DependencyAnalyzer.DEEP_STATIC)) {
+				this.mv.visitInsn(Opcodes.DUP);
+				this.mv.visitVarInsn(ALOAD, this.recordId);
+				this.mv.visitInsn(Opcodes.SWAP);
+				this.mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, 
+						Type.getInternalName(IORecord.class), 
+						"queueInWritten", 
+						"(Ljava/lang/Object;)V", 
+						false);
 			} else if (literal.startsWith(DependencyAnalyzer.TAINTED_IN)) {
 				String allId = literal.split("@")[1];
 				String[] idStrings = allId.split("-");

@@ -41,6 +41,8 @@ public class ClassInfoUtils {
 	private static final Set<Type> immutables = new HashSet<Type>();
 	
 	private static final HashMap<String, Boolean> writableCache = new HashMap<String, Boolean>();
+	
+	private static final HashMap<String, Boolean> readableCache = new HashMap<String, Boolean>();
 		
 	static {
 		Type stringType = Type.getType(String.class);
@@ -373,6 +375,41 @@ public class ClassInfoUtils {
 		}
 		
 		writableCache.put(className, false);
+		return false;
+	}
+	
+	public static boolean isReadable(String className) {
+		if (readableCache.containsKey(className)) {
+			return readableCache.get(className);
+		}
+		
+		LinkedList<String> queue = new LinkedList<String>();
+		queue.add(className);
+		//logger.info("Entry class name: " + className);
+		while (queue.size() > 0) {
+			String curName = queue.removeFirst();
+			if (curName.equals("java.io.Reader") || curName.equals("java.io.InputStream")) {
+				writableCache.put(className, true);
+				return true;
+			}
+			
+			ClassInfo ci = GlobalInfoRecorder.queryClassInfo(curName);
+			if (ci == null) {
+				logger.error("No class info: " + curName);
+				//System.exit(-1);
+				return false;
+			}
+			
+			if (ci.getParent() != null) {
+				queue.add(ci.getParent());
+			}
+			
+			if (ci.getInterfaces().size() > 0) {
+				queue.addAll(ci.getInterfaces());
+			}
+		}
+		
+		readableCache.put(className, false);
 		return false;
 	}
 	

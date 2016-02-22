@@ -1,18 +1,11 @@
 package edu.columbia.cs.psl.ioclones;
 
-import java.io.Flushable;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -24,7 +17,6 @@ import org.objectweb.asm.tree.LdcInsnNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.analysis.Analyzer;
-import org.objectweb.asm.tree.analysis.AnalyzerException;
 import org.objectweb.asm.tree.analysis.Frame;
 
 import edu.columbia.cs.psl.ioclones.analysis.DependentValue;
@@ -39,6 +31,8 @@ public class DependencyAnalyzer extends MethodVisitor {
 	public static final String OUTPUT_MSG = "__$$COLUMBIA_IO_OUTPUT";
 	
 	public static final String TAINTED_IN = "__$$COLUMBIA_IO_TAINT@";
+	
+	public static final String DEEP_STATIC = "__$$COLUMBIA_IO_DEEPSTATIC";
 	
 	public static final String TAINTED_STATIC = "__$$COLUMBIA_IO_TAINTSTATIC";
 	
@@ -60,6 +54,7 @@ public class DependencyAnalyzer extends MethodVisitor {
 			String[] exceptions, 
 			final MethodVisitor cmv, 
 			boolean trackStatic, 
+			boolean deepStatic, 
 			boolean trackWriter, 
 			boolean debug) {
 		
@@ -117,7 +112,24 @@ public class DependencyAnalyzer extends MethodVisitor {
 							}
 						}
 						
-						//Only for value flows to Flushable & Appendable
+						//Not use this for the paper, since not sure if this helps...
+						Map<DependentValue, LinkedList<DependentValue>> deepStatics = 
+								new HashMap<DependentValue, LinkedList<DependentValue>>();
+						if (deepStatic) {
+							for (DependentValue dv: dvi.getClassMemberPool().values()) {
+								if (dv.written) {
+									LinkedList<DependentValue> writtenDeps = dv.tag();
+									
+									if (writtenDeps.size() > 0) {
+										writtenDeps.removeFirst();
+									}
+									
+									deepStatics.put(dv, writtenDeps);
+								}
+							}
+						}
+						
+						//Only for value flows to OutputStream & Writer
 						//Output vals cannot be captured here, do it in instrumenter
 						Map<AbstractInsnNode, LinkedList<DependentValue>> flowToWriters = 
 								new HashMap<AbstractInsnNode, LinkedList<DependentValue>>();
@@ -178,7 +190,7 @@ public class DependencyAnalyzer extends MethodVisitor {
 								} else if (trackWriter && 
 										(opcode == Opcodes.INVOKEVIRTUAL || opcode == Opcodes.INVOKEINTERFACE)) {
 									MethodInsnNode methodInsn = (MethodInsnNode) insn;
-									
+																		
 									if (!methodInsn.name.equals("<init>")) {
 										Type[] methodArgs = Type.getArgumentTypes(methodInsn.desc);
 										if (methodArgs.length > 0) {
@@ -281,6 +293,31 @@ public class DependencyAnalyzer extends MethodVisitor {
 							this.instructions.insert(new LdcInsnNode(writtenMsg));
 						}
 						
+						//For tainted static input
+						if (deepStatic) {
+							for (DependentValue wSI: deepStatics.keySet()) {
+								LinkedList<DependentValue> wsDeps = deepStatics.get(wSI);
+								
+								//This is actually the output
+								if (wSI.getInSrcs() != null && wSI.getInSrcs().size() > 0) {
+									//This is actually output
+									wSI.getInSrcs().forEach(out->{
+										this.instructions.insert(out, new LdcInsnNode(DEEP_STATIC));
+									});
+									
+									//This is input
+									for (DependentValue wsDep: wsDeps) {
+										if (wsDep.getInSrcs() != null && wsDep.getInSrcs().size() > 0) {
+											wsDep.getInSrcs().forEach(depInsn->{
+												this.instructions.insertBefore(depInsn, new LdcInsnNode(INPUT_MSG));
+											});
+										}
+									}
+								}
+							}
+						}
+						
+						//For putstatic
 						if (trackStatic) {
 							for (DependentValue wStatic: writtenStatics.keySet()) {
 								LinkedList<DependentValue> sDeps = writtenStatics.get(wStatic);
