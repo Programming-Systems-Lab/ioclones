@@ -455,7 +455,8 @@ public class DependentValueInterpreter extends BasicInterpreter {
 	        case L2D:
 	        case F2D:
 	            //return BasicValue.DOUBLE_VALUE;
-	            oriVal = (DependentValue) value;	            
+	            oriVal = (DependentValue) value;
+	            //System.out.println("Ori val for conversion: " + oriVal.id);
 	            if (this.convertMap.containsKey(oriVal.id)) {
 	            	return this.convertMap.get(oriVal.id);
 	            }

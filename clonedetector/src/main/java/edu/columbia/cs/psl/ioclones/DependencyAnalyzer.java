@@ -208,6 +208,8 @@ public class DependencyAnalyzer extends MethodVisitor {
 													if (deps.size() > 0) {
 														deps.removeFirst();
 													}
+													System.out.println("Check writer out: " + dv);
+													System.out.println("Check deps: " + deps);
 													flowToWriters.put(insn, deps);
 												}
 											}
@@ -225,7 +227,7 @@ public class DependencyAnalyzer extends MethodVisitor {
 						
 						//Set<Integer> touched = new HashSet<Integer>();
 						Set<AbstractInsnNode> visitedInInsns = new HashSet<AbstractInsnNode>();
-						if (ios.size() > 0 || writtenParams.size() > 0) {
+						if (ios.size() > 0 || writtenParams.size() > 0 || flowToWriters.size() > 0) {
 							//Need to analyze which control instruction should be recorded, jumps will affect outputs
 							//logger.info("Cand. single controls: " + dvi.getSingleControls().size());
 							dvi.getSingleControls().forEach((sc, val)->{
@@ -354,7 +356,7 @@ public class DependencyAnalyzer extends MethodVisitor {
 									}
 									
 									fwd.getInSrcs().forEach(fwdIn->{
-										if (visitedInInsns.contains(fwdIn)) {
+										if (!visitedInInsns.contains(fwdIn)) {
 											this.instructions.insertBefore(fwdIn, new LdcInsnNode(INPUT_MSG));
 											visitedInInsns.add(fwdIn);
 										}

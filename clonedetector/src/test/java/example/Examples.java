@@ -23,6 +23,13 @@ public class Examples {
 		return 0;
 	}
 	
+	public static void checkBoolean(boolean[] bools, byte b) {
+		byte check1 = b;
+		boolean check2 = bools[0];
+		System.out.println(check1);
+		System.out.println(check2);
+	}
+	
 	/*public static int add(int i, int j) {
 		int ret = i + j;
 		return ret;
@@ -67,6 +74,9 @@ public class Examples {
 		for (int i = 0; i < 5; i++) {
 			moAdd(mo1, mo2);
 		}*/
+		boolean[] check1 = {true, false};
+		byte check = 0;
+		checkBoolean(check1, check);
 	}
 
 }
