@@ -208,8 +208,6 @@ public class DependencyAnalyzer extends MethodVisitor {
 													if (deps.size() > 0) {
 														deps.removeFirst();
 													}
-													System.out.println("Check writer out: " + dv);
-													System.out.println("Check deps: " + deps);
 													flowToWriters.put(insn, deps);
 												}
 											}

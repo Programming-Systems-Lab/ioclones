@@ -306,9 +306,9 @@ public class SimAnalysisDriver {
 			
 			for (int i = 0; i < putAll.size(); i++) {
 				IORecord control = putAll.get(i);
-				String controlClass = control.getMethodKey().split("-")[0];
+				/*String controlClass = control.getMethodKey().split("-")[0];
 				int controlDot = controlClass.lastIndexOf(".");
-				String controlPkg = controlClass.substring(0, controlDot);
+				String controlPkg = controlClass.substring(0, controlDot);*/
 				
 				for (int j = i + 1; j < putAll.size(); j++) {
 					IORecord test = putAll.get(j);
@@ -316,12 +316,12 @@ public class SimAnalysisDriver {
 						continue ;
 					}
 					
-					String testClass = test.getMethodKey().split("-")[0];
+					/*String testClass = test.getMethodKey().split("-")[0];
 					int testDot = testClass.lastIndexOf(".");
 					String testPkg = testClass.substring(0, testDot);
 					if (controlPkg.toLowerCase().equals(testPkg.toLowerCase())) {
 						continue ;
-					}
+					}*/
 					
 					IOWorker worker = new IOWorker();
 					worker.control = control;
