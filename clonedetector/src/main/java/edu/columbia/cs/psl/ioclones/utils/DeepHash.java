@@ -8,6 +8,8 @@ import org.apache.logging.log4j.Logger;
 import com.cedarsoftware.util.DeepEquals;
 import com.cedarsoftware.util.ReflectionUtils;
 
+import edu.columbia.cs.psl.ioclones.config.IOCloneConfig;
+
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.math.BigDecimal;
@@ -18,6 +20,8 @@ import java.util.Map;
 
 public class DeepHash {
 	private static final Logger logger = LogManager.getLogger(DeepHash.class);
+	
+	private static int FLOAT_SCALE = IOCloneConfig.getInstance().getFloatScale();
 	
 	public static int deepHash(Object obj) {
 		Set<Object> visited = new HashSet<>();
@@ -68,7 +72,7 @@ public class DeepHash {
             		d = Double.MAX_VALUE;
             	}
             	
-            	BigDecimal bd = new BigDecimal(d).setScale(2, BigDecimal.ROUND_HALF_UP);
+            	BigDecimal bd = new BigDecimal(d).setScale(FLOAT_SCALE, BigDecimal.ROUND_HALF_UP);
             	Double after = new Double(bd.doubleValue());
             	hash += after.hashCode();
             	continue ;
@@ -81,7 +85,7 @@ public class DeepHash {
             	} else if (Float.isInfinite(f)) {
             		f = Float.MAX_VALUE;
             	}
-            	BigDecimal bd = new BigDecimal(f).setScale(2, BigDecimal.ROUND_HALF_UP);
+            	BigDecimal bd = new BigDecimal(f).setScale(FLOAT_SCALE, BigDecimal.ROUND_HALF_UP);
             	Float after = new Float(bd.floatValue());
             	hash += after.hashCode();
             	continue;

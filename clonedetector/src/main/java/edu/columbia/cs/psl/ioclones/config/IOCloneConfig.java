@@ -17,11 +17,13 @@ public class IOCloneConfig {
 	
 	private boolean debug;
 	
-	private boolean objDep;
+	//private boolean objDep;
 	
 	private int callLimit;
 	
-	private String xmlAlg;
+	//private String xmlAlg;
+	
+	private int floatScale = 2;
 	
 	private IOCloneConfig() {
 		
@@ -52,13 +54,13 @@ public class IOCloneConfig {
 		return this.debug;
 	}
 	
-	public void setObjDep(boolean objDep) {
+	/*public void setObjDep(boolean objDep) {
 		this.objDep = objDep;
 	}
 	
 	public boolean isObjDep() {
 		return this.objDep;
-	}
+	}*/
 	
 	public void setCallLimit(int callLimit) {
 		this.callLimit = callLimit;
@@ -68,21 +70,30 @@ public class IOCloneConfig {
 		return this.callLimit;
 	}
 	
-	public void setXmlAlg(String xmlAlg) {
+	/*public void setXmlAlg(String xmlAlg) {
 		this.xmlAlg = xmlAlg;
 	}
 	
 	public String getXmlAlg() {
 		return this.xmlAlg;
+	}*/
+	
+	public void setFloatScale(int floatScale) {
+		this.floatScale = floatScale;
+	}
+	
+	public int getFloatScale() {
+		return this.floatScale;
 	}
 	
 	@Override
 	public String toString() {
 		StringBuilder sb = new StringBuilder();
 		sb.append("Debug: " + this.debug + "\n");
-		sb.append("Record obj dep: " + this.objDep + "\n");
+		//sb.append("Record obj dep: " + this.objDep + "\n");
 		sb.append("Call limit: " + this.callLimit + "\n");
-		sb.append("XML alg: " + this.xmlAlg + "\n");
+		//sb.append("XML alg: " + this.xmlAlg + "\n");
+		sb.append("Float scale: " + this.floatScale + "\n");
 		return sb.toString();
 	}
 	
