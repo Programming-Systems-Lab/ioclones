@@ -76,10 +76,15 @@ public class DeepHash {
             
             if (obj instanceof Float) {
             	float f = (float) obj;
+            	if (Float.isNaN(f)) {
+            		continue ;
+            	} else if (Float.isInfinite(f)) {
+            		f = Float.MAX_VALUE;
+            	}
             	BigDecimal bd = new BigDecimal(f).setScale(2, BigDecimal.ROUND_HALF_UP);
             	Float after = new Float(bd.floatValue());
             	hash += after.hashCode();
-            	hash += after.hashCode();
+            	continue;
             }
             
             /*if (obj instanceof Double || obj instanceof Float)

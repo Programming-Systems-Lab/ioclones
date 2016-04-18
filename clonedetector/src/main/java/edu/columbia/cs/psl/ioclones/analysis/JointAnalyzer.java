@@ -112,18 +112,19 @@ public class JointAnalyzer {
 			} else {
 				dist[2]++;
 			}*/
-			if (check <= 5) {
-				System.out.println("M1 M2: " + m1 + " " + m2 + " " + m1Line + " " + m2Line);
+			if (check < 10) {
 				dist[0]++;
 			} else {
+				System.out.println("M1 M2: " + m1 + " " + m2 + " " + m1Line + " " + m2Line);
 				dist[1]++;
+				cloneCounter++;
 			}
 			
-			cloneCounter++;
+			//cloneCounter++;
 		}
 		
 		System.out.println("Total clones: " + cloneCounter);
-		System.out.println("Check mInC: " + mInC.size());
+		/*System.out.println("Check mInC: " + mInC.size());
 		int totalLines = 0;
 		for (String m: mInC.keySet()) {
 			int line = mInC.get(m);
@@ -139,7 +140,7 @@ public class JointAnalyzer {
 		for (TreeSet<String> yearKey: clonesCrossYears.keySet()) {
 			System.out.println("Year key: " + yearKey);
 			System.out.println("# Clones: " + Arrays.toString(clonesCrossYears.get(yearKey)));
-		}
+		}*/
 	}
 
 }
