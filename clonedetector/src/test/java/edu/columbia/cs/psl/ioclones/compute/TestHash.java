@@ -10,6 +10,8 @@ import java.util.Set;
 
 import org.junit.Test;
 
+import edu.columbia.cs.psl.ioclones.testpojos.Obj1;
+import edu.columbia.cs.psl.ioclones.testpojos.Obj2;
 import edu.columbia.cs.psl.ioclones.utils.DeepHash;
 
 public class TestHash {
@@ -108,5 +110,24 @@ public class TestHash {
 		assertNotEquals(d2Hash, original);
 		assertNotEquals(d1Hash, d2Hash);
 	}
-
+	
+	@Test
+	public void testObj() {
+		Obj1 mo = new Obj1();
+		int myDeepHash = DeepHash.deepHash(mo);
+		int total = DeepHash.deepHash("abc") 
+				+ DeepHash.deepHash(7) 
+				+ DeepHash.deepHash(180.34) 
+				+ DeepHash.deepHash(new float[]{4.0f, 5.2f, 6.8f});
+		assertEquals(myDeepHash, total);
+	}
+	
+	@Test
+	public void testDiffObj() {
+		Obj1 mo = new Obj1();
+		int myDeepHash = DeepHash.deepHash(mo);
+		Obj2 yo = new Obj2();
+		int yourDeepHash = DeepHash.deepHash(yo);
+		assertEquals(myDeepHash, yourDeepHash);
+	}
 }

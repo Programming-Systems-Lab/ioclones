@@ -77,7 +77,8 @@ public class DeepHash {
             		d = Double.MAX_VALUE;
             	}
             	
-            	BigDecimal bd = new BigDecimal(d).setScale(FLOAT_SCALE, BigDecimal.ROUND_HALF_UP);
+            	//BigDecimal bd = new BigDecimal(d).setScale(FLOAT_SCALE, BigDecimal.ROUND_HALF_UP);
+            	BigDecimal bd = BigDecimal.valueOf(d).setScale(FLOAT_SCALE, BigDecimal.ROUND_HALF_UP);
             	//System.out.println("obj: " + obj + " " + d + " " + bd.doubleValue());
             	Double after = new Double(bd.doubleValue());
             	DoubleWrapper dw = new DoubleWrapper(after);
