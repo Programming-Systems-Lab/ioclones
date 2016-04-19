@@ -17,7 +17,11 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.Map;
-
+/**
+ * 
+ * Most of the logic and code of DeepHash is from https://github.com/jdereg/java-util/
+ *
+ */
 public class DeepHash {
 	private static final Logger logger = LogManager.getLogger(DeepHash.class);
 	
@@ -36,7 +40,7 @@ public class DeepHash {
             {
                 continue;
             }
-
+            
             visited.add(obj);
 
             if (obj.getClass().isArray())
@@ -62,8 +66,9 @@ public class DeepHash {
                 continue;
             }
             
-            if (obj instanceof Double) {
-            	double d = (double) obj;
+            if ((obj instanceof Double) || (obj instanceof Float)) {
+            	double d = Double.valueOf(obj.toString());
+            	
             	if (Double.isNaN(d)) {
             		//logger.info("Catch nan: " + d);
             		continue ;
@@ -73,22 +78,11 @@ public class DeepHash {
             	}
             	
             	BigDecimal bd = new BigDecimal(d).setScale(FLOAT_SCALE, BigDecimal.ROUND_HALF_UP);
+            	//System.out.println("obj: " + obj + " " + d + " " + bd.doubleValue());
             	Double after = new Double(bd.doubleValue());
-            	hash += after.hashCode();
+            	DoubleWrapper dw = new DoubleWrapper(after);
+            	stack.add(dw);
             	continue ;
-            }
-            
-            if (obj instanceof Float) {
-            	float f = (float) obj;
-            	if (Float.isNaN(f)) {
-            		continue ;
-            	} else if (Float.isInfinite(f)) {
-            		f = Float.MAX_VALUE;
-            	}
-            	BigDecimal bd = new BigDecimal(f).setScale(FLOAT_SCALE, BigDecimal.ROUND_HALF_UP);
-            	Float after = new Float(bd.floatValue());
-            	hash += after.hashCode();
-            	continue;
             }
             
             /*if (obj instanceof Double || obj instanceof Float)
@@ -117,5 +111,31 @@ public class DeepHash {
         }
         return hash;
 	}
-
+	
+	public static class DoubleWrapper {
+		
+		Double data = null;
+		
+		public DoubleWrapper(Double d) {
+			data = d;
+		}
+		
+		@Override
+		public boolean equals(Object o) {
+			if (!(o instanceof DoubleWrapper))
+				return false;
+			
+			DoubleWrapper dw = (DoubleWrapper) o;
+			if (dw.data.equals(this.data)) {
+				return true;
+			} else {
+				return false;
+			}
+		}
+		
+		@Override
+		public int hashCode() {
+			return this.data.hashCode();
+		}
+	}
 }

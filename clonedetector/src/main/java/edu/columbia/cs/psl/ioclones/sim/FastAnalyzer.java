@@ -8,7 +8,6 @@ import java.util.List;
 
 import edu.columbia.cs.psl.ioclones.pojo.XMLWrapper;
 import edu.columbia.cs.psl.ioclones.utils.DeepHash;
-import edu.columbia.cs.psl.ioclones.utils.Test.DupProj2;
 
 public class FastAnalyzer extends AbstractSim {
 	
