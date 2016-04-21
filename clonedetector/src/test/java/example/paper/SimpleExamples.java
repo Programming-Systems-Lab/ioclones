@@ -73,9 +73,21 @@ public class SimpleExamples {
 		staticWritten = i + j;
 	}
 	
-	public void testInstantWriten(double d1, double d2) {
+	public static int testStaticRead(int i) {
+		return i + staticWritten;
+	}
+	
+	public void testInstanceWritten(double d1, double d2) {
 		double written = d1 + d2;
 		this.instanceWritten = written;
+	}
+	
+	public double testInstanceRead(double d1) {
+		return d1 + this.instanceWritten;
+	}
+	
+	public static double testInstanceRead2(SimpleExamples ex1) {
+		return ex1.instanceWritten + staticWritten;
 	}
 
 }
