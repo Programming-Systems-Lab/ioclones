@@ -8,8 +8,6 @@ public class PaperExample {
 		public String name;
 		public int age;
 		public Person[] relatives;
-		public int relAge;
-		public Person check;
 	}
 	
 	public static int addRelative(Person me, String rName, int rAge, int pos, double useless) {
@@ -27,23 +25,11 @@ public class PaperExample {
 		System.out.println(pos);
 		return ret;
 	}
-	
-	public static void insert(Person[]to, Person rel, int pos) {
-		to[pos] = rel;
-	}
-	
+		
 	public static void insert(Person me, Person rel, int pos) {
 		me.relatives[pos] = rel;
 	}
-	
-	public static int sum(Person me) {
-		int sum = 0;
-		for (Person p: me.relatives) {
-			sum += p.age;
-		}
-		return sum;
-	}
-	
+		
 	public static int sum(Person[] relatives) {
 		int sum = 0;
 		for (Person r: relatives) {
