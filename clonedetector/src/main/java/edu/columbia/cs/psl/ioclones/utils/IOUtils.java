@@ -940,10 +940,8 @@ public class IOUtils {
 	public static void main(String[] args) {
 		//loadMethodIODeps("methodeps");
 		//System.out.println("Loaded class info: " + GlobalInfoRecorder.getClassInfo().size());
-		Scanner scanner = new Scanner(System.in);
-		XStream xstream = new XStream();
-		System.out.println("Original: " + scanner);
-		System.out.println("Obj string: " + xstream.toXML(scanner));
+		Object o = null;
+		System.out.println(newObject(o) == null);
 	}
 	
 	/*public static void main(String[] args) throws Exception {

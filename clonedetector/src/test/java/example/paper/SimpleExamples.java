@@ -1,10 +1,21 @@
 package example.paper;
 
+import java.util.Collections;
+import java.util.List;
+
 public class SimpleExamples {
 	
 	public static int staticWritten;
 	
 	public double instanceWritten;
+	
+	public static long[] array;
+	
+	public long[] longs;
+	
+	public long[] a;
+	
+	public long b;
 	
 	public static String testTable(int i) {
 		String ret = "";
@@ -89,5 +100,12 @@ public class SimpleExamples {
 	public static double testInstanceRead2(SimpleExamples ex1) {
 		return ex1.instanceWritten + staticWritten;
 	}
-
+	
+	public static void testSort(List<Integer> data) {
+		Collections.sort(data);
+	}
+	
+	public long retLongs(int i, int j) {
+		return longs[i] + j;
+	}
 }
