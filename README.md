@@ -11,6 +11,7 @@ HitoshiIO will modify the bytecode of your application for recording I/Os and th
 
 ### Step 0
 HitoshiIO needs a database to store the captured functional clones. We use MySQL. For downloading and installing MySQL, please refer to [MySQL](https://www.mysql.com/).
+
 HitoshiIO is a maven project. For compiling HitoshiIO, please change your directory to "clonedetector" and use the following command:
 
 mvn clean package
@@ -25,7 +26,7 @@ Th I/O identification results will be stored in "cb.db" under the "classinfo" di
 ###Step 2
 Now you can execute your application. Please use this command:
 
-java -javaagent:target/CloneDetector-0.0.1-SNAPSHOT.jar -noverify -cp "target/CloneDetector-0.0.1-SNAPSHOT.jar:/path/to/your/bytecodebase edu.columbia.cs.psl.ioclones.driver.IODriver your.application.class args
+java -javaagent:target/CloneDetector-0.0.1-SNAPSHOT.jar -noverify -cp "target/CloneDetector-0.0.1-SNAPSHOT.jar:/path/to/your/bytecodebase" edu.columbia.cs.psl.ioclones.driver.IODriver your.application.class args
 
 Because HitoshiIO is a dynamic analysis tool, you need to execute (profile) every application that you want to detection functional clones in your codebase by the command above. The profiling results of each method in a single application can be found uner the "iorepo" directory.
 
