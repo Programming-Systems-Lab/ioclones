@@ -1,4 +1,4 @@
-HitoshiIO: Dynamic Taint Tracking for the JVM
+HitoshiIO: Detecting functionally similar code
 ========
 
 
