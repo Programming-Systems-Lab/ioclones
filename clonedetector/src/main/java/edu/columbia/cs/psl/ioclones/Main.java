@@ -29,6 +29,7 @@ public class Main {
 	public static void main(String[] args) throws FileNotFoundException, IOException {
 		//logger.info("Loading class info");
 		//IOUtils.unzipClassInfo();
+		//IOUtils.loadMethodIODeps("cb_paper_uptodate");
 		IOUtils.loadMethodIODeps("cb");
 		
 		File clazz = new File(args[0]);

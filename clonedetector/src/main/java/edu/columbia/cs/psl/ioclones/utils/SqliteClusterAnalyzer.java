@@ -1,7 +1,9 @@
 package edu.columbia.cs.psl.ioclones.utils;
 
+import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileReader;
 import java.io.FileWriter;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -35,11 +37,13 @@ public class SqliteClusterAnalyzer {
 		options.addOption("similarity", true, "Similarity threshold");
 		options.addOption("filter", false, "Filter out read and next");
 		options.addOption("break", false, "Break tie");
+		options.addOption("constructors", true, "Constructor file");
 		
 		options.getOption("db").setRequired(true);
 		options.getOption("k").setRequired(true);
 		options.getOption("lines").setRequired(true);
 		options.getOption("similarity").setRequired(true);
+		options.getOption("constructors").setRequired(true);
 	}
 	
 	public static void main(String[] args) {
@@ -48,6 +52,7 @@ public class SqliteClusterAnalyzer {
 			CommandLine command = parser.parse(options, args);
 			
 			String dbPath = command.getOptionValue("db");
+			String constPath = command.getOptionValue("constructors");
 			int simThresh = Integer.valueOf(command.getOptionValue("similarity"));
 			int kNum = Integer.valueOf(command.getOptionValue("k"));
 			int lineSize = Integer.valueOf(command.getOptionValue("lines"));
@@ -55,11 +60,22 @@ public class SqliteClusterAnalyzer {
 			boolean breakTie = command.hasOption("break");
 			
 			System.out.println("Database: " + dbPath);
+			System.out.println("Constructors: " + constPath);
 			System.out.println("Similarity: " + simThresh);
 			System.out.println("k: " + kNum);
 			System.out.println("Line size: " + lineSize);
 			System.out.println("Filter next and read: " + filter);
 			System.out.println("Break tie: " + breakTie);
+			
+			BufferedReader br = new BufferedReader(new FileReader(constPath));
+			Set<Integer> consts = new HashSet<Integer>();
+			String data = null;
+			while ((data = br.readLine()) != null) {
+				String[] splits = data.split(",");
+				int constId = Integer.valueOf(splits[0]);
+				consts.add(constId);
+			}
+			System.out.println("Const size: " + consts.size());
 			
 			Class.forName("org.sqlite.JDBC");
 			String dbpath = "jdbc:sqlite:" + dbPath + ".db";
@@ -94,7 +110,9 @@ public class SqliteClusterAnalyzer {
 					allMethods.put(id, methodInfo);
 				}
 			}
-			System.out.println("# of method1: " + allMethods.size());
+			System.out.println("# of methods: " + allMethods.size());
+			
+			//Filter out constructors
 			
 			StringBuilder result = new StringBuilder();
 			result.append(header);
@@ -103,17 +121,22 @@ public class SqliteClusterAnalyzer {
 				
 				MethodMeta methodInfo = allMethods.get(id);
 				String method = methodInfo.toString();
-				System.out.println("Me: " + method);
+				//System.out.println("Me: " + method);
 				//Dirty, but this is the only way...
 				String myLabel = methodInfo.label;
-				System.out.println("My label: " + myLabel);
+				//System.out.println("My label: " + myLabel);
 				String myMethod = methodInfo.methodName;
-				System.out.println("My method name: " + methodInfo.methodName);
+				//System.out.println("My method name: " + methodInfo.methodName);
+				
+				//Constructors
+				if (consts.contains(methodInfo.methodId)) {
+					continue ;
+				}
 				
 				//Filter out readXX, or nextXX, which are some little utility functions
 				if (filter) {
 					if (myMethod.startsWith("read") || myMethod.startsWith("next")) {
-						System.out.println("Filter out utility method: " + myMethod + "\n");
+						//System.out.println("Filter out utility method: " + myMethod + "\n");
 						continue ;
 					}
 				}
@@ -149,11 +172,11 @@ public class SqliteClusterAnalyzer {
 					int lineTarget = method2.lines;
 					double avg = ((double)(lineSub + lineTarget))/2;
 					int avgLine = (int)Math.round(avg);
-					System.out.println("m1 v2 m2: " + method1 + " " + method2 + " " + avgLine);
+					//System.out.println("m1 v2 m2: " + method1 + " " + method2 + " " + avgLine);
 					if (avgLine < lineSize) {
-						System.out.println("Under-sized clones");
-						System.out.println("method1: " + method1 + " " + lineSub);
-						System.out.println("method2: " + method2 + " " + lineTarget);
+						//System.out.println("Under-sized clones");
+						//System.out.println("method1: " + method1 + " " + lineSub);
+						//System.out.println("method2: " + method2 + " " + lineTarget);
 						continue ;
 					}
 					
@@ -179,15 +202,19 @@ public class SqliteClusterAnalyzer {
 					}
 					
 					String neighborLabel = neighbor.label;
-					System.out.println("Neightbor label: " + neighborLabel);
+					//System.out.println("Neightbor label: " + neighborLabel);
 					String neighborMethod = neighbor.methodName;
 					
 					/*if (neighborName.equals(myName))
 						continue ;*/
 					
+					if (consts.contains(neighbor.methodId)) {
+						continue ;
+					}
+					
 					if (filter) {
 						if (neighborMethod.startsWith("read") || neighborMethod.startsWith("next")) {
-							System.out.println("Filter neighbor utility method: " + neighbor);
+							//System.out.println("Filter neighbor utility method: " + neighbor);
 							continue ;
 						}
 					}
@@ -220,7 +247,7 @@ public class SqliteClusterAnalyzer {
 				}
 				
 				if (neighborRecord.size() == 0) {
-					System.out.println("Query no result\n");
+					//System.out.println("Query no result\n");
 					continue ;
 				}
 				
@@ -229,13 +256,13 @@ public class SqliteClusterAnalyzer {
 					row.append(" , ,");
 				}
 				
-				System.out.println("Check neighbor count: ");
+				//System.out.println("Check neighbor count: ");
 				List<String> bestLabels = new ArrayList<String>();
 				int bestLabelCount = Integer.MIN_VALUE;
 				String countString = "";
 				for (String label: neighborRecord.keySet()) {
 					int labelCount = neighborRecord.get(label).size();
-					System.out.println("Label: " + label + " " + labelCount);
+					//System.out.println("Label: " + label + " " + labelCount);
 					String labelSummary = label + ":" + labelCount + "-";
 					countString += labelSummary;
 					
@@ -250,9 +277,9 @@ public class SqliteClusterAnalyzer {
 					}
 				}
 				countString = countString.substring(0, countString.length() - 1);
-				System.out.println("Count string: " + countString);
+				//System.out.println("Count string: " + countString);
 				row.append(countString + ",");
-				System.out.println("Check best labels: " + bestLabels);
+				//System.out.println("Check best labels: " + bestLabels);
 				
 				String bestLabel = "";
 				if (bestLabels.size() == 1) {
@@ -272,7 +299,7 @@ public class SqliteClusterAnalyzer {
 						}	
 					}
 				}
-				System.out.println("Best label: " + bestLabel + "\n");
+				//System.out.println("Best label: " + bestLabel + "\n");
 				row.append(bestLabel + "\n");
 				result.append(row);
 			}
