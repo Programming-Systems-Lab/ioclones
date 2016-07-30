@@ -1,0 +1,22 @@
+CREATE TABLE `hitoshio_summary` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `codebase` varchar(100) NOT NULL DEFAULT '',
+  `total_ios` int(11) unsigned NOT NULL,
+  `comparisons` int(11) unsigned NOT NULL,
+  `exec_time` bigint(20) unsigned NOT NULL,
+  `timestamp` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=159 DEFAULT CHARSET=utf8;
+
+CREATE TABLE `hitoshio_row` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `comp_id` int(11) unsigned NOT NULL,
+  `method1` varchar(300) NOT NULL DEFAULT '',
+  `m_id1` int(11) unsigned NOT NULL,
+  `method2` varchar(300) NOT NULL DEFAULT '',
+  `m_id2` int(11) unsigned NOT NULL,
+  `inSim` double unsigned NOT NULL,
+  `outSim` double unsigned NOT NULL,
+  `sim` double unsigned NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=75666 DEFAULT CHARSET=utf8;

@@ -4,6 +4,13 @@ public class ExecExample {
 	
 	public long[] longs = {10, 100, 1000};
 	
+	public int myField;
+	
+	public void method(AbstractClass clazz) {
+		this.myField = clazz.objField + 8;
+		AbstractClass.staticField = this.longs[2] + 15;
+	}
+	
 	public long sum() {
 		long ret = 0;
 		for (int i = 0; i < longs.length; i++) {
@@ -65,6 +72,11 @@ public class ExecExample {
 		blackStaticSum(ee);
 		blackStaticSum2(ee, 6);
 		blackStaticSum2(ee, 1);
+	}
+	
+	public static class AbstractClass {
+		public int objField;
+		public static long staticField;
 	}
 
 }
