@@ -1,4 +1,13 @@
 *.class
+.gitignore.swp
+*.classpath
+*.project
+clonedetector/.settings/*
+clonedetector/classinfo/cb.db
+clonedetector/iorepo/*
+clonedetector/logs/*
+
+
 
 # Mobile Tools for Java (J2ME)
 .mtj.tmp/
