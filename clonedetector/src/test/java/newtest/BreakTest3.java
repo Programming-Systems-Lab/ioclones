@@ -5,6 +5,9 @@ import java.util.concurrent.Executors;
 
 import newtest.dto.Person;
 
+/*
+ * Test Case for running multiple threads at the same time using Executor
+ */
 public class BreakTest3 {
 	
 	static ExecutorService service = Executors.newFixedThreadPool(10);

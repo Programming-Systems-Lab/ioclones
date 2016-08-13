@@ -2,6 +2,9 @@ package newtest;
 
 import newtest.dto.Person;
 
+/*
+ * Simple Test case of creating a custom object and setting values to the object
+ */
 public class BreakTest1 {
 	
 	void createPerson1() {

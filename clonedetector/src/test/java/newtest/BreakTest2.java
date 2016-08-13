@@ -1,5 +1,8 @@
 package newtest;
 
+/*
+ * Test case to test inheritance and polymorphism
+ */
 public class BreakTest2 extends BreakTest1 implements Runnable {
 
 	public static void main(String[] args) {
