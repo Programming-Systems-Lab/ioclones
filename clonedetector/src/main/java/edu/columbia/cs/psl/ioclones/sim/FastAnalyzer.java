@@ -4,7 +4,9 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import edu.columbia.cs.psl.ioclones.pojo.XMLWrapper;
 import edu.columbia.cs.psl.ioclones.utils.DeepHash;
@@ -84,6 +86,14 @@ public class FastAnalyzer extends AbstractSim {
 		System.out.println(DeepHash.deepHash(0.9));
 		System.out.println(DeepHash.deepHash(0.899));
 		System.out.println(DeepHash.deepHash(0.0));
+		
+		Set<Object> cSet = new HashSet<Object>();
+		cSet.add(false);
+		
+		Set<Object> tSet = new HashSet<Object>();
+		long tmp = 1237L;
+		tSet.add(tmp);
+		System.out.println(fa.similarity(cSet, tSet));
 	}
 
 }

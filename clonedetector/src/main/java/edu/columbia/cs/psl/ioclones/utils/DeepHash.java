@@ -139,4 +139,11 @@ public class DeepHash {
 			return this.data.hashCode();
 		}
 	}
+	
+	public static void main(String[] args) {
+		boolean test1 = false;
+		long test2 = 1237;
+		System.out.println(deepHash(test1));
+		System.out.println(deepHash(test2));
+	}
 }

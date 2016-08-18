@@ -142,6 +142,8 @@ public class ClusterAnalyzer {
 			
 			StringBuilder result = new StringBuilder();
 			result.append(header);
+			int correct = 0;
+			int total = 0;
 			for (String method: allMethods) {
 				StringBuilder row = new StringBuilder();
 				//String method = "R5P1Y14.darnley.A:solve:():Ljava.lang.String";
@@ -321,6 +323,11 @@ public class ClusterAnalyzer {
 				System.out.println("Best label: " + bestLabel + "\n");
 				row.append(bestLabel + "\n");
 				result.append(row);
+				
+				if (myLabel.equals(bestLabel)) {
+					correct++;
+				}
+				total++;
 			}
 			
 			File resultDir = new File("./results");
@@ -335,6 +342,8 @@ public class ClusterAnalyzer {
 			bw.write(result.toString());
 			bw.close();
 			System.out.println("Result path: " + fileName);
+			double precision = ((double)correct)/total;
+			System.out.println("Correct total precision: " + correct + " " + total + " " + precision);
 		} catch (Exception ex) {
 			ex.printStackTrace();
 		}

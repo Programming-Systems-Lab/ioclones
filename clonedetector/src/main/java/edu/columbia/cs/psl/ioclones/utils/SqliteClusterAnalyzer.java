@@ -116,6 +116,8 @@ public class SqliteClusterAnalyzer {
 			
 			StringBuilder result = new StringBuilder();
 			result.append(header);
+			int correct = 0;
+			int total = 0;
 			for (int id: allMethods.keySet()) {
 				StringBuilder row = new StringBuilder();
 				
@@ -302,6 +304,11 @@ public class SqliteClusterAnalyzer {
 				//System.out.println("Best label: " + bestLabel + "\n");
 				row.append(bestLabel + "\n");
 				result.append(row);
+				
+				if (myLabel.equals(bestLabel)) {
+					correct++;
+				}
+				total++;
 			}
 			
 			File resultDir = new File("./competitor");
@@ -315,7 +322,10 @@ public class SqliteClusterAnalyzer {
 			BufferedWriter bw = new BufferedWriter(new FileWriter(fileName));
 			bw.write(result.toString());
 			bw.close();
+			
+			double precision = ((double)correct)/total;
 			System.out.println("Result path: " + fileName);
+			System.out.println("Correct total precision: " + correct + " " + total + " " + precision);
 		} catch (Exception ex) {
 			ex.printStackTrace();
 		}
