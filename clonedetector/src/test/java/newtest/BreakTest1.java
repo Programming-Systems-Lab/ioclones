@@ -20,11 +20,21 @@ public class BreakTest1 {
 		p.setName("hithe");
 		p.setPhone("123-456-7890");
 	}
+	
+	int testAdd1(int i, int j) {
+		return i + j;
+	}
+	
+	int testAdd2(int a, int b) {
+		return a + b;
+	}
 
 	public static void main(String[] args) {
 		BreakTest1 test = new BreakTest1();
-		test.createPerson1();
-		test.createPerson2();
+		//test.createPerson1();
+		//test.createPerson2();
+		test.testAdd1(1, 2);
+		test.testAdd2(1, 2);
 	}
 
 }
