@@ -3,16 +3,16 @@ package newtest;
 import newtest.dto.Person;
 
 /*
- * Simple Test case of creating a custom object and setting values to the object
+ * All 4 methods mentioned here show up as clones, but I think as there are other operations being done, it should not be the case
  */
-public class BreakTest1 {
-	
+public class BreakTest9 {
+
 	int createPerson1(int i, int j) {
 		Person p = new Person();
 		p.setId(1);
 		p.setName("there");
 		p.setPhone("123-456-7890");
-		return i + j;
+		return i + j + 2 - 2;
 	}
 	
 	int createPerson2(int i, int j) {
@@ -20,13 +20,6 @@ public class BreakTest1 {
 		p.setId(2);
 		p.setName("hithe");
 		p.setPhone("123-456-7890");
-		
-		if(i == 3) {
-			return i ;
-		} else if(j == 4) {
-			return j;
-		}
-		
 		return i + j;
 	}
 	
@@ -35,8 +28,8 @@ public class BreakTest1 {
 	}
 	
 	int testAdd2(int a, int b) {
-		if(b > a) {
-			return b;
+		if(a > b) {
+			return a - b;
 		} else {
 			return a + b;
 		}
@@ -44,10 +37,10 @@ public class BreakTest1 {
 	}
 
 	public static void main(String[] args) {
-		BreakTest1 test = new BreakTest1();
-		test.createPerson1(1, 5);
+		BreakTest9 test = new BreakTest9();
+		test.createPerson1(1, 2);
 		test.createPerson2(1, 2);
-		test.testAdd1(2, 2);
+		test.testAdd1(1, 2);
 		test.testAdd2(1, 2);
 	}
 
