@@ -1,4 +1,0 @@
-method_1, method_id1, method_2, method_id2, in_sim, out_sim, total_sim 
-newtest.BreakTest1-createPerson1-(I+I),2,newtest.BreakTest1-testAdd1-(I+I),12,1.0,1.0,1.0
-newtest.BreakTest1-createPerson1-(I+I),2,newtest.BreakTest1-testAdd2-(I+I),13,1.0,1.0,1.0
-newtest.BreakTest1-testAdd1-(I+I),12,newtest.BreakTest1-testAdd2-(I+I),13,1.0,1.0,1.0

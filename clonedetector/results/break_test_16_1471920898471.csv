@@ -1,4 +1,0 @@
-method_1, method_id1, method_2, method_id2, in_sim, out_sim, total_sim 
-newtest.BreakTest16-returnRectangle-(I+I),2,newtest.BreakTest16-returnRectangle2-(I+I),8,1.0,1.0,1.0
-newtest.BreakTest16$Rectangle-findArea-(),6,newtest.BreakTest16-returnRectangle2-(I+I),8,1.0,1.0,1.0
-newtest.BreakTest16$Rectangle-findArea-(),6,newtest.BreakTest16-returnRectangle-(I+I),2,1.0,1.0,1.0
