@@ -436,7 +436,7 @@ public class SimAnalysisDriver {
 	
 	public static class IOSim {
 		
-		public TreeMap<String, Integer> methods = new TreeMap<String, Integer>();
+		public TreeMap<String, Long> methods = new TreeMap<String, Long>();
 		
 		public double sim = 0.0;
 		
@@ -456,7 +456,7 @@ public class SimAnalysisDriver {
 			StringBuilder keys = new StringBuilder();
 			StringBuilder idx = new StringBuilder();
 			for (String key: this.methods.keySet()) {
-				Integer val = this.methods.get(key);
+				Long val = this.methods.get(key);
 				
 				keys.append(key + "@");
 				idx.append(val + "@");

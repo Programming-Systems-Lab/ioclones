@@ -12,7 +12,7 @@ import edu.columbia.cs.psl.phosphor.runtime.MultiTainter;
 import edu.columbia.cs.psl.phosphor.runtime.Taint;
 
 public class HitoTaintPropagater {
-	
+		
 	public static ArrayList<HitoLabel> newLabels(Object val, long execIdx) {
 		ArrayList<HitoLabel> labels = new ArrayList<HitoLabel>();
 		

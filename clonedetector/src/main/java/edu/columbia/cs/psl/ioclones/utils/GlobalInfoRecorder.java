@@ -10,6 +10,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -26,7 +27,7 @@ public class GlobalInfoRecorder {
 	
 	private static final Logger logger = LogManager.getLogger(GlobalInfoRecorder.class);
 	
-	private static final AtomicInteger methodIndexer = new AtomicInteger();
+	private static final AtomicLong methodIndexer = new AtomicLong();
 	
 	private static final AtomicInteger counter = new AtomicInteger();
 	
@@ -56,7 +57,7 @@ public class GlobalInfoRecorder {
 		return threadIndexer.get();
 	}
 	
-	public static int getMethodIndex() {
+	public static long getMethodIndex() {
 		return methodIndexer.getAndIncrement();
 	}
 	

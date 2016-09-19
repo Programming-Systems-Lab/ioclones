@@ -62,6 +62,7 @@ public class FlowCloneTransformer implements ClassFileTransformer {
 					try {
 						return super.getCommonSuperClass(type1, type2);
 					} catch (Exception ex) {
+						logger.error("Common super exception: ", ex);
 						return "java/lang/Unknown";
 					}
 				}

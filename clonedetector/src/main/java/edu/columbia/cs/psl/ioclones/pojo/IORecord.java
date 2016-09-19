@@ -14,6 +14,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 
+import edu.columbia.cs.psl.ioclones.analysis.dynamic.HitoTaintChecker;
 import edu.columbia.cs.psl.ioclones.sim.AbstractSim;
 import edu.columbia.cs.psl.ioclones.sim.NoOrderAnalyzer;
 import edu.columbia.cs.psl.ioclones.utils.GlobalInfoRecorder;
@@ -27,7 +28,7 @@ public class IORecord {
 	
 	private String methodKey;
 	
-	private int id = -1;
+	private long id = -1;
 	
 	private transient Set<Object> inputs = new HashSet<Object>();
 	
@@ -63,19 +64,13 @@ public class IORecord {
 			//Instance method's this will never change...
 			this.preload.put(0, null);
 		}
-		
-		/*if (this.methodKey.equals("R5P1Y13.vot.A-getExp-(I+J)")) {
-			//this.show = true;
-			this.removeShow = true;
-			System.out.println("IO: " + this.id);
-		}*/
 	}
 	
 	public String getMethodKey() {
 		return this.methodKey;
 	}
 	
-	public int getId() {
+	public long getId() {
 		return this.id;
 	}
 					

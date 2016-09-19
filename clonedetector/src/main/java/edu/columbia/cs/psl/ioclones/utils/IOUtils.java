@@ -702,8 +702,8 @@ public class IOUtils {
 		
 		int counter = 0;		
 		for (IOSim simObj: simObjs) {
-			Entry<String, Integer> firstEntry = simObj.methods.firstEntry();
-			Entry<String, Integer> secondEntry = simObj.methods.lastEntry();
+			Entry<String, Long> firstEntry = simObj.methods.firstEntry();
+			Entry<String, Long> secondEntry = simObj.methods.lastEntry();
 			sb.append(firstEntry.getKey() + ",");
 			sb.append(firstEntry.getValue() + ",");
 			sb.append(secondEntry.getKey() + ",");
@@ -722,7 +722,7 @@ public class IOUtils {
 						logger.warn("Truncate to: " + firstKey);
 					}
 					stmt.setString(2, firstKey);
-					stmt.setInt(3, firstEntry.getValue());
+					stmt.setLong(3, firstEntry.getValue());
 					String secondKey = secondEntry.getKey();
 					if (secondKey.length() >= 250) {
 						logger.warn("Long second key: " + secondKey);
@@ -730,7 +730,7 @@ public class IOUtils {
 						logger.warn("Truncate to: " + secondKey);
 					}
 					stmt.setString(4, secondKey);
-					stmt.setInt(5, secondEntry.getValue());
+					stmt.setLong(5, secondEntry.getValue());
 					stmt.setDouble(6, simObj.inSim);
 					stmt.setDouble(7, simObj.outSim);
 					stmt.setDouble(8, simObj.sim);
