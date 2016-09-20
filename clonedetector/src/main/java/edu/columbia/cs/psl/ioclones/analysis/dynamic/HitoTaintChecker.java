@@ -56,6 +56,7 @@ public class HitoTaintChecker {
 	}
 	
 	public static void summarizeWrittenInputs(IORecord record, int depth) {
+		System.out.println("Summarizing written inputs");
 		for (Object o: record.preload.values()) {
 			if (HitoTaintChecker.shouldCheck(o, record.getId())) {
 				HitoTaintChecker.analyzeTaint(o, depth, record);

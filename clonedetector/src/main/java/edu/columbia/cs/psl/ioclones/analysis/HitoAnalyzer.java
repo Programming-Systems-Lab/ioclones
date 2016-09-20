@@ -57,6 +57,8 @@ public class HitoAnalyzer {
 	
 	private static final Options options = new Options();
 	
+	private static int counter = 0;
+	
 	static {
 		options.addOption("src", true, "source codebase");
 		options.getOption("src").setRequired(true);
@@ -79,7 +81,7 @@ public class HitoAnalyzer {
 			System.err.println("Invalid source codebase: " + sourceDir.getAbsolutePath());
 			System.exit(-1);
 		}
-		logger.info("Source codebase: " + codebase);
+		System.out.println("Source codebase: " + codebase);
 		
 		String dest = null;
 		dest = cmd.getOptionValue("dest");
@@ -91,7 +93,7 @@ public class HitoAnalyzer {
 		if (!destDir.exists()) {
 			destDir.mkdir();
 		}
-		logger.info("Destination: " + destDir.getAbsolutePath());
+		System.out.println("Destination: " + destDir.getAbsolutePath());
 		
 		if (sourceDir.isDirectory())
 			processDirectory(sourceDir, destDir, true);
@@ -103,9 +105,11 @@ public class HitoAnalyzer {
 			System.err.println("Unknown type for path " + sourceDir.getName());
 			System.exit(-1);
 		}
+		System.out.println("Total processed class files: " + counter);
 	}
 	
 	public static byte[] instrument(String path, InputStream is) {
+		System.out.println("Processing: " + path);
 		byte[] classData = ClassDataTraverser.cleanClass(is);
 		try {
 			ClassReader cr = new ClassReader(classData);
@@ -177,12 +181,18 @@ public class HitoAnalyzer {
 			return transformed;
 		} catch (Exception ex) {
 			logger.error("Fail to instrument file: " + path);
+			logger.error("Error msg: ", ex);
 		}
 		return classData;
 	}
 	
 	private static void processClass(File f, File outputDir) {
 		try {
+			counter++;
+			if (counter % 100 == 0) {
+				System.out.println("Process #" + counter + " files");
+			}
+			
 			String name = f.getName();
 			InputStream is = new FileInputStream(f);
 			byte[] instrumented = instrument(f.getAbsolutePath(), is);

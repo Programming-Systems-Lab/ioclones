@@ -38,6 +38,7 @@ public class DynFlowObserver extends MethodVisitor implements Opcodes {
 	
 	private boolean isStatic;
 	
+	//Both methodKey and returnType are not internal name
 	private String methodKey;
 	
 	private String returnType;
@@ -187,7 +188,7 @@ public class DynFlowObserver extends MethodVisitor implements Opcodes {
 				false);
 		this.mv.visitVarInsn(Opcodes.ASTORE, this.recordId);
 		
-		if (!isStatic) {
+		if (isStatic) {
 			this.args = ClassInfoUtils.genMethodArgs(this.desc, null);
 		} else {
 			this.args = ClassInfoUtils.genMethodArgs(this.desc, this.internalName);
@@ -223,7 +224,7 @@ public class DynFlowObserver extends MethodVisitor implements Opcodes {
 		String taintChecker = Type.getInternalName(HitoTaintChecker.class);
 		if (BytecodeUtils.xreturn(opcode)) {
 			if (opcode != RETURN) {
-				Type retType = Type.getReturnType(this.returnType);
+				Type retType = Type.getReturnType(this.desc);
 				int sort = retType.getSort();
 				
 				if (sort == Type.LONG || sort == Type.DOUBLE) {
@@ -257,7 +258,7 @@ public class DynFlowObserver extends MethodVisitor implements Opcodes {
 						this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, "analyzeTaint", "(Ljava/lang/Object;ILedu/columbia/cs/psl/ioclones/pojo/IORecord;)V", false);
 					}
 				} else {
-					System.err.println("Un-recognized type: " + retType);
+					System.err.println("Un-recognized return type: " + retType);
 					System.exit(-1);
 				}
 			}
@@ -314,5 +315,9 @@ public class DynFlowObserver extends MethodVisitor implements Opcodes {
 		} else {
 			this.mv.visitLdcInsn(num);
 		}
+	}
+	
+	public static void main(String[] ars) {
+		System.out.println(Type.getType(String.class));
 	}
 }
