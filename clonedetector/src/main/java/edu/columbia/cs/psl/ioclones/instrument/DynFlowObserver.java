@@ -20,6 +20,8 @@ public class DynFlowObserver extends MethodVisitor implements Opcodes {
 	
 	private String internalName;
 	
+	private String internalSuperName;
+	
 	private String className;
 	
 	private int access;
@@ -45,6 +47,7 @@ public class DynFlowObserver extends MethodVisitor implements Opcodes {
 	private int recordId = -1;
 	
 	public DynFlowObserver(String internalName, 
+			String internalSuperName, 
 			String className, 
 			int access, 
 			final String name, 
@@ -54,8 +57,8 @@ public class DynFlowObserver extends MethodVisitor implements Opcodes {
 			final MethodVisitor mv) {
 		super(Opcodes.ASM5, mv);
 		
-		this.isConstructor = isConstructor;
 		this.internalName = internalName;
+		this.internalSuperName = internalSuperName;
 		this.className = className;
 		this.access = access;
 		this.name = name;
@@ -80,6 +83,89 @@ public class DynFlowObserver extends MethodVisitor implements Opcodes {
 		return this.lvs;
 	}
 	
+	public void processArg(Type arg, int argIdx) {
+		String ioRecordType = Type.getInternalName(IORecord.class);
+		String propagater = Type.getInternalName(HitoTaintPropagater.class);
+		if (arg.getSort() == Type.INT) {
+			this.mv.visitVarInsn(ILOAD, argIdx);
+			this.mv.visitVarInsn(ALOAD, this.recordId);
+			this.mv.visitMethodInsn(INVOKEVIRTUAL, ioRecordType, "getId", "()J", false);
+			this.mv.visitMethodInsn(INVOKESTATIC, propagater, "propagateTaint", "(IJ)I", false);
+			this.mv.visitVarInsn(ISTORE, argIdx);
+		} else if (arg.getSort() == Type.SHORT) {
+			this.mv.visitVarInsn(ILOAD, argIdx);
+			this.mv.visitVarInsn(ALOAD, this.recordId);
+			this.mv.visitMethodInsn(INVOKEVIRTUAL, ioRecordType, "getId", "()J", false);
+			this.mv.visitMethodInsn(INVOKESTATIC, propagater, "propagateTaint", "(SJ)S", false);
+			this.mv.visitVarInsn(ISTORE, argIdx);
+			argIdx++;
+		} else if (arg.getSort() == Type.BYTE) {
+			this.mv.visitVarInsn(ILOAD, argIdx);
+			this.mv.visitVarInsn(ALOAD, this.recordId);
+			this.mv.visitMethodInsn(INVOKEVIRTUAL, ioRecordType, "getId", "()J", false);
+			this.mv.visitMethodInsn(INVOKESTATIC, propagater, "propagateTaint", "(BJ)B", false);
+			this.mv.visitVarInsn(ISTORE, argIdx);
+			argIdx++;
+		} else if (arg.getSort() == Type.BOOLEAN) {
+			this.mv.visitVarInsn(ILOAD, argIdx);
+			this.mv.visitVarInsn(ALOAD, this.recordId);
+			this.mv.visitMethodInsn(INVOKEVIRTUAL, ioRecordType, "getId", "()J", false);
+			this.mv.visitMethodInsn(INVOKESTATIC, propagater, "propagateTaint", "(ZJ)Z", false);
+			this.mv.visitVarInsn(ISTORE, argIdx);
+			argIdx++;
+		} else if (arg.getSort() == Type.CHAR) {
+			this.mv.visitVarInsn(ILOAD, argIdx);
+			this.mv.visitVarInsn(ALOAD, this.recordId);
+			this.mv.visitMethodInsn(INVOKEVIRTUAL, ioRecordType, "getId", "()J", false);
+			this.mv.visitMethodInsn(INVOKESTATIC, propagater, "propagateTaint", "(CJ)C", false);
+			this.mv.visitVarInsn(ISTORE, argIdx);
+			argIdx++;
+		} else if (arg.getSort() == Type.FLOAT) {
+			this.mv.visitVarInsn(FLOAD, argIdx);
+			this.mv.visitVarInsn(ALOAD, this.recordId);
+			this.mv.visitMethodInsn(INVOKEVIRTUAL, ioRecordType, "getId", "()J", false);
+			this.mv.visitMethodInsn(INVOKESTATIC, propagater, "propagateTaint", "(FJ)F", false);
+			this.mv.visitVarInsn(FSTORE, argIdx);
+			argIdx++;
+		} else if (arg.getSort() == Type.DOUBLE) {
+			this.mv.visitVarInsn(DLOAD, argIdx);
+			this.mv.visitVarInsn(ALOAD, this.recordId);
+			this.mv.visitMethodInsn(INVOKEVIRTUAL, ioRecordType, "getId", "()J", false);
+			this.mv.visitMethodInsn(INVOKESTATIC, propagater, "propagateTaint", "(DJ)D", false);
+			this.mv.visitVarInsn(DSTORE, argIdx);
+			argIdx += 2;
+		} else if (arg.getSort() == Type.LONG) {
+			this.mv.visitVarInsn(LLOAD, argIdx);
+			this.mv.visitVarInsn(ALOAD, this.recordId);
+			this.mv.visitMethodInsn(INVOKEVIRTUAL, ioRecordType, "getId", "()J", false);
+			this.mv.visitMethodInsn(INVOKESTATIC, propagater, "propagateTaint", "(JJ)J", false);
+			this.mv.visitVarInsn(LSTORE, argIdx);
+			argIdx += 2;
+		} else if (arg == Type.getType(String.class)) {
+			this.mv.visitVarInsn(ALOAD, argIdx);
+			this.mv.visitVarInsn(ALOAD, this.recordId);
+			this.mv.visitMethodInsn(INVOKEVIRTUAL, ioRecordType, "getId", "()J", false);
+			this.mv.visitMethodInsn(INVOKESTATIC, propagater, "propagateTaint", "(Ljava/lang/String;J)V", false);
+			argIdx++;
+		} else if (arg.getSort() == Type.OBJECT || arg.getSort() == Type.ARRAY) {
+			this.mv.visitVarInsn(ALOAD, argIdx);
+			this.mv.visitVarInsn(ALOAD, this.recordId);
+			this.mv.visitMethodInsn(INVOKEVIRTUAL, ioRecordType, "getId", "()J", false);
+			this.convertToInst(DEPTH);
+			this.mv.visitMethodInsn(INVOKESTATIC, propagater, "propagateTaint", "(Ljava/lang/Object;JI)V", false);
+			
+			//keep a reference to input obj
+			this.mv.visitVarInsn(ALOAD, this.recordId);
+			this.convertToInst(argIdx);
+			this.mv.visitVarInsn(ALOAD, argIdx);
+			this.mv.visitMethodInsn(INVOKEVIRTUAL, ioRecordType, "preload", "(ILjava/lang/Object;)V", false);
+			argIdx++;
+		} else {
+			System.err.println("Un-recognized type: " + arg);
+			System.exit(-1);
+		}
+	}
+	
 	@Override
 	public void visitCode() {
 		this.mv.visitCode();
@@ -101,94 +187,33 @@ public class DynFlowObserver extends MethodVisitor implements Opcodes {
 				false);
 		this.mv.visitVarInsn(Opcodes.ASTORE, this.recordId);
 		
-		String propagater = Type.getInternalName(HitoTaintPropagater.class);
 		if (!isStatic) {
-			this.args = ClassInfoUtils.genMethodArgs(desc, null);
+			this.args = ClassInfoUtils.genMethodArgs(this.desc, null);
 		} else {
-			this.args = ClassInfoUtils.genMethodArgs(desc, this.internalName);
+			this.args = ClassInfoUtils.genMethodArgs(this.desc, this.internalName);
 		}
 		
-		int argIdx = 0;
-		for (int i = 0; i < this.args.length; i++) {
-			Type arg = this.args[i];
-			if (arg.getSort() == Type.INT) {
-				this.mv.visitVarInsn(ILOAD, argIdx);
-				this.mv.visitVarInsn(ALOAD, this.recordId);
-				this.mv.visitMethodInsn(INVOKEVIRTUAL, ioRecordType.getInternalName(), "getId", "()J", false);
-				this.mv.visitMethodInsn(INVOKESTATIC, propagater, "propagateTaint", "(IJ)I", false);
-				this.mv.visitVarInsn(ISTORE, argIdx);
-				argIdx++;
-			} else if (arg.getSort() == Type.SHORT) {
-				this.mv.visitVarInsn(ILOAD, argIdx);
-				this.mv.visitVarInsn(ALOAD, this.recordId);
-				this.mv.visitMethodInsn(INVOKEVIRTUAL, ioRecordType.getInternalName(), "getId", "()J", false);
-				this.mv.visitMethodInsn(INVOKESTATIC, propagater, "propagateTaint", "(SJ)S", false);
-				this.mv.visitVarInsn(ISTORE, argIdx);
-				argIdx++;
-			} else if (arg.getSort() == Type.BYTE) {
-				this.mv.visitVarInsn(ILOAD, argIdx);
-				this.mv.visitVarInsn(ALOAD, this.recordId);
-				this.mv.visitMethodInsn(INVOKEVIRTUAL, ioRecordType.getInternalName(), "getId", "()J", false);
-				this.mv.visitMethodInsn(INVOKESTATIC, propagater, "propagateTaint", "(BJ)B", false);
-				this.mv.visitVarInsn(ISTORE, argIdx);
-				argIdx++;
-			} else if (arg.getSort() == Type.BOOLEAN) {
-				this.mv.visitVarInsn(ILOAD, argIdx);
-				this.mv.visitVarInsn(ALOAD, this.recordId);
-				this.mv.visitMethodInsn(INVOKEVIRTUAL, ioRecordType.getInternalName(), "getId", "()J", false);
-				this.mv.visitMethodInsn(INVOKESTATIC, propagater, "propagateTaint", "(ZJ)Z", false);
-				this.mv.visitVarInsn(ISTORE, argIdx);
-				argIdx++;
-			} else if (arg.getSort() == Type.CHAR) {
-				this.mv.visitVarInsn(ILOAD, argIdx);
-				this.mv.visitVarInsn(ALOAD, this.recordId);
-				this.mv.visitMethodInsn(INVOKEVIRTUAL, ioRecordType.getInternalName(), "getId", "()J", false);
-				this.mv.visitMethodInsn(INVOKESTATIC, propagater, "propagateTaint", "(CJ)C", false);
-				this.mv.visitVarInsn(ISTORE, argIdx);
-				argIdx++;
-			} else if (arg.getSort() == Type.FLOAT) {
-				this.mv.visitVarInsn(FLOAD, argIdx);
-				this.mv.visitVarInsn(ALOAD, this.recordId);
-				this.mv.visitMethodInsn(INVOKEVIRTUAL, ioRecordType.getInternalName(), "getId", "()J", false);
-				this.mv.visitMethodInsn(INVOKESTATIC, propagater, "propagateTaint", "(FJ)F", false);
-				this.mv.visitVarInsn(FSTORE, argIdx);
-				argIdx++;
-			} else if (arg.getSort() == Type.DOUBLE) {
-				this.mv.visitVarInsn(DLOAD, argIdx);
-				this.mv.visitVarInsn(ALOAD, this.recordId);
-				this.mv.visitMethodInsn(INVOKEVIRTUAL, ioRecordType.getInternalName(), "getId", "()J", false);
-				this.mv.visitMethodInsn(INVOKESTATIC, propagater, "propagateTaint", "(DJ)D", false);
-				this.mv.visitVarInsn(DSTORE, argIdx);
-				argIdx += 2;
-			} else if (arg.getSort() == Type.LONG) {
-				this.mv.visitVarInsn(LLOAD, argIdx);
-				this.mv.visitVarInsn(ALOAD, this.recordId);
-				this.mv.visitMethodInsn(INVOKEVIRTUAL, ioRecordType.getInternalName(), "getId", "()J", false);
-				this.mv.visitMethodInsn(INVOKESTATIC, propagater, "propagateTaint", "(JJ)J", false);
-				this.mv.visitVarInsn(LSTORE, argIdx);
-				argIdx += 2;
-			} else if (arg == Type.getType(String.class)) {
-				this.mv.visitVarInsn(ALOAD, argIdx);
-				this.mv.visitVarInsn(ALOAD, this.recordId);
-				this.mv.visitMethodInsn(INVOKEVIRTUAL, ioRecordType.getInternalName(), "getId", "()J", false);
-				this.mv.visitMethodInsn(INVOKESTATIC, propagater, "propagateTaint", "(Ljava/lang/String;J)V", false);
-				argIdx++;
-			} else if (arg.getSort() == Type.OBJECT || arg.getSort() == Type.ARRAY) {
-				this.mv.visitVarInsn(ALOAD, argIdx);
-				this.mv.visitVarInsn(ALOAD, this.recordId);
-				this.mv.visitMethodInsn(INVOKEVIRTUAL, ioRecordType.getInternalName(), "getId", "()J", false);
-				this.convertToInst(DEPTH);
-				this.mv.visitMethodInsn(INVOKESTATIC, propagater, "propagateTaint", "(Ljava/lang/Object;JI)V", false);
-				
-				//keep a reference to input obj
-				this.mv.visitVarInsn(ALOAD, this.recordId);
-				this.convertToInst(argIdx);
-				this.mv.visitVarInsn(ALOAD, argIdx);
-				this.mv.visitMethodInsn(INVOKEVIRTUAL, ioRecordType.getInternalName(), "preload", "(ILjava/lang/Object;)V", false);
-				argIdx++;
-			} else {
-				System.err.println("Un-recognized type: " + arg);
-				System.exit(-1);
+		if (this.isConstructor) {
+			int argIdx = 1;
+			for (int i = 1; i < this.args.length; i++) {
+				Type arg = this.args[i];
+				this.processArg(arg, argIdx);
+				if (arg.getSort() == Type.LONG || arg.getSort() == Type.DOUBLE) {
+					argIdx += 2;
+				} else {
+					argIdx++;
+				}
+			}
+		} else {
+			int argIdx = 0;
+			for (int i = 0; i < this.args.length; i++) {
+				Type arg = this.args[i];
+				this.processArg(arg, argIdx);
+				if (arg.getSort() == Type.LONG || arg.getSort() == Type.DOUBLE) {
+					argIdx += 2;
+				} else {
+					argIdx++;
+				}
 			}
 		}
 	}
@@ -250,6 +275,23 @@ public class DynFlowObserver extends MethodVisitor implements Opcodes {
 					false);
 		}
 		this.mv.visitInsn(opcode);
+	}
+	
+	@Override
+	public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
+		this.mv.visitMethodInsn(opcode, owner, name, desc, itf);
+		
+		if (this.isConstructor) {
+			//This means that object.init or super init has not been touched
+			//Taint "this"
+			if (opcode == INVOKESPECIAL && name.equals("<init>")) {
+				if (owner.equals(this.internalName) || owner.equals(this.internalSuperName)) {
+					Type thisType = this.args[0];
+					processArg(thisType, 0);
+				}
+			}
+			this.isConstructor = false;
+		}
 	}
 	
 	private void convertToInst(int num) {

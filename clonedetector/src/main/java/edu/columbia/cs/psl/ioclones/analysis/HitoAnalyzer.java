@@ -93,17 +93,26 @@ public class HitoAnalyzer {
 		}
 		logger.info("Destination: " + destDir.getAbsolutePath());
 		
+		if (sourceDir.isDirectory())
+			processDirectory(sourceDir, destDir, true);
+		else if (sourceDir.getName().endsWith(".jar") || sourceDir.getName().endsWith(".zip") || sourceDir.getName().endsWith(".war"))
+			processZip(sourceDir, destDir);
+		else if (sourceDir.getName().endsWith(".class"))
+			processClass(sourceDir, destDir);
+		else {
+			System.err.println("Unknown type for path " + sourceDir.getName());
+			System.exit(-1);
+		}
 	}
 	
-	private static void processClass(File f, File outputDir) {
+	public static byte[] instrument(String path, InputStream is) {
+		byte[] classData = ClassDataTraverser.cleanClass(is);
 		try {
-			String name = f.getName();
-			InputStream is = new FileInputStream(f);
-			byte[] classData = ClassDataTraverser.cleanClass(is);
-			
 			ClassReader cr = new ClassReader(classData);
 			ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS);
 			ClassVisitor cv = new ClassVisitor(Opcodes.ASM5, cw) {
+				String internalSuperName;
+				
 				String internalClassName;
 				
 				String className;
@@ -121,6 +130,7 @@ public class HitoAnalyzer {
 					this.internalClassName = name;
 					this.className = ClassInfoUtils.cleanType(name);
 					if (superName != null) {
+						this.internalSuperName = superName;
 						this.superName = ClassInfoUtils.cleanType(superName);
 					}
 				}
@@ -147,6 +157,7 @@ public class HitoAnalyzer {
 						return mv;
 					} else {
 						DynFlowObserver dfo = new DynFlowObserver(this.internalClassName, 
+								this.internalSuperName, 
 								this.className, 
 								access, 
 								name, 
@@ -160,21 +171,29 @@ public class HitoAnalyzer {
 					}
 				}
 			};
-
+			cr.accept(cv, ClassReader.EXPAND_FRAMES);
+			byte[] transformed = cw.toByteArray();
+			
+			return transformed;
+		} catch (Exception ex) {
+			logger.error("Fail to instrument file: " + path);
+		}
+		return classData;
+	}
+	
+	private static void processClass(File f, File outputDir) {
+		try {
+			String name = f.getName();
+			InputStream is = new FileInputStream(f);
+			byte[] instrumented = instrument(f.getAbsolutePath(), is);
+			
 			FileOutputStream fos = new FileOutputStream(outputDir.getPath() + File.separator + name);
 			ByteArrayOutputStream bos = new ByteArrayOutputStream();
-			lastInstrumentedClass = outputDir.getPath() + File.separator + name;
-
-			if (ANALYZE_ONLY)
-				analyzeClass(is);
-			else {
-				byte[] c = instrumentClass(outputDir.getAbsolutePath(), is, true);
-				bos.write(c);
-				bos.writeTo(fos);
-				fos.close();
-			}
+			bos.write(instrumented);
+			bos.writeTo(fos);
+			bos.close();
+			fos.close();
 			is.close();
-
 		} catch (Exception ex) {
 			ex.printStackTrace();
 		}
@@ -209,8 +228,6 @@ public class HitoAnalyzer {
 				} catch (Exception ex) {
 					System.err.println("error copying file " + fi);
 					ex.printStackTrace();
-					//					logger.log(Level.SEVERE, "Unable to copy file " + fi, ex);
-					//					System.exit(-1);
 				} finally {
 					if (source != null) {
 						try {
@@ -244,32 +261,28 @@ public class HitoAnalyzer {
 				ZipEntry e = entries.nextElement();
 
 				if (e.getName().endsWith(".class")) {
-					if (ANALYZE_ONLY)
-						analyzeClass(zip.getInputStream(e));
-					else {
-						try {
-							ZipEntry outEntry = new ZipEntry(e.getName());
-							zos.putNextEntry(outEntry);
+					try {
+						ZipEntry outEntry = new ZipEntry(e.getName());
+						zos.putNextEntry(outEntry);
 
-							byte[] clazz = instrumentClass(f.getAbsolutePath(), zip.getInputStream(e), true);
-							if (clazz == null) {
-								System.out.println("Failed to instrument " + e.getName() + " in " + f.getName());
-								InputStream is = zip.getInputStream(e);
-								byte[] buffer = new byte[1024];
-								while (true) {
-									int count = is.read(buffer);
-									if (count == -1)
-										break;
-									zos.write(buffer, 0, count);
-								}
-								is.close();
-							} else
-								zos.write(clazz);
-							zos.closeEntry();
-						} catch (ZipException ex) {
-							ex.printStackTrace();
-							continue;
-						}
+						byte[] clazz = instrument(f.getAbsolutePath(), zip.getInputStream(e));
+						if (clazz == null) {
+							System.out.println("Failed to instrument " + e.getName() + " in " + f.getName());
+							InputStream is = zip.getInputStream(e);
+							byte[] buffer = new byte[1024];
+							while (true) {
+								int count = is.read(buffer);
+								if (count == -1)
+									break;
+								zos.write(buffer, 0, count);
+							}
+							is.close();
+						} else
+							zos.write(clazz);
+						zos.closeEntry();
+					} catch (ZipException ex) {
+						ex.printStackTrace();
+						continue;
 					}
 				} else if (e.getName().endsWith(".jar")) {
 					ZipEntry outEntry = new ZipEntry(e.getName());
@@ -401,7 +414,5 @@ public class HitoAnalyzer {
 			}
 		}
 	}
-	
-	
 }
 
