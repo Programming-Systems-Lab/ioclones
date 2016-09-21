@@ -56,12 +56,13 @@ public class HitoTaintChecker {
 	}
 	
 	public static void summarizeWrittenInputs(IORecord record, int depth) {
-		System.out.println("Summarizing written inputs");
+		System.out.println("Summarizing written inputs: " + record.getMethodKey() + " " + record.getId());
 		for (Object o: record.preload.values()) {
 			if (HitoTaintChecker.shouldCheck(o, record.getId())) {
 				HitoTaintChecker.analyzeTaint(o, depth, record);
 			}
 		}
+		System.out.println();
 	}
 	
 	public static void interpretDeps(Object val, Taint t, IORecord record) {
@@ -87,7 +88,7 @@ public class HitoTaintChecker {
 				ArrayList<HitoLabel> dep = (ArrayList<HitoLabel>)curNode.entry;
 				for (HitoLabel d: dep) {
 					if (d.execIdx >= execIdx) {
-						System.out.println("Dep: " + d.val);
+						System.out.println("Dep: " + d);
 						record.registerInput(d.val, shouldSerialize(d.val));
 					}
 				}
@@ -103,17 +104,18 @@ public class HitoTaintChecker {
 				if (lbl.execIdx == execIdx) {
 					//For handling the copy of taint
 					if (!lbl.val.equals(val)) {
-						System.out.println("Dep: " + lbl.val);
+						System.out.println("Dep: " + lbl);
 						record.registerInput(lbl.val, shouldSerialize(lbl.val));
 					}
 				} else if (lbl.execIdx > execIdx) {
-					System.out.println("Dep: " + lbl.val);				
+					System.out.println("Dep: " + lbl);				
 					record.registerInput(lbl.val, shouldSerialize(lbl.val));
 				}
 			}
 		} else {
 			System.out.println("No labels");
 		}
+		System.out.println();
 	}
 		
 	public static void analyzeTaint(int val, IORecord record) {
@@ -187,11 +189,12 @@ public class HitoTaintChecker {
 			ArrayList<HitoLabel> deps = (ArrayList<HitoLabel>)t.getLabel();
 			for (HitoLabel hl : deps) {
 				if (hl.execIdx >= execIdx) {
-					System.out.println("Dep: " + hl.val);
+					System.out.println("Dep: " + hl);
 					record.registerInput(hl.val, shouldSerialize(hl.val));
 				}
 			}
 		}
+		System.out.println();
 	}
 	
 	public static void analyzeTaint(Object obj, int depth, IORecord record) {

@@ -135,13 +135,34 @@ public class HitoTaintPropagater {
 		}
 		
 		Taint t = MultiTainter.getTaint(val);
+		System.out.println("Check string taint: " + val + " " + t);
 		if (t == null) {
 			ArrayList<HitoLabel> labels = newLabels(val, execIdx);
 			t = new Taint(labels);
 			MultiTainter.taintedObject(val, t);
+			
+			System.out.println("Tainting string: " + val);
+			for (int i = 0; i < val.length(); i++) {
+				char c = val.charAt(i);
+				System.out.println("Char taint: " + MultiTainter.getTaint(c));
+			}
 		} else {
 			for (int i = 0; i < val.length(); i++) {
-				propagateTaint(val.charAt(i), execIdx);
+				char c = val.charAt(i);
+				Taint charT = MultiTainter.getTaint(c);
+				if (charT == null) {
+					ArrayList<HitoLabel> labels = newLabels(val, execIdx);
+					c = MultiTainter.taintedChar(c, labels);
+				} else {
+					HitoLabel newLabel = new HitoLabel();
+					newLabel.val = val;
+					newLabel.execIdx = execIdx;
+					
+					ArrayList<HitoLabel> labels = (ArrayList<HitoLabel>)charT.lbl;
+					labels.add(newLabel);
+				}
+				
+				//propagateTaint(val.charAt(i), execIdx);
 			}
 		}
 	}

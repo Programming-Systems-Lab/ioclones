@@ -142,7 +142,7 @@ public class DynFlowObserver extends MethodVisitor implements Opcodes {
 			this.mv.visitMethodInsn(INVOKESTATIC, propagater, "propagateTaint", "(JJ)J", false);
 			this.mv.visitVarInsn(LSTORE, argIdx);
 			argIdx += 2;
-		} else if (arg == Type.getType(String.class)) {
+		} else if (arg.equals(Type.getType(String.class))) {
 			this.mv.visitVarInsn(ALOAD, argIdx);
 			this.mv.visitVarInsn(ALOAD, this.recordId);
 			this.mv.visitMethodInsn(INVOKEVIRTUAL, ioRecordType, "getId", "()J", false);
@@ -251,7 +251,7 @@ public class DynFlowObserver extends MethodVisitor implements Opcodes {
 				} else if (sort == Type.DOUBLE) {
 					this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, "analyzeTaint", "(DLedu/columbia/cs/psl/ioclones/pojo/IORecord;)V", false);
 				} else if (sort == Type.OBJECT || sort == Type.ARRAY) {
-					if (retType == Type.getType(String.class)) {
+					if (retType.equals(Type.getType(String.class))) {
 						this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, "analyzeTaint", "(Ljava/lang/String;Ledu/columbia/cs/psl/ioclones/pojo/IORecord;)V", false);
 					} else {
 						this.convertToInst(DEPTH);

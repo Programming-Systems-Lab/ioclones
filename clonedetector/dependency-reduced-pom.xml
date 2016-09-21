@@ -37,7 +37,14 @@
             <goals>
               <goal>shade</goal>
             </goals>
-            <configuration />
+            <configuration>
+              <artifactSet>
+                <excludes>
+                  <exclude>edu.columbia.cs.psl.phosphor:Phosphor</exclude>
+                  <exclude>org.xerial:sqlite-jdbc</exclude>
+                </excludes>
+              </artifactSet>
+            </configuration>
           </execution>
         </executions>
       </plugin>
@@ -80,6 +87,19 @@
           <groupId>org.hamcrest</groupId>
         </exclusion>
       </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>org.xerial</groupId>
+      <artifactId>sqlite-jdbc</artifactId>
+      <version>3.8.11.2</version>
+      <scope>compile</scope>
+    </dependency>
+    <dependency>
+      <groupId>edu.columbia.cs.psl.phosphor</groupId>
+      <artifactId>Phosphor</artifactId>
+      <version>0.0.2-SNAPSHOT</version>
+      <scope>system</scope>
+      <systemPath>/Users/mikefhsu/ncsws/phosphor_fork/Phosphor-0.0.2-SNAPSHOT.jar</systemPath>
     </dependency>
   </dependencies>
   <distributionManagement>
