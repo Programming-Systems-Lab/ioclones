@@ -1,22 +1,31 @@
 package edu.columbia.cs.psl.ioclones.instrument;
 
+import java.io.File;
+import java.util.HashSet;
+
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.LocalVariablesSorter;
 
+import com.google.gson.reflect.TypeToken;
+
 import edu.columbia.cs.psl.ioclones.analysis.dynamic.HitoTaintChecker;
 import edu.columbia.cs.psl.ioclones.analysis.dynamic.HitoTaintPropagater;
 import edu.columbia.cs.psl.ioclones.config.IOCloneConfig;
+import edu.columbia.cs.psl.ioclones.instrument.FlowMethodObserver.WriterFlow;
 import edu.columbia.cs.psl.ioclones.pojo.IORecord;
 import edu.columbia.cs.psl.ioclones.utils.BytecodeUtils;
 import edu.columbia.cs.psl.ioclones.utils.ClassInfoUtils;
 import edu.columbia.cs.psl.ioclones.utils.GlobalInfoRecorder;
+import edu.columbia.cs.psl.ioclones.utils.IOUtils;
 
 public class DynFlowObserver extends MethodVisitor implements Opcodes {
 	
 	public static final int DEPTH = IOCloneConfig.getInstance().getDepth();
+	
+	private static HashSet<String> WRITERS;
 	
 	private boolean isConstructor;
 	
@@ -48,6 +57,24 @@ public class DynFlowObserver extends MethodVisitor implements Opcodes {
 	private LocalVariablesSorter lvs;
 	
 	private int recordId = -1;
+	
+	static {
+		File writerFile = new File("./config/writers.json");
+		if (!writerFile.exists()) {
+			WRITERS = new HashSet<String>();
+			System.out.println("Find no writer file: " + writerFile.getAbsolutePath());
+		} else {
+			TypeToken<HashSet<String>> token = new TypeToken<HashSet<String>>(){};
+			WRITERS = IOUtils.readJson(writerFile, token);
+			
+			if (WRITERS == null) {
+				WRITERS = new HashSet<String>();
+				System.out.println("Emptyp writer file");
+			} else {
+				System.out.println("Total writers: " + WRITERS.size());
+			}
+		}
+	}
 	
 	public DynFlowObserver(String internalName, 
 			String internalSuperName, 
@@ -265,6 +292,7 @@ public class DynFlowObserver extends MethodVisitor implements Opcodes {
 					System.exit(-1);
 				}
 			}
+			
 			//Analyze if input has been written
 			this.mv.visitVarInsn(ALOAD, this.recordId);
 			this.convertToInst(DEPTH);
@@ -283,6 +311,95 @@ public class DynFlowObserver extends MethodVisitor implements Opcodes {
 	
 	@Override
 	public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
+		if (!name.equals("<init>")) {
+			String taintChecker = Type.getInternalName(HitoTaintChecker.class);
+			
+			String replace = owner.replace("/", ".");
+			if (WRITERS.contains(replace)) {
+				Type[] args = Type.getArgumentTypes(desc);
+				WriterFlow[] infos = new WriterFlow[args.length];
+				
+				for (int i = args.length - 1; i >= 0; i--) {
+					Type curType = args[i];
+					int curLocal = this.lvs.newLocal(curType);
+					int curSort = curType.getSort();
+					if (curSort == Type.OBJECT || curSort == Type.ARRAY) {
+						this.mv.visitVarInsn(ASTORE, curLocal);
+					} else if (curSort == Type.FLOAT) {
+						this.mv.visitVarInsn(FSTORE, curLocal);
+					} else if (curSort == Type.LONG) {
+						this.mv.visitVarInsn(LSTORE, curLocal);
+					} else if (curSort == Type.DOUBLE) {
+						this.mv.visitVarInsn(DSTORE, curLocal);
+					} else {
+						this.mv.visitVarInsn(ISTORE, curLocal);
+					}
+					WriterFlow wf = new WriterFlow();
+					wf.newVar = curLocal;
+					wf.dataType = curType;
+					
+					infos[i] = wf;
+				}
+				
+				for (int i = 0; i < infos.length; i++) {
+					WriterFlow wf = infos[i];
+					Type dataType = wf.dataType;
+					int sort = dataType.getSort();
+					
+					if (sort == Type.OBJECT || sort == Type.ARRAY) {
+						this.mv.visitVarInsn(ALOAD, wf.newVar);
+					} else if (sort == Type.LONG) {
+						this.mv.visitVarInsn(LLOAD, wf.newVar);
+					} else if (sort == Type.DOUBLE) {
+						this.mv.visitVarInsn(DLOAD, wf.newVar);
+					} else if (sort == Type.FLOAT) {
+						this.mv.visitVarInsn(FLOAD, wf.newVar);
+					} else {
+						this.mv.visitVarInsn(ILOAD, wf.newVar);
+					}
+					
+					if (sort == Type.LONG || sort == Type.DOUBLE) {
+						this.mv.visitInsn(DUP2);
+					} else {
+						this.mv.visitInsn(DUP);
+					}
+					this.mv.visitVarInsn(ALOAD, this.recordId);
+					
+					if (sort == Type.OBJECT || sort == Type.ARRAY) {
+						this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, 
+								"recordControl", "(Ljava/lang/Object;Ledu/columbia/cs/psl/ioclones/pojo/IORecord;)V", false);
+					} else if (sort == Type.INT) {
+						this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, 
+								"recordControl", "(ILedu/columbia/cs/psl/ioclones/pojo/IORecord;)V", false);
+					} else if (sort == Type.SHORT) {
+						this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, 
+								"recordControl", "(JLedu/columbia/cs/psl/ioclones/pojo/IORecord;)V", false);
+					} else if (sort == Type.CHAR) {
+						this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, 
+								"recordControl", "(CLedu/columbia/cs/psl/ioclones/pojo/IORecord;)V", false);
+					} else if (sort == Type.BOOLEAN) {
+						this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, 
+								"recordControl", "(ZLedu/columbia/cs/psl/ioclones/pojo/IORecord;)V", false);
+					} else if (sort == Type.BYTE) {
+						this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, 
+								"recordControl", "(BLedu/columbia/cs/psl/ioclones/pojo/IORecord;)V", false);
+					} else if (sort == Type.FLOAT) {
+						this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, 
+								"recordControl", "(FLedu/columbia/cs/psl/ioclones/pojo/IORecord;)V", false);
+					} else if (sort == Type.LONG) {
+						this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, 
+								"recordControl", "recordWriter(JLedu/columbia/cs/psl/ioclones/pojo/IORecord;)V", false);
+					} else if (sort == Type.DOUBLE) {
+						this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, 
+								"recordControl", "recordWriter(DLedu/columbia/cs/psl/ioclones/pojo/IORecord;)V", false);
+					} else {
+						System.err.println("Un-recognized data type: " + dataType);
+						System.exit(-1);
+					}
+				}
+			}
+		}
+		
 		this.mv.visitMethodInsn(opcode, owner, name, desc, itf);
 		
 		if (this.isConstructor) {
@@ -299,7 +416,7 @@ public class DynFlowObserver extends MethodVisitor implements Opcodes {
 	}
 	
 	@Override
-	public void visitJumpInsn(int opcode, Label label) {
+	public void visitJumpInsn(int opcode, Label label) {		
 		switch(opcode) {
 			case IFEQ:
 			case IFNE:
@@ -309,24 +426,20 @@ public class DynFlowObserver extends MethodVisitor implements Opcodes {
 			case IFLE:
 				this.mv.visitInsn(DUP);
 				this.mv.visitVarInsn(ALOAD, this.recordId);
-				this.mv.visitInsn(SWAP);
-				this.mv.visitInsn(ICONST_0);
-				this.mv.visitMethodInsn(INVOKEVIRTUAL, 
-						Type.getInternalName(IORecord.class), 
-						"registerInput", 
-						"(Ljava/lang/Object;Z)V", 
+				this.mv.visitMethodInsn(INVOKESTATIC, 
+						Type.getInternalName(HitoTaintChecker.class), 
+						"recordControl", 
+						"(ILedu/columbia/cs/psl/ioclones/pojo/IORecord;)V", 
 						false);
 				break ;
 			case IFNULL:
 			case IFNONNULL:
-				this.mv.visitInsn(Opcodes.DUP);
+				this.mv.visitInsn(DUP);
 				this.mv.visitVarInsn(ALOAD, this.recordId);
-				this.mv.visitInsn(SWAP);
-				this.mv.visitInsn(ICONST_1);
-				this.mv.visitMethodInsn(INVOKEVIRTUAL, 
-					Type.getInternalName(IORecord.class), 
-					"registerInput", 
-					"(Ljava/lang/Object;Z)V", 
+				this.mv.visitMethodInsn(INVOKESTATIC, 
+					Type.getInternalName(HitoTaintChecker.class), 
+					"recordControl", 
+					"(Ljava/lang/Object;Ledu/columbia/cs/psl/ioclones/pojo/IORecord;)V", 
 					false);
 				break ;
 			case IF_ICMPEQ:
@@ -337,19 +450,12 @@ public class DynFlowObserver extends MethodVisitor implements Opcodes {
 			case IF_ICMPLE:
 				this.mv.visitInsn(Opcodes.DUP2);
 				for (int i = 0; i < 2; i++) {
-					this.mv.visitMethodInsn(Opcodes.INVOKESTATIC, 
-						Type.getInternalName(Integer.class), 
-						"valueOf", 
-						"(I)Ljava/lang/Integer;", 
-						false);
 					this.mv.visitVarInsn(ALOAD, this.recordId);
-					this.mv.visitInsn(SWAP);
-					this.mv.visitInsn(ICONST_0);
-					this.mv.visitMethodInsn(INVOKEVIRTUAL, 
-						Type.getInternalName(IORecord.class), 
-						"registerInput", 
-						"(Ljava/lang/Object;Z)V", 
-						false);
+					this.mv.visitMethodInsn(INVOKESTATIC, 
+							Type.getInternalName(HitoTaintChecker.class), 
+							"recordControl", 
+							"(ILedu/columbia/cs/psl/ioclones/pojo/IORecord;)V", 
+							false);
 				}
 				break ;
 			case IF_ACMPEQ:
@@ -357,12 +463,10 @@ public class DynFlowObserver extends MethodVisitor implements Opcodes {
 				this.mv.visitInsn(Opcodes.DUP2);
 				for (int i = 0; i < 2; i++) {
 					this.mv.visitVarInsn(ALOAD, this.recordId);
-					this.mv.visitInsn(SWAP);
-					this.mv.visitInsn(ICONST_1);
-					this.mv.visitMethodInsn(INVOKEVIRTUAL, 
-						Type.getInternalName(IORecord.class), 
-						"registerInput", 
-						"(Ljava/lang/Object;Z)V", 
+					this.mv.visitMethodInsn(INVOKESTATIC, 
+						Type.getInternalName(HitoTaintChecker.class), 
+						"recordControl", 
+						"(Ljava/lang/Object;Ledu/columbia/cs/psl/ioclones/pojo/IORecord;)V", 
 						false);
 				}
 				break ;
@@ -379,12 +483,10 @@ public class DynFlowObserver extends MethodVisitor implements Opcodes {
 	public void visitLookupSwitchInsn(Label dflt, int[] keys, Label[] labels) {
 		this.mv.visitInsn(DUP);
 		this.mv.visitVarInsn(ALOAD, this.recordId);
-		this.mv.visitInsn(SWAP);
-		this.mv.visitInsn(ICONST_0);
-		this.mv.visitMethodInsn(INVOKEVIRTUAL, 
-				Type.getInternalName(IORecord.class), 
-				"registerInput", 
-				"(Ljava/lang/Object;Z)V", 
+		this.mv.visitMethodInsn(INVOKESTATIC, 
+				Type.getInternalName(HitoTaintChecker.class), 
+				"recordControl", 
+				"(ILedu/columbia/cs/psl/ioclones/pojo/IORecord;)V", 
 				false);
 		
 		this.mv.visitLookupSwitchInsn(dflt, keys, labels);
@@ -394,12 +496,10 @@ public class DynFlowObserver extends MethodVisitor implements Opcodes {
 	public void visitTableSwitchInsn(int min, int max, Label dflt, Label... labels) {
 		this.mv.visitInsn(DUP);
 		this.mv.visitVarInsn(ALOAD, this.recordId);
-		this.mv.visitInsn(SWAP);
-		this.mv.visitInsn(ICONST_0);
-		this.mv.visitMethodInsn(INVOKEVIRTUAL, 
-				Type.getInternalName(IORecord.class), 
-				"registerInput", 
-				"(Ljava/lang/Object;Z)V", 
+		this.mv.visitMethodInsn(INVOKESTATIC, 
+				Type.getInternalName(HitoTaintChecker.class), 
+				"recordControl", 
+				"(ILedu/columbia/cs/psl/ioclones/pojo/IORecord;)V", 
 				false);
 		
 		this.mv.visitTableSwitchInsn(min, max, dflt, labels);

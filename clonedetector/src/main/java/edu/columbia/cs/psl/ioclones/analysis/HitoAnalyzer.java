@@ -7,17 +7,9 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.channels.FileChannel;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Enumeration;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
 import java.util.Random;
 import java.util.Scanner;
-import java.util.Set;
-import java.util.TreeSet;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipException;
 import java.util.zip.ZipFile;
@@ -35,22 +27,12 @@ import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
-import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.LocalVariablesSorter;
-import org.objectweb.asm.tree.AbstractInsnNode;
-import org.objectweb.asm.tree.MethodInsnNode;
-import org.objectweb.asm.tree.MethodNode;
-import org.objectweb.asm.tree.analysis.Analyzer;
-import org.objectweb.asm.tree.analysis.Frame;
 
 import edu.columbia.cs.psl.ioclones.config.IOCloneConfig;
 import edu.columbia.cs.psl.ioclones.instrument.DynFlowObserver;
-import edu.columbia.cs.psl.ioclones.pojo.ClassInfo;
-import edu.columbia.cs.psl.ioclones.pojo.MethodInfo;
 import edu.columbia.cs.psl.ioclones.utils.ClassDataTraverser;
 import edu.columbia.cs.psl.ioclones.utils.ClassInfoUtils;
-import edu.columbia.cs.psl.ioclones.utils.GlobalInfoRecorder;
-import edu.columbia.cs.psl.ioclones.utils.IOUtils;
 
 public class HitoAnalyzer {
 	
@@ -110,7 +92,7 @@ public class HitoAnalyzer {
 		}
 		System.out.println("Total processed class files: " + counter);
 	}
-	
+		
 	public static byte[] instrument(String path, InputStream is) {
 		System.out.println("Processing: " + path);
 		byte[] classData = ClassDataTraverser.cleanClass(is);

@@ -11,6 +11,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import edu.columbia.cs.psl.ioclones.analysis.dynamic.HitoTaintPropagater.HitoLabel;
+import edu.columbia.cs.psl.ioclones.config.IOCloneConfig;
 import edu.columbia.cs.psl.ioclones.pojo.IORecord;
 import edu.columbia.cs.psl.phosphor.runtime.MultiTainter;
 import edu.columbia.cs.psl.phosphor.runtime.Taint;
@@ -20,6 +21,12 @@ import edu.columbia.cs.psl.phosphor.struct.LinkedList.Node;
 public class HitoTaintChecker {
 	
 	private static final Logger logger = LogManager.getLogger(HitoTaintChecker.class);
+	
+	private static final int DEPTH = IOCloneConfig.getInstance().getDepth();
+	
+	private static final boolean CONTROL = IOCloneConfig.getInstance().isControl();
+	
+	private static final boolean WRITER = IOCloneConfig.getInstance().isWriter();
 	
 	public static boolean shouldCheck(Object val, long execIdx) {
 		if (!shouldSerialize(val)) {
@@ -68,6 +75,107 @@ public class HitoTaintChecker {
 			}
 		}
 		System.out.println();
+	}
+	
+	public static void recordControl(int val, IORecord record) {
+		if (!CONTROL) {
+			return ;
+		}
+		
+		record.registerInput(val, false);
+	}
+	
+	public static void recordControl(Object obj, IORecord record) {
+		if (!CONTROL) {
+			return ;
+		}
+		
+		if (obj == null) {
+			return ;
+		}
+		
+		if (String.class.isAssignableFrom(obj.getClass())) {
+			record.registerInput(obj, false);
+		} else {
+			record.registerInput(obj, true);
+		}
+		return ;
+	}
+	
+	public static void recordWriter(int val, IORecord record) {
+		if (!WRITER) {
+			return ;
+		}
+		
+		analyzeTaint(val, record, true);
+	}
+	
+	public static void recordWriter(short val, IORecord record) {
+		if (!WRITER) {
+			return ;
+		}
+		
+		analyzeTaint(val, record, true);
+	}
+	
+	public static void recordWriter(byte val, IORecord record) {
+		if (!WRITER) {
+			return ;
+		}
+		
+		analyzeTaint(val, record, true);
+	}
+	
+	public static void recordWriter(boolean val, IORecord record) {
+		if (!WRITER) {
+			return ;
+		}
+		
+		analyzeTaint(val, record, true);
+	}
+	
+	public static void recordWriter(char val, IORecord record) {
+		if (!WRITER) {
+			return ;
+		}
+		
+		analyzeTaint(val, record, true);
+	}
+	
+	public static void recordWriter(long val, IORecord record) {
+		if (!WRITER) {
+			return ;
+		}
+		
+		analyzeTaint(val, record, true);
+	}
+	
+	public static void recordWriter(float val, IORecord record) {
+		if (!WRITER) {
+			return ;
+		}
+		
+		analyzeTaint(val, record, true);
+	}
+	
+	public static void recordWriter(double val, IORecord record) {
+		if (!WRITER) {
+			return ;
+		}
+		
+		analyzeTaint(val, record, true);
+	}
+	
+	public static void recordWriter(Object val, IORecord record) {
+		if (!WRITER) {
+			return ;
+		}
+		
+		if (val == null) {
+			return ;
+		}
+		
+		analyzeTaint(val, DEPTH, record, true);
 	}
 	
 	public static boolean interpretDeps(Object val, Taint t, IORecord record) {

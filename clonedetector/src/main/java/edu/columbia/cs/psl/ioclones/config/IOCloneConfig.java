@@ -27,6 +27,10 @@ public class IOCloneConfig {
 	
 	private int depth;
 	
+	private boolean control;
+	
+	private boolean writer;
+	
 	private IOCloneConfig() {
 		
 	}
@@ -96,6 +100,22 @@ public class IOCloneConfig {
 		return this.depth;
 	}
 	
+	public void setControl(boolean control) {
+		this.control = control;
+	}
+	
+	public boolean isControl() {
+		return this.control;
+	}
+	
+	public void setWriter(boolean writer) {
+		this.writer = writer;
+	}
+	
+	public boolean isWriter() {
+		return this.writer;
+	}
+	
 	@Override
 	public String toString() {
 		StringBuilder sb = new StringBuilder();
@@ -105,6 +125,8 @@ public class IOCloneConfig {
 		//sb.append("XML alg: " + this.xmlAlg + "\n");
 		sb.append("Float scale: " + this.floatScale + "\n");
 		sb.append("Depth: " + this.depth + "\n");
+		sb.append("Control: " + this.control + "\n");
+		sb.append("Writer: " + this.writer + "\n");
 		return sb.toString();
 	}
 	
