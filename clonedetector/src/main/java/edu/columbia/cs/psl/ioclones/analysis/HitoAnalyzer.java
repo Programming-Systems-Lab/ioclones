@@ -43,6 +43,7 @@ import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.analysis.Analyzer;
 import org.objectweb.asm.tree.analysis.Frame;
 
+import edu.columbia.cs.psl.ioclones.config.IOCloneConfig;
 import edu.columbia.cs.psl.ioclones.instrument.DynFlowObserver;
 import edu.columbia.cs.psl.ioclones.pojo.ClassInfo;
 import edu.columbia.cs.psl.ioclones.pojo.MethodInfo;
@@ -95,6 +96,8 @@ public class HitoAnalyzer {
 		}
 		System.out.println("Destination: " + destDir.getAbsolutePath());
 		
+		System.out.println("System configuration:");
+		System.out.println(IOCloneConfig.getInstance());
 		if (sourceDir.isDirectory())
 			processDirectory(sourceDir, destDir, true);
 		else if (sourceDir.getName().endsWith(".jar") || sourceDir.getName().endsWith(".zip") || sourceDir.getName().endsWith(".war"))

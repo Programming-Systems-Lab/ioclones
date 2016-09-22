@@ -1,5 +1,6 @@
 package edu.columbia.cs.psl.ioclones.instrument;
 
+import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
@@ -7,6 +8,7 @@ import org.objectweb.asm.commons.LocalVariablesSorter;
 
 import edu.columbia.cs.psl.ioclones.analysis.dynamic.HitoTaintChecker;
 import edu.columbia.cs.psl.ioclones.analysis.dynamic.HitoTaintPropagater;
+import edu.columbia.cs.psl.ioclones.config.IOCloneConfig;
 import edu.columbia.cs.psl.ioclones.pojo.IORecord;
 import edu.columbia.cs.psl.ioclones.utils.BytecodeUtils;
 import edu.columbia.cs.psl.ioclones.utils.ClassInfoUtils;
@@ -14,7 +16,7 @@ import edu.columbia.cs.psl.ioclones.utils.GlobalInfoRecorder;
 
 public class DynFlowObserver extends MethodVisitor implements Opcodes {
 	
-	public static final int DEPTH = 1;
+	public static final int DEPTH = IOCloneConfig.getInstance().getDepth();
 	
 	private boolean isConstructor;
 	
@@ -233,29 +235,30 @@ public class DynFlowObserver extends MethodVisitor implements Opcodes {
 					this.mv.visitInsn(DUP);
 				}
 				this.mv.visitVarInsn(ALOAD, this.recordId);
+				this.mv.visitInsn(ICONST_1);
 				
 				if (sort == Type.INT) {
-					this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, "analyzeTaint", "(ILedu/columbia/cs/psl/ioclones/pojo/IORecord;)V", false);
+					this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, "analyzeTaint", "(ILedu/columbia/cs/psl/ioclones/pojo/IORecord;Z)V", false);
 				} else if (sort == Type.SHORT) {
-					this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, "analyzeTaint", "(SLedu/columbia/cs/psl/ioclones/pojo/IORecord;)V", false);
+					this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, "analyzeTaint", "(SLedu/columbia/cs/psl/ioclones/pojo/IORecord;Z)V", false);
 				} else if (sort == Type.BOOLEAN) {
-					this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, "analyzeTaint", "(ZLedu/columbia/cs/psl/ioclones/pojo/IORecord;)V", false);
+					this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, "analyzeTaint", "(ZLedu/columbia/cs/psl/ioclones/pojo/IORecord;Z)V", false);
 				} else if (sort == Type.BYTE) {
-					this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, "analyzeTaint", "(BLedu/columbia/cs/psl/ioclones/pojo/IORecord;)V", false);
+					this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, "analyzeTaint", "(BLedu/columbia/cs/psl/ioclones/pojo/IORecord;Z)V", false);
 				} else if (sort == Type.CHAR) {
-					this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, "analyzeTaint", "(CLedu/columbia/cs/psl/ioclones/pojo/IORecord;)V", false);
+					this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, "analyzeTaint", "(CLedu/columbia/cs/psl/ioclones/pojo/IORecord;Z)V", false);
 				} else if (sort == Type.FLOAT) {
-					this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, "analyzeTaint", "(FLedu/columbia/cs/psl/ioclones/pojo/IORecord;)V", false);
+					this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, "analyzeTaint", "(FLedu/columbia/cs/psl/ioclones/pojo/IORecord;Z)V", false);
 				} else if (sort == Type.LONG) {
-					this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, "analyzeTaint", "(JLedu/columbia/cs/psl/ioclones/pojo/IORecord;)V", false);
+					this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, "analyzeTaint", "(JLedu/columbia/cs/psl/ioclones/pojo/IORecord;Z)V", false);
 				} else if (sort == Type.DOUBLE) {
-					this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, "analyzeTaint", "(DLedu/columbia/cs/psl/ioclones/pojo/IORecord;)V", false);
+					this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, "analyzeTaint", "(DLedu/columbia/cs/psl/ioclones/pojo/IORecord;Z)V", false);
 				} else if (sort == Type.OBJECT || sort == Type.ARRAY) {
 					if (retType.equals(Type.getType(String.class))) {
-						this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, "analyzeTaint", "(Ljava/lang/String;Ledu/columbia/cs/psl/ioclones/pojo/IORecord;)V", false);
+						this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, "analyzeTaint", "(Ljava/lang/String;Ledu/columbia/cs/psl/ioclones/pojo/IORecord;Z)V", false);
 					} else {
 						this.convertToInst(DEPTH);
-						this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, "analyzeTaint", "(Ljava/lang/Object;ILedu/columbia/cs/psl/ioclones/pojo/IORecord;)V", false);
+						this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, "analyzeTaint", "(Ljava/lang/Object;ILedu/columbia/cs/psl/ioclones/pojo/IORecord;Z)V", false);
 					}
 				} else {
 					System.err.println("Un-recognized return type: " + retType);
@@ -295,6 +298,113 @@ public class DynFlowObserver extends MethodVisitor implements Opcodes {
 		}
 	}
 	
+	@Override
+	public void visitJumpInsn(int opcode, Label label) {
+		switch(opcode) {
+			case IFEQ:
+			case IFNE:
+			case IFLT:
+			case IFGE:
+			case IFGT:
+			case IFLE:
+				this.mv.visitInsn(DUP);
+				this.mv.visitVarInsn(ALOAD, this.recordId);
+				this.mv.visitInsn(SWAP);
+				this.mv.visitInsn(ICONST_0);
+				this.mv.visitMethodInsn(INVOKEVIRTUAL, 
+						Type.getInternalName(IORecord.class), 
+						"registerInput", 
+						"(Ljava/lang/Object;Z)V", 
+						false);
+				break ;
+			case IFNULL:
+			case IFNONNULL:
+				this.mv.visitInsn(Opcodes.DUP);
+				this.mv.visitVarInsn(ALOAD, this.recordId);
+				this.mv.visitInsn(SWAP);
+				this.mv.visitInsn(ICONST_1);
+				this.mv.visitMethodInsn(INVOKEVIRTUAL, 
+					Type.getInternalName(IORecord.class), 
+					"registerInput", 
+					"(Ljava/lang/Object;Z)V", 
+					false);
+				break ;
+			case IF_ICMPEQ:
+			case IF_ICMPNE:
+			case IF_ICMPLT:
+			case IF_ICMPGE:
+			case IF_ICMPGT:
+			case IF_ICMPLE:
+				this.mv.visitInsn(Opcodes.DUP2);
+				for (int i = 0; i < 2; i++) {
+					this.mv.visitMethodInsn(Opcodes.INVOKESTATIC, 
+						Type.getInternalName(Integer.class), 
+						"valueOf", 
+						"(I)Ljava/lang/Integer;", 
+						false);
+					this.mv.visitVarInsn(ALOAD, this.recordId);
+					this.mv.visitInsn(SWAP);
+					this.mv.visitInsn(ICONST_0);
+					this.mv.visitMethodInsn(INVOKEVIRTUAL, 
+						Type.getInternalName(IORecord.class), 
+						"registerInput", 
+						"(Ljava/lang/Object;Z)V", 
+						false);
+				}
+				break ;
+			case IF_ACMPEQ:
+			case IF_ACMPNE:
+				this.mv.visitInsn(Opcodes.DUP2);
+				for (int i = 0; i < 2; i++) {
+					this.mv.visitVarInsn(ALOAD, this.recordId);
+					this.mv.visitInsn(SWAP);
+					this.mv.visitInsn(ICONST_1);
+					this.mv.visitMethodInsn(INVOKEVIRTUAL, 
+						Type.getInternalName(IORecord.class), 
+						"registerInput", 
+						"(Ljava/lang/Object;Z)V", 
+						false);
+				}
+				break ;
+			case GOTO:
+			case JSR:
+				break ;
+			default:
+				System.err.println("Unhandled jump: " + opcode);
+		}
+		this.mv.visitJumpInsn(opcode, label);
+	}
+	
+	@Override
+	public void visitLookupSwitchInsn(Label dflt, int[] keys, Label[] labels) {
+		this.mv.visitInsn(DUP);
+		this.mv.visitVarInsn(ALOAD, this.recordId);
+		this.mv.visitInsn(SWAP);
+		this.mv.visitInsn(ICONST_0);
+		this.mv.visitMethodInsn(INVOKEVIRTUAL, 
+				Type.getInternalName(IORecord.class), 
+				"registerInput", 
+				"(Ljava/lang/Object;Z)V", 
+				false);
+		
+		this.mv.visitLookupSwitchInsn(dflt, keys, labels);
+	}
+	
+	@Override
+	public void visitTableSwitchInsn(int min, int max, Label dflt, Label... labels) {
+		this.mv.visitInsn(DUP);
+		this.mv.visitVarInsn(ALOAD, this.recordId);
+		this.mv.visitInsn(SWAP);
+		this.mv.visitInsn(ICONST_0);
+		this.mv.visitMethodInsn(INVOKEVIRTUAL, 
+				Type.getInternalName(IORecord.class), 
+				"registerInput", 
+				"(Ljava/lang/Object;Z)V", 
+				false);
+		
+		this.mv.visitTableSwitchInsn(min, max, dflt, labels);
+	}
+	
 	private void convertToInst(int num) {
 		if (num == 0) {
 			this.mv.visitInsn(Opcodes.ICONST_0);
@@ -315,9 +425,5 @@ public class DynFlowObserver extends MethodVisitor implements Opcodes {
 		} else {
 			this.mv.visitLdcInsn(num);
 		}
-	}
-	
-	public static void main(String[] ars) {
-		System.out.println(Type.getType(String.class));
 	}
 }

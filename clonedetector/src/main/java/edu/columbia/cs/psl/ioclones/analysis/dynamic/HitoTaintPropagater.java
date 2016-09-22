@@ -135,16 +135,16 @@ public class HitoTaintPropagater {
 		}
 		
 		Taint t = MultiTainter.getTaint(val);
-		System.out.println("Check string taint: " + val + " " + t);
+		//System.out.println("Check string taint: " + val + " " + t);
 		if (t == null) {
 			ArrayList<HitoLabel> labels = newLabels(val, execIdx);
 			t = new Taint(labels);
 			MultiTainter.taintedObject(val, t);
 			
-			System.out.println("Tainting string: " + val);
+			//System.out.println("Tainting string: " + val);
 			for (int i = 0; i < val.length(); i++) {
 				char c = val.charAt(i);
-				System.out.println("Char taint: " + MultiTainter.getTaint(c));
+				//System.out.println("Char taint: " + MultiTainter.getTaint(c));
 			}
 		} else {
 			for (int i = 0; i < val.length(); i++) {
@@ -172,21 +172,24 @@ public class HitoTaintPropagater {
 			return ;
 		}
 		
-		Taint t = MultiTainter.getTaint(obj);
-		if (t == null) {
-			ArrayList<HitoLabel> labels = newLabels(obj, execIdx);
-			t = new Taint(labels);
-			MultiTainter.taintedObject(obj, t);
-		} else {
-			ArrayList<HitoLabel> labels = (ArrayList<HitoLabel>)t.getLabel();
-			if (labels == null) {
-				labels = newLabels(obj, execIdx);
-				t.lbl = labels;
+		//The tag on array itself is not useful at this point
+		if (!obj.getClass().isArray()) {
+			Taint t = MultiTainter.getTaint(obj);
+			if (t == null) {
+				ArrayList<HitoLabel> labels = newLabels(obj, execIdx);
+				t = new Taint(labels);
+				MultiTainter.taintedObject(obj, t);
 			} else {
-				HitoLabel label = new HitoLabel();
-				label.val = obj;
-				label.execIdx = execIdx;
-				labels.add(label);
+				ArrayList<HitoLabel> labels = (ArrayList<HitoLabel>)t.getLabel();
+				if (labels == null) {
+					labels = newLabels(obj, execIdx);
+					t.lbl = labels;
+				} else {
+					HitoLabel label = new HitoLabel();
+					label.val = obj;
+					label.execIdx = execIdx;
+					labels.add(label);
+				}
 			}
 		}
 		
@@ -220,63 +223,63 @@ public class HitoTaintPropagater {
 		}
 		
 		if (type == int.class) {
-			for (int i = 0; i < length; i++) {
-				int val = Array.getInt(obj, i);
-				val = propagateTaint(val, execIdx);
-				Array.setInt(obj, i, val);
+			int[] arr = (int[])obj;
+			for (int i = 0; i < arr.length; i++) {
+				int val = propagateTaint(arr[i], execIdx);
+				arr[i] = val;
 			}
 		} else if (type == short.class) {
-			for (int i = 0; i < length; i++) {
-				short val = Array.getShort(obj, i);
-				val = propagateTaint(val, execIdx);
-				Array.setShort(obj, i, val);
+			short[] arr = (short[])obj;
+			for (int i = 0; i < arr.length; i++) {
+				short val = propagateTaint(arr[i], execIdx);
+				arr[i] = val;
 			}
 		} else if (type == byte.class) {
-			for (int i = 0; i < length; i++) {
-				byte val = Array.getByte(obj, i);
-				val = propagateTaint(val, execIdx);
-				Array.setByte(obj, i, val);
+			byte[] arr = (byte[])obj;
+			for (int i = 0; i < arr.length; i++) {
+				byte val = propagateTaint(arr[i], execIdx);
+				arr[i] = val;
 			}
 		} else if (type == boolean.class) {
-			for (int i = 0; i < length; i++) {
-				boolean val = Array.getBoolean(obj, i);
-				val = propagateTaint(val, execIdx);
-				Array.setBoolean(obj, i, val);
+			boolean[] arr = (boolean[])obj;
+			for (int i = 0; i < arr.length; i++) {
+				boolean val = propagateTaint(arr[i], execIdx);
+				arr[i] = val;
 			}
 		} else if (type == char.class) {
-			for (int i = 0; i < length; i++) {
-				char val = Array.getChar(obj, i);
-				val = propagateTaint(val, execIdx);
-				Array.setChar(obj, i, val);
+			char[] arr = (char[])obj;
+			for (int i = 0; i < arr.length; i++) {
+				char val = propagateTaint(arr[i], execIdx);
+				arr[i] = val;
 			}
 		} else if (type == float.class) {
-			for (int i = 0; i < length; i++) {
-				float val = Array.getFloat(obj, i);
-				val = propagateTaint(val, execIdx);
-				Array.setFloat(obj, i, val);
+			float[] arr = (float[])obj;
+			for (int i = 0; i < arr.length; i++) {
+				float val = propagateTaint(arr[i], execIdx);
+				arr[i] = val;
 			}
 		} else if (type == double.class) {
-			for (int i = 0; i < length; i++) {
-				double val = Array.getDouble(obj, i);
-				val = propagateTaint(val, execIdx);
-				Array.setDouble(obj, i, val);
+			double[] arr = (double[])obj;
+			for (int i = 0; i < arr.length; i++) {
+				double val = propagateTaint(arr[i], execIdx);
+				arr[i] = val;
 			}
 		} else if (type == long.class) {
-			for (int i = 0; i < length; i++) {
-				long val = Array.getLong(obj, i);
-				val = propagateTaint(val, execIdx);
-				Array.setLong(obj, i, val);
+			long[] arr = (long[])obj;
+			for (int i = 0; i < arr.length; i++) {
+				long val = propagateTaint(arr[i], execIdx);
+				arr[i] = val;
 			}
 		} else if (String.class.isAssignableFrom(type)) {
-			for (int i = 0; i < length; i++) {
-				String val = (String)Array.get(obj, i);
-				propagateTaint(val, execIdx);
+			String[] arr = (String[])obj;
+			for (int i = 0; i < arr.length; i++) {
+				propagateTaint(arr[i], execIdx);
 			}
 		} else {
-			for (int i = 0; i < length; i++) {
-				Object o = Array.get(obj, i);
-				//objHelper(o, execIdx, depth - 1);
-				propagateTaint(o, execIdx, depth - 1);
+			Object[] arr = (Object[])obj;
+			for (int i = 0; i < arr.length; i++) {
+				Object val = arr[i];
+				propagateTaint(val, execIdx, depth - 1);
 			}
 		}
 	}
@@ -285,7 +288,7 @@ public class HitoTaintPropagater {
 		if (collection == null) {
 			return ;
 		}
-						
+		
 		for (Object o: collection) {
 			//objHelper(o, execIdx, depth - 1);
 			propagateTaint(o, execIdx, depth - 1);

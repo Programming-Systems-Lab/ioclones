@@ -7,6 +7,9 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import edu.columbia.cs.psl.ioclones.analysis.dynamic.HitoTaintPropagater.HitoLabel;
 import edu.columbia.cs.psl.ioclones.pojo.IORecord;
 import edu.columbia.cs.psl.phosphor.runtime.MultiTainter;
@@ -15,6 +18,8 @@ import edu.columbia.cs.psl.phosphor.struct.LinkedList;
 import edu.columbia.cs.psl.phosphor.struct.LinkedList.Node;
 
 public class HitoTaintChecker {
+	
+	private static final Logger logger = LogManager.getLogger(HitoTaintChecker.class);
 	
 	public static boolean shouldCheck(Object val, long execIdx) {
 		if (!shouldSerialize(val)) {
@@ -34,7 +39,7 @@ public class HitoTaintChecker {
 			
 			boolean shouldCheck = false;
 			for (HitoLabel l: labels) {
-				if (l.execIdx == execIdx) {
+				if (l.execIdx >= execIdx) {
 					shouldCheck = true;
 					break ;
 				}
@@ -59,20 +64,20 @@ public class HitoTaintChecker {
 		System.out.println("Summarizing written inputs: " + record.getMethodKey() + " " + record.getId());
 		for (Object o: record.preload.values()) {
 			if (HitoTaintChecker.shouldCheck(o, record.getId())) {
-				HitoTaintChecker.analyzeTaint(o, depth, record);
+				HitoTaintChecker.analyzeTaint(o, depth, record, false);
 			}
 		}
 		System.out.println();
 	}
 	
-	public static void interpretDeps(Object val, Taint t, IORecord record) {
+	public static boolean interpretDeps(Object val, Taint t, IORecord record) {
 		if (val == null) {
-			return ;
+			return false;
 		}
 		
 		if (t == null) {
 			System.err.println("Value with no taint on method: " + record.getId() + " val: " + val);
-			return ;
+			return false;
 		}
 		
 		long execIdx = record.getId();
@@ -81,6 +86,7 @@ public class HitoTaintChecker {
 		//Some taints are copied, so also need to analyze labels...
 		ArrayList<HitoLabel> labels = (ArrayList<HitoLabel>)t.getLabel();
 		
+		HashSet<Object> inputs = new HashSet<Object>();
 		if (deps != null && deps.getFirst() != null) {
 			System.out.println("Analyzing deps");
 			Node<Object> curNode = deps.getFirst();
@@ -89,7 +95,7 @@ public class HitoTaintChecker {
 				for (HitoLabel d: dep) {
 					if (d.execIdx >= execIdx) {
 						System.out.println("Dep: " + d);
-						record.registerInput(d.val, shouldSerialize(d.val));
+						inputs.add(d.val);
 					}
 				}
 				curNode = curNode.next;
@@ -105,74 +111,88 @@ public class HitoTaintChecker {
 					//For handling the copy of taint
 					if (!lbl.val.equals(val)) {
 						System.out.println("Dep: " + lbl);
-						record.registerInput(lbl.val, shouldSerialize(lbl.val));
+						inputs.add(lbl.val);
 					}
 				} else if (lbl.execIdx > execIdx) {
-					System.out.println("Dep: " + lbl);				
-					record.registerInput(lbl.val, shouldSerialize(lbl.val));
+					System.out.println("Dep: " + lbl);
+					inputs.add(lbl.val);
 				}
 			}
 		} else {
 			System.out.println("No labels");
 		}
 		System.out.println();
+		
+		for (Object i: inputs) {
+			record.registerInput(i, shouldSerialize(i));
+		}
+		
+		return inputs.size() > 0;
 	}
 		
-	public static void analyzeTaint(int val, IORecord record) {
+	public static void analyzeTaint(int val, IORecord record, boolean register) {
 		Taint t = MultiTainter.getTaint(val);
-		record.registerOutput(val, false);
-		interpretDeps(val, t, record);
+		boolean hasDeps = interpretDeps(val, t, record);
+		if (register || hasDeps)
+			record.registerOutput(val, false);
 	}
 	
-	public static void analyzeTaint(short val, IORecord record) {
+	public static void analyzeTaint(short val, IORecord record, boolean register) {
 		Taint t = MultiTainter.getTaint(val);
-		record.registerOutput(val, false);
-		interpretDeps(val, t, record);
+		boolean hasDeps = interpretDeps(val, t, record);
+		if (register || hasDeps)
+			record.registerOutput(val, false);
 	}
 	
-	public static void analyzeTaint(byte val, IORecord record) {
+	public static void analyzeTaint(byte val, IORecord record, boolean register) {
 		Taint t = MultiTainter.getTaint(val);
-		record.registerOutput(val, false);
-		interpretDeps(val, t, record);
+		boolean hasDeps = interpretDeps(val, t, record);
+		if (register || hasDeps)
+			record.registerOutput(val, false);
 	}
 	
-	public static void analyzeTaint(boolean val, IORecord record) {
+	public static void analyzeTaint(boolean val, IORecord record, boolean register) {
 		Taint t = MultiTainter.getTaint(val);
-		record.registerOutput(val, false);
-		interpretDeps(val, t, record);
+		boolean hasDeps = interpretDeps(val, t, record);
+		if (register || hasDeps)
+			record.registerOutput(val, false);
 	}
 	
-	public static void analyzeTaint(char val, IORecord record) {
+	public static void analyzeTaint(char val, IORecord record, boolean register) {
 		Taint t = MultiTainter.getTaint(val);
-		interpretDeps(val, t, record);
+		boolean hasDeps = interpretDeps(val, t, record);
+		if (register || hasDeps)
+			record.registerOutput(val, false);
 	}
 	
-	public static void analyzeTaint(long val, IORecord record) {
+	public static void analyzeTaint(long val, IORecord record, boolean register) {
 		Taint t = MultiTainter.getTaint(val);
-		record.registerOutput(val, false);
-		interpretDeps(val, t, record);
+		boolean hasDeps = interpretDeps(val, t, record);
+		if (register || hasDeps)
+			record.registerOutput(val, false);
 	}
 	
-	public static void analyzeTaint(float val, IORecord record) {
+	public static void analyzeTaint(float val, IORecord record, boolean register) {
 		Taint t = MultiTainter.getTaint(val);
-		record.registerOutput(val, false);
-		interpretDeps(val, t, record);
+		boolean hasDeps = interpretDeps(val, t, record);
+		if (register || hasDeps)
+			record.registerOutput(val, false);
 	}
 	
-	public static void analyzeTaint(double val, IORecord record) {
+	public static void analyzeTaint(double val, IORecord record, boolean register) {
 		Taint t = MultiTainter.getTaint(val);
-		record.registerOutput(val, false);
-		interpretDeps(val, t, record);
+		boolean hasDeps = interpretDeps(val, t, record);
+		if (register || hasDeps)
+			record.registerOutput(val, false);
 	}
 	
-	public static void analyzeTaint(String val, IORecord record) {
+	public static void analyzeTaint(String val, IORecord record, boolean register) {
 		if (val == null) {
 			return ;
 		}
 		
 		long execIdx = record.getId();
-		record.registerOutput(val, false);
-		System.out.println("Value of " + execIdx + " val: " + val);
+		
 		//string's deps are in labels, not in deps
 		HashSet<Object> inputs = new HashSet<Object>();
 		for (int i = 0; i < val.length(); i++) {
@@ -188,38 +208,72 @@ public class HitoTaintChecker {
 			
 			ArrayList<HitoLabel> deps = (ArrayList<HitoLabel>)t.getLabel();
 			for (HitoLabel hl : deps) {
-				if (hl.execIdx >= execIdx) {
-					System.out.println("Dep: " + hl);
-					record.registerInput(hl.val, shouldSerialize(hl.val));
+				if (hl.execIdx > execIdx) {
+					inputs.add(hl.val);
+				} else if (hl.execIdx == execIdx) {
+					//The label of each char is the string it belongs to
+					if (!hl.val.equals(val)) {
+						inputs.add(hl.val);
+					}
 				}
 			}
+		}
+		
+		if (inputs.size() > 0) {
+			for (Object i: inputs) {
+				//should be string
+				if (String.class.isAssignableFrom(i.getClass())) {
+					record.registerInput(i, false);
+				} else {
+					logger.warn("Suspicious input: " + i + " " + i.getClass());
+				}
+				
+			}
+		} else {
+			System.out.println("No deps");
+		}
+		
+		System.out.println("Value of " + execIdx + " val: " + val);
+		if (register || inputs.size() > 0) {
+			record.registerOutput(val, false);
 		}
 		System.out.println();
 	}
 	
-	public static void analyzeTaint(Object obj, int depth, IORecord record) {
+	public static void analyzeTaint(Object obj, int depth, IORecord record, boolean register) {
 		if (obj == null) {
 			return ;
 		}
 		
-		if (depth == 0) {
+		if (depth == 0) {			
+			Taint t = MultiTainter.getTaint(obj);
+			
+			boolean hasDep = false;
+			if (t != null) {
+				hasDep = interpretDeps(obj, t, record);
+			}
+			
+			if (register || hasDep) {
+				record.registerOutput(obj, shouldSerialize(obj));
+			}
+			
 			return ;
 		}
 		
 		if (obj.getClass().isArray()) {
-			arrayChecker(obj, depth, record);
+			arrayChecker(obj, depth, record, register);
 		} else if (Collection.class.isAssignableFrom(obj.getClass())) {
 			Collection collection = (Collection)obj;
-			collectionChecker(collection, depth, record);
+			collectionChecker(collection, depth, record, register);
 		} else if (Map.class.isAssignableFrom(obj.getClass())) {
 			Map map = (Map)obj;
-			collectionChecker(map.values(), depth, record);
+			collectionChecker(map.values(), depth, record, register);
 		} else {
-			objChecker(obj, depth, record);
+			objChecker(obj, depth, record, register);
 		}
 	}
 	
-	public static void objChecker(Object obj, int depth, IORecord record) {
+	public static void objChecker(Object obj, int depth, IORecord record, boolean register) {
 		if (obj == null) {
 			return ;
 		}
@@ -230,34 +284,34 @@ public class HitoTaintChecker {
 			for (Field f: fields) {
 				if (f.getType() == int.class) {
 					int val = f.getInt(obj);
-					analyzeTaint(val, record);
+					analyzeTaint(val, record, register);
 				} else if (f.getType() == short.class) {
 					short val = f.getShort(obj);
-					analyzeTaint(val, record);
+					analyzeTaint(val, record, register);
 				} else if (f.getType() == boolean.class) {
 					boolean val = f.getBoolean(obj);
-					analyzeTaint(val, record);
+					analyzeTaint(val, record, register);
 				} else if (f.getType() == byte.class) {
 					byte val = f.getByte(obj);
-					analyzeTaint(val, record);
+					analyzeTaint(val, record, register);
 				} else if (f.getType() == char.class) {
 					char val = f.getChar(obj);
-					analyzeTaint(val, record);
+					analyzeTaint(val, record, register);
 				} else if (f.getType() == float.class) {
 					float val = f.getFloat(obj);
-					analyzeTaint(val, record);
+					analyzeTaint(val, record, register);
 				} else if (f.getType() == long.class) {
 					long val = f.getLong(obj);
-					analyzeTaint(val, record);
+					analyzeTaint(val, record, register);
 				} else if (f.getType() == double.class) {
 					double val = f.getDouble(obj);
-					analyzeTaint(val, record);
+					analyzeTaint(val, record, register);
 				} else if (String.class.isAssignableFrom(f.getType())) {
 					String val = (String) f.get(obj);
-					analyzeTaint(val, record);
+					analyzeTaint(val, record, register);
 				} else {
 					Object val = f.get(obj);
-					analyzeTaint(val, depth - 1, record);
+					analyzeTaint(val, depth - 1, record, register);
 				}
 			}
 		} catch (Exception ex) {
@@ -265,73 +319,87 @@ public class HitoTaintChecker {
 		}
 	}
 	
-	public static void arrayChecker(Object obj, int depth, IORecord record) {
+	public static void arrayChecker(Object obj, int depth, IORecord record, boolean register) {
 		if (obj == null) {
 			return ;
 		}
 				
 		int length = Array.getLength(obj);
+		if (length == 0) {
+			return ;
+		}
+		
 		Class type = obj.getClass().getComponentType();
 		if (type == int.class) {
-			for (int i = 0; i < length; i++) {
-				int val = Array.getInt(obj, i);
-				analyzeTaint(val, record);
+			int[] arr = (int[])obj;
+			for (int i = 0; i < arr.length; i++) {
+				int val = arr[i];
+				analyzeTaint(val, record, register);
 			}
 		} else if (type == short.class) {
-			for (int i = 0; i < length; i++) {
-				short val = Array.getShort(obj, i);
-				analyzeTaint(val, record);
+			short[] arr = (short[])obj;
+			for (int i = 0; i < arr.length; i++) {
+				short val = arr[i];
+				analyzeTaint(val, record, register);
 			}
 		} else if (type == char.class) {
-			for (int i = 0; i < length; i++) {
-				char val = Array.getChar(obj, i);
-				analyzeTaint(val, record);
+			char[] arr = (char[])obj;
+			for (int i = 0; i < arr.length; i++) {
+				char val = arr[i];
+				analyzeTaint(val, record, register);
 			}
 		} else if (type == boolean.class) {
-			for (int i = 0; i < length; i++) {
-				boolean val = Array.getBoolean(obj, i);
-				analyzeTaint(val, record);
+			boolean[] arr = (boolean[])obj;
+			for (int i = 0; i < arr.length; i++) {
+				boolean val = arr[i];
+				analyzeTaint(val, record, register);
 			}
 		} else if (type == byte.class) {
-			for (int i = 0; i < length; i++) {
-				byte val = Array.getByte(obj, i);
-				analyzeTaint(val, record);
+			byte[] arr = (byte[])obj;
+			for (int i = 0; i < arr.length; i++) {
+				byte val = arr[i];
+				analyzeTaint(val, record, register);
 			}
 		} else if (type == float.class) {
-			for (int i = 0; i < length; i++) {
-				float val = Array.getFloat(obj, i);
-				analyzeTaint(val, record);
+			float[] arr = (float[])obj;
+			for (int i = 0; i < arr.length; i++) {
+				float val = arr[i];
+				analyzeTaint(val, record, register);
 			}
 		} else if (type == long.class) {
-			for (int i = 0; i < length; i++) {
-				long val = Array.getLong(obj, i);
-				analyzeTaint(val, record);
+			long[] arr = (long[])obj;
+			for (int i = 0; i < arr.length; i++) {
+				long val = arr[i];
+				analyzeTaint(val, record, register);
 			}
 		} else if (type == double.class) {
-			for (int i = 0; i < length; i++) {
+			double[] arr = (double[])obj;
+			for (int i = 0; i < arr.length; i++) {
 				double val = Array.getDouble(obj, i);
-				analyzeTaint(val, record);
+				analyzeTaint(val, record, register);
 			}
 		} else if (String.class.isAssignableFrom(type)) {
-			for (int i = 0; i < length; i++) {
-				String val = (String)Array.get(obj, i);
-				analyzeTaint(val, record);
+			String[] arr = (String[])obj;
+			for (int i = 0; i < arr.length; i++) {
+				String val = arr[i];
+				analyzeTaint(val, record, register);
 			}
 		} else {
-			for (int i = 0; i < length; i++) {
-				Object val = Array.get(obj, i);
-				analyzeTaint(val, depth - 1, record);
+			Object[] arr = (Object[])obj;
+			for (int i = 0; i < arr.length; i++) {
+				Object val = arr[i];
+				analyzeTaint(val, depth - 1, record, register);
 			}
 		}
 	}
 	
-	public static void collectionChecker(Collection collection, int depth, IORecord record) {
+	public static void collectionChecker(Collection collection, int depth, IORecord record, boolean register) {
 		if (collection == null) {
 			return ;
 		}
 		
 		for (Object o: collection) {
-			analyzeTaint(o, depth - 1, record);
+			analyzeTaint(o, depth - 1, record, register);
 		}
 	}
 }

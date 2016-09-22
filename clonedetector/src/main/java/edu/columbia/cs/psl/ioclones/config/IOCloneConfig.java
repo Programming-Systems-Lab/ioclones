@@ -25,6 +25,8 @@ public class IOCloneConfig {
 	
 	private int floatScale = 2;
 	
+	private int depth;
+	
 	private IOCloneConfig() {
 		
 	}
@@ -86,6 +88,14 @@ public class IOCloneConfig {
 		return this.floatScale;
 	}
 	
+	public void setDepth(int depth) {
+		this.depth = depth;
+	}
+	
+	public int getDepth() {
+		return this.depth;
+	}
+	
 	@Override
 	public String toString() {
 		StringBuilder sb = new StringBuilder();
@@ -94,6 +104,7 @@ public class IOCloneConfig {
 		sb.append("Call limit: " + this.callLimit + "\n");
 		//sb.append("XML alg: " + this.xmlAlg + "\n");
 		sb.append("Float scale: " + this.floatScale + "\n");
+		sb.append("Depth: " + this.depth + "\n");
 		return sb.toString();
 	}
 	

@@ -633,6 +633,22 @@ public class FlowMethodObserver extends MethodVisitor implements Opcodes {
 						logger.info("Invalid copy signal: " + copySignal);
 					}
 					break ;
+				case IF_ACMPEQ:
+				case IF_ACMPNE:
+					this.mv.visitInsn(Opcodes.DUP2);
+					for (int i = 0; i < 2; i++) {
+						this.mv.visitVarInsn(ALOAD, this.recordId);
+						this.mv.visitInsn(SWAP);
+						this.mv.visitInsn(ICONST_1);
+						this.mv.visitMethodInsn(INVOKEVIRTUAL, 
+								Type.getInternalName(IORecord.class), 
+								"registerInput", 
+								"(Ljava/lang/Object;Z)V", 
+								false);
+					}
+					break ;
+				default:
+					System.err.println("Unhandled jump: " + opcode);
 			}
 		}
 		
