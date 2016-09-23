@@ -29,13 +29,28 @@ public class HitoTaintChecker {
 	private static final boolean WRITER = IOCloneConfig.getInstance().isWriter();
 	
 	public static boolean shouldCheck(Object val, long execIdx) {
+		if (val == null) {
+			return false;
+		}
+		
+		if (val.getClass().isArray()) {
+			return true;
+		}
+		
+		if (Collection.class.isAssignableFrom(val.getClass())) {
+			return true;
+		}
+		
+		if (Map.class.isAssignableFrom(val.getClass())) {
+			return true;
+		}
+		
 		if (!shouldSerialize(val)) {
 			return false;
 		} else {
 			Taint t = MultiTainter.getTaint(val);
 			
 			if (t == null) {
-				//object array will not be checked though...
 				return false;
 			}
 			
@@ -71,7 +86,7 @@ public class HitoTaintChecker {
 		System.out.println("Summarizing written inputs: " + record.getMethodKey() + " " + record.getId());
 		for (Object o: record.preload.values()) {
 			if (HitoTaintChecker.shouldCheck(o, record.getId())) {
-				HitoTaintChecker.analyzeTaint(o, depth, record, false);
+				HitoTaintChecker.analyzeTaint(o, record, depth, false);
 			}
 		}
 		System.out.println();
@@ -165,7 +180,7 @@ public class HitoTaintChecker {
 		
 		analyzeTaint(val, record, true);
 	}
-	
+		
 	public static void recordWriter(Object val, IORecord record) {
 		if (!WRITER) {
 			return ;
@@ -175,7 +190,12 @@ public class HitoTaintChecker {
 			return ;
 		}
 		
-		analyzeTaint(val, DEPTH, record, true);
+		if (String.class.isAssignableFrom(val.getClass())) {
+			String valString = (String)val;
+			analyzeTaint(valString, record, true);
+		} else {
+			analyzeTaint(val, record, DEPTH, true);
+		}
 	}
 	
 	public static boolean interpretDeps(Object val, Taint t, IORecord record) {
@@ -348,7 +368,7 @@ public class HitoTaintChecker {
 		System.out.println();
 	}
 	
-	public static void analyzeTaint(Object obj, int depth, IORecord record, boolean register) {
+	public static void analyzeTaint(Object obj, IORecord record, int depth, boolean register) {
 		if (obj == null) {
 			return ;
 		}
@@ -419,7 +439,7 @@ public class HitoTaintChecker {
 					analyzeTaint(val, record, register);
 				} else {
 					Object val = f.get(obj);
-					analyzeTaint(val, depth - 1, record, register);
+					analyzeTaint(val, record, depth - 1, register);
 				}
 			}
 		} catch (Exception ex) {
@@ -496,7 +516,7 @@ public class HitoTaintChecker {
 			Object[] arr = (Object[])obj;
 			for (int i = 0; i < arr.length; i++) {
 				Object val = arr[i];
-				analyzeTaint(val, depth - 1, record, register);
+				analyzeTaint(val, record, depth - 1, register);
 			}
 		}
 	}
@@ -507,7 +527,8 @@ public class HitoTaintChecker {
 		}
 		
 		for (Object o: collection) {
-			analyzeTaint(o, depth - 1, record, register);
+			System.out.println("Val: " + o);
+			analyzeTaint(o, record, depth - 1, register);
 		}
 	}
 }

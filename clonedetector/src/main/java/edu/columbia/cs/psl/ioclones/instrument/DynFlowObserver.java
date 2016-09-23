@@ -262,30 +262,39 @@ public class DynFlowObserver extends MethodVisitor implements Opcodes {
 					this.mv.visitInsn(DUP);
 				}
 				this.mv.visitVarInsn(ALOAD, this.recordId);
-				this.mv.visitInsn(ICONST_1);
 				
 				if (sort == Type.INT) {
+					this.mv.visitInsn(ICONST_1);
 					this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, "analyzeTaint", "(ILedu/columbia/cs/psl/ioclones/pojo/IORecord;Z)V", false);
 				} else if (sort == Type.SHORT) {
+					this.mv.visitInsn(ICONST_1);
 					this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, "analyzeTaint", "(SLedu/columbia/cs/psl/ioclones/pojo/IORecord;Z)V", false);
 				} else if (sort == Type.BOOLEAN) {
+					this.mv.visitInsn(ICONST_1);
 					this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, "analyzeTaint", "(ZLedu/columbia/cs/psl/ioclones/pojo/IORecord;Z)V", false);
 				} else if (sort == Type.BYTE) {
+					this.mv.visitInsn(ICONST_1);
 					this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, "analyzeTaint", "(BLedu/columbia/cs/psl/ioclones/pojo/IORecord;Z)V", false);
 				} else if (sort == Type.CHAR) {
+					this.mv.visitInsn(ICONST_1);
 					this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, "analyzeTaint", "(CLedu/columbia/cs/psl/ioclones/pojo/IORecord;Z)V", false);
 				} else if (sort == Type.FLOAT) {
+					this.mv.visitInsn(ICONST_1);
 					this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, "analyzeTaint", "(FLedu/columbia/cs/psl/ioclones/pojo/IORecord;Z)V", false);
 				} else if (sort == Type.LONG) {
+					this.mv.visitInsn(ICONST_1);
 					this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, "analyzeTaint", "(JLedu/columbia/cs/psl/ioclones/pojo/IORecord;Z)V", false);
 				} else if (sort == Type.DOUBLE) {
+					this.mv.visitInsn(ICONST_1);
 					this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, "analyzeTaint", "(DLedu/columbia/cs/psl/ioclones/pojo/IORecord;Z)V", false);
 				} else if (sort == Type.OBJECT || sort == Type.ARRAY) {
 					if (retType.equals(Type.getType(String.class))) {
+						this.mv.visitInsn(ICONST_1);
 						this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, "analyzeTaint", "(Ljava/lang/String;Ledu/columbia/cs/psl/ioclones/pojo/IORecord;Z)V", false);
 					} else {
 						this.convertToInst(DEPTH);
-						this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, "analyzeTaint", "(Ljava/lang/Object;ILedu/columbia/cs/psl/ioclones/pojo/IORecord;Z)V", false);
+						this.mv.visitInsn(ICONST_1);
+						this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, "analyzeTaint", "(Ljava/lang/Object;Ledu/columbia/cs/psl/ioclones/pojo/IORecord;IZ)V", false);
 					}
 				} else {
 					System.err.println("Un-recognized return type: " + retType);
@@ -367,31 +376,31 @@ public class DynFlowObserver extends MethodVisitor implements Opcodes {
 					
 					if (sort == Type.OBJECT || sort == Type.ARRAY) {
 						this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, 
-								"recordControl", "(Ljava/lang/Object;Ledu/columbia/cs/psl/ioclones/pojo/IORecord;)V", false);
+								"recordWriter", "(Ljava/lang/Object;Ledu/columbia/cs/psl/ioclones/pojo/IORecord;)V", false);
 					} else if (sort == Type.INT) {
 						this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, 
-								"recordControl", "(ILedu/columbia/cs/psl/ioclones/pojo/IORecord;)V", false);
+								"recordWriter", "(ILedu/columbia/cs/psl/ioclones/pojo/IORecord;)V", false);
 					} else if (sort == Type.SHORT) {
 						this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, 
-								"recordControl", "(JLedu/columbia/cs/psl/ioclones/pojo/IORecord;)V", false);
+								"recordWriter", "(JLedu/columbia/cs/psl/ioclones/pojo/IORecord;)V", false);
 					} else if (sort == Type.CHAR) {
 						this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, 
-								"recordControl", "(CLedu/columbia/cs/psl/ioclones/pojo/IORecord;)V", false);
+								"recordWriter", "(CLedu/columbia/cs/psl/ioclones/pojo/IORecord;)V", false);
 					} else if (sort == Type.BOOLEAN) {
 						this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, 
-								"recordControl", "(ZLedu/columbia/cs/psl/ioclones/pojo/IORecord;)V", false);
+								"recordWriter", "(ZLedu/columbia/cs/psl/ioclones/pojo/IORecord;)V", false);
 					} else if (sort == Type.BYTE) {
 						this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, 
-								"recordControl", "(BLedu/columbia/cs/psl/ioclones/pojo/IORecord;)V", false);
+								"recordWriter", "(BLedu/columbia/cs/psl/ioclones/pojo/IORecord;)V", false);
 					} else if (sort == Type.FLOAT) {
 						this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, 
-								"recordControl", "(FLedu/columbia/cs/psl/ioclones/pojo/IORecord;)V", false);
+								"recordWriter", "(FLedu/columbia/cs/psl/ioclones/pojo/IORecord;)V", false);
 					} else if (sort == Type.LONG) {
 						this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, 
-								"recordControl", "recordWriter(JLedu/columbia/cs/psl/ioclones/pojo/IORecord;)V", false);
+								"recordWriter", "recordWriter(JLedu/columbia/cs/psl/ioclones/pojo/IORecord;)V", false);
 					} else if (sort == Type.DOUBLE) {
 						this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, 
-								"recordControl", "recordWriter(DLedu/columbia/cs/psl/ioclones/pojo/IORecord;)V", false);
+								"recordWriter", "recordWriter(DLedu/columbia/cs/psl/ioclones/pojo/IORecord;)V", false);
 					} else {
 						System.err.println("Un-recognized data type: " + dataType);
 						System.exit(-1);
