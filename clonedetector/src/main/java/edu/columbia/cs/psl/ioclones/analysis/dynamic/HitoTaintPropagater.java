@@ -129,6 +129,17 @@ public class HitoTaintPropagater {
 		return val;
 	}
 	
+	public static void propagateTaintPrimitiveObj(Object val, long execIdx) {
+		Taint t = MultiTainter.getTaint(val);
+		if (t == null) {
+			ArrayList<HitoLabel> labels = newLabels(val, execIdx);
+			t = new Taint(labels);
+			MultiTainter.taintedObject(val, t);
+		} else {
+			handleTaint(t, val, execIdx);
+		}
+	}
+	
 	public static void propagateTaint(String val, long execIdx) {
 		if (val == null) {
 			return ;
@@ -140,12 +151,6 @@ public class HitoTaintPropagater {
 			ArrayList<HitoLabel> labels = newLabels(val, execIdx);
 			t = new Taint(labels);
 			MultiTainter.taintedObject(val, t);
-			
-			//System.out.println("Tainting string: " + val);
-			for (int i = 0; i < val.length(); i++) {
-				char c = val.charAt(i);
-				//System.out.println("Char taint: " + MultiTainter.getTaint(c));
-			}
 		} else {
 			for (int i = 0; i < val.length(); i++) {
 				char c = val.charAt(i);
@@ -172,42 +177,56 @@ public class HitoTaintPropagater {
 			return ;
 		}
 		
-		//The tag on array itself is not useful at this point
-		if (!obj.getClass().isArray()) {
-			Taint t = MultiTainter.getTaint(obj);
-			if (t == null) {
-				ArrayList<HitoLabel> labels = newLabels(obj, execIdx);
-				t = new Taint(labels);
-				MultiTainter.taintedObject(obj, t);
-			} else {
-				ArrayList<HitoLabel> labels = (ArrayList<HitoLabel>)t.getLabel();
-				if (labels == null) {
-					labels = newLabels(obj, execIdx);
-					t.lbl = labels;
+		if ((obj instanceof Integer) 
+				|| (obj instanceof Byte)
+				|| (obj instanceof Boolean) 
+				|| (obj instanceof Short)
+				|| (obj instanceof Character)
+				|| (obj instanceof Float) 
+				|| (obj instanceof Double) 
+				|| (obj instanceof Long)) {
+			propagateTaintPrimitiveObj(obj, execIdx);
+		} else if (String.class.isAssignableFrom(obj.getClass())) {
+			String val = (String)obj;
+			propagateTaint(val, execIdx);
+		} else {
+			//The tag on array itself is not useful at this point
+			if (!obj.getClass().isArray()) {
+				Taint t = MultiTainter.getTaint(obj);
+				if (t == null) {
+					ArrayList<HitoLabel> labels = newLabels(obj, execIdx);
+					t = new Taint(labels);
+					MultiTainter.taintedObject(obj, t);
 				} else {
-					HitoLabel label = new HitoLabel();
-					label.val = obj;
-					label.execIdx = execIdx;
-					labels.add(label);
+					ArrayList<HitoLabel> labels = (ArrayList<HitoLabel>)t.getLabel();
+					if (labels == null) {
+						labels = newLabels(obj, execIdx);
+						t.lbl = labels;
+					} else {
+						HitoLabel label = new HitoLabel();
+						label.val = obj;
+						label.execIdx = execIdx;
+						labels.add(label);
+					}
 				}
 			}
-		}
-		
-		if (depth == 0) {
-			return ;
-		}
-		
-		if (obj.getClass().isArray()) {
-			arrayHelper(obj, execIdx, depth);
-		} else if (Collection.class.isAssignableFrom(obj.getClass())) {
-			Collection collection = (Collection)obj;
-			collectionHelper(collection, execIdx, depth);
-		} else if (Map.class.isAssignableFrom(obj.getClass())) {
-			Map map = (Map)obj;
-			Collection collection = map.values();
-			collectionHelper(collection, execIdx, depth);
-		} else {
-			objHelper(obj, execIdx, depth);
+			
+			if (depth == 0) {
+				return ;
+			}
+			
+			if (obj.getClass().isArray()) {
+				arrayHelper(obj, execIdx, depth);
+			} else if (Collection.class.isAssignableFrom(obj.getClass())) {
+				Collection collection = (Collection)obj;
+				collectionHelper(collection, execIdx, depth);
+			} else if (Map.class.isAssignableFrom(obj.getClass())) {
+				Map map = (Map)obj;
+				Collection collection = map.values();
+				collectionHelper(collection, execIdx, depth);
+			} else {
+				objHelper(obj, execIdx, depth);
+			}
 		}
 	}
 	
@@ -269,11 +288,6 @@ public class HitoTaintPropagater {
 			for (int i = 0; i < arr.length; i++) {
 				long val = propagateTaint(arr[i], execIdx);
 				arr[i] = val;
-			}
-		} else if (String.class.isAssignableFrom(type)) {
-			String[] arr = (String[])obj;
-			for (int i = 0; i < arr.length; i++) {
-				propagateTaint(arr[i], execIdx);
 			}
 		} else {
 			Object[] arr = (Object[])obj;
@@ -341,9 +355,6 @@ public class HitoTaintPropagater {
 						System.err.println("Un-identified primitive type: " + type);
 						System.exit(-1);
 					}
-				} else if (String.class.isAssignableFrom(f.getType())) {
-					String val = (String)f.get(obj);
-					propagateTaint(val, execIdx);
 				} else {
 					//check if the object has been tainted
 					Object val = f.get(obj);

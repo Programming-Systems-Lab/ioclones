@@ -362,6 +362,7 @@ public class HitoTaintChecker {
 		}
 		
 		System.out.println("Value of " + execIdx + " val: " + val);
+		System.out.println("Deps: " + inputs);
 		if (register || inputs.size() > 0) {
 			record.registerOutput(val, false);
 		}
@@ -373,31 +374,62 @@ public class HitoTaintChecker {
 			return ;
 		}
 		
-		if (depth == 0) {			
-			Taint t = MultiTainter.getTaint(obj);
-			
-			boolean hasDep = false;
-			if (t != null) {
-				hasDep = interpretDeps(obj, t, record);
-			}
-			
-			if (register || hasDep) {
-				record.registerOutput(obj, shouldSerialize(obj));
-			}
-			
-			return ;
-		}
-		
-		if (obj.getClass().isArray()) {
-			arrayChecker(obj, depth, record, register);
-		} else if (Collection.class.isAssignableFrom(obj.getClass())) {
-			Collection collection = (Collection)obj;
-			collectionChecker(collection, depth, record, register);
-		} else if (Map.class.isAssignableFrom(obj.getClass())) {
-			Map map = (Map)obj;
-			collectionChecker(map.values(), depth, record, register);
+		if ((obj instanceof Integer)) {
+			int i = ((Integer)obj).intValue();
+			analyzeTaint(i, record, register);
+		} else if ((obj instanceof Boolean)) {
+			boolean b = ((Boolean)obj).booleanValue();
+			analyzeTaint(b, record, register);
+		} else if ((obj instanceof Byte)) {
+			byte b = ((Byte)obj).byteValue();
+			analyzeTaint(b, record, register);
+		} else if ((obj instanceof Short)) {
+			short s = ((Short)obj).shortValue();
+			analyzeTaint(s, record, register);
+		} else if ((obj instanceof Character)) {
+			char c = ((Character)obj).charValue();
+			analyzeTaint(c, record, register);
+		} else if ((obj instanceof Float)) {
+			float f = ((Float)obj).floatValue();
+			analyzeTaint(f, record, register);
+		} else if ((obj instanceof Double)) {
+			double d= ((Double)obj).doubleValue();
+			analyzeTaint(d, record, register);
+		} else if ((obj instanceof Long)) {
+			long l = ((Long)obj).longValue();
+			analyzeTaint(l, record, register);
+		} else if (String.class.isAssignableFrom(obj.getClass())) {
+			String string = (String)obj;
+			analyzeTaint(string, record, register);
 		} else {
-			objChecker(obj, depth, record, register);
+			//Analyze taint on array itself not useful, element is useful
+			if (!obj.getClass().isArray()) {
+				Taint t = MultiTainter.getTaint(obj);
+				boolean hasDep = false;
+				if (t != null) {
+					hasDep = interpretDeps(obj, t, record);
+				}
+				
+				if (register || hasDep) {
+					record.registerOutput(obj, shouldSerialize(obj));
+				}
+			}
+			
+			if (depth == 0) {			
+				return ;
+			}
+			
+			if (obj.getClass().isArray()) {
+				arrayChecker(obj, depth, record, register);
+			} else if (Collection.class.isAssignableFrom(obj.getClass())) {
+				Collection collection = (Collection)obj;
+				collectionChecker(collection, depth, record, register);
+			} else if (Map.class.isAssignableFrom(obj.getClass())) {
+				Map map = (Map)obj;
+				collectionChecker(map.values(), depth, record, register);
+			} else {
+				objChecker(obj, depth, record, register);
+			}
 		}
 	}
 	
@@ -433,9 +465,6 @@ public class HitoTaintChecker {
 					analyzeTaint(val, record, register);
 				} else if (f.getType() == double.class) {
 					double val = f.getDouble(obj);
-					analyzeTaint(val, record, register);
-				} else if (String.class.isAssignableFrom(f.getType())) {
-					String val = (String) f.get(obj);
 					analyzeTaint(val, record, register);
 				} else {
 					Object val = f.get(obj);
@@ -506,12 +535,6 @@ public class HitoTaintChecker {
 				double val = Array.getDouble(obj, i);
 				analyzeTaint(val, record, register);
 			}
-		} else if (String.class.isAssignableFrom(type)) {
-			String[] arr = (String[])obj;
-			for (int i = 0; i < arr.length; i++) {
-				String val = arr[i];
-				analyzeTaint(val, record, register);
-			}
 		} else {
 			Object[] arr = (Object[])obj;
 			for (int i = 0; i < arr.length; i++) {
@@ -527,7 +550,6 @@ public class HitoTaintChecker {
 		}
 		
 		for (Object o: collection) {
-			System.out.println("Val: " + o);
 			analyzeTaint(o, record, depth - 1, register);
 		}
 	}
