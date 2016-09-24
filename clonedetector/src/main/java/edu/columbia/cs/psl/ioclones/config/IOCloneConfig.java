@@ -17,6 +17,8 @@ public class IOCloneConfig {
 	
 	private boolean debug;
 	
+	private boolean dynamic;
+	
 	//private boolean objDep;
 	
 	private int callLimit;
@@ -58,6 +60,14 @@ public class IOCloneConfig {
 	
 	public boolean isDebug() {
 		return this.debug;
+	}
+	
+	public void setDynamic(boolean dynamic) {
+		this.dynamic = dynamic;
+	}
+	
+	public boolean isDynamic() {
+		return this.dynamic;
 	}
 	
 	/*public void setObjDep(boolean objDep) {
@@ -120,6 +130,7 @@ public class IOCloneConfig {
 	public String toString() {
 		StringBuilder sb = new StringBuilder();
 		sb.append("Debug: " + this.debug + "\n");
+		sb.append("Dynamic: " + this.dynamic + "\n");
 		//sb.append("Record obj dep: " + this.objDep + "\n");
 		sb.append("Call limit: " + this.callLimit + "\n");
 		//sb.append("XML alg: " + this.xmlAlg + "\n");

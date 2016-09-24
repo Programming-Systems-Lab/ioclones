@@ -31,9 +31,11 @@ public class IODriver {
 		logger.info("Configuration: ");
 		logger.info(config);
 		
-		logger.info("Loading class info");
-		//IOUtils.unzipClassInfo();
-		IOUtils.loadMethodIODeps("cb");
+		if (!IOCloneConfig.getInstance().isDynamic()) {
+			logger.info("Loading class info");
+			//IOUtils.unzipClassInfo();
+			IOUtils.loadMethodIODeps("cb");
+		}
 				
 		String className = args[0];
 		String[] newArgs = new String[args.length - 1];

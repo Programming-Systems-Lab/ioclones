@@ -231,6 +231,10 @@ public class IORecord {
 			System.out.println("Register obj: " + input);
 		}
 		
+		if (this.stopRecord) {
+			return ;
+		}
+		
 		if (IOUtils.shouldRemove(o)) {
 			return ;
 		}
@@ -269,6 +273,10 @@ public class IORecord {
 	}
 	
 	public void finalizeIOs() {
+		if (this.stopRecord) {
+			return ;
+		}
+		
 		IOUtils.cleanNonSerializables(this.inputs);
 		IOUtils.cleanNonSerializables(this.outputs);
 		

@@ -14,6 +14,10 @@ import edu.columbia.cs.psl.phosphor.runtime.Taint;
 public class HitoTaintPropagater {
 		
 	public static ArrayList<HitoLabel> newLabels(Object val, long execIdx) {
+		if (execIdx == -1) {
+			return null;
+		}
+		
 		ArrayList<HitoLabel> labels = new ArrayList<HitoLabel>();
 		
 		HitoLabel lbl = new HitoLabel();
@@ -25,15 +29,29 @@ public class HitoTaintPropagater {
 	}
 	
 	public static void handleTaint(Taint t, Object val, long execIdx) {
+		if (execIdx == -1) {
+			return ;
+		}
+		
 		Object labelObj = t.getLabel();
 		ArrayList<HitoLabel> labels = (ArrayList<HitoLabel>)labelObj;
+		if (labels == null) {
+			labels = new ArrayList<HitoLabel>();
+			t.lbl = labels;
+		}
+		
 		HitoLabel lbl = new HitoLabel();
 		lbl.execIdx = execIdx;
 		lbl.val = val;
+		
 		labels.add(lbl);
 	}
 	
 	public static int propagateTaint(int val, long execIdx) {
+		if (execIdx == -1) {
+			return val;
+		}
+		
 		Taint t = MultiTainter.getTaint(val);
 		if (t == null) {
 			ArrayList<HitoLabel> labels = newLabels(val, execIdx);
@@ -46,6 +64,10 @@ public class HitoTaintPropagater {
 	}
 	
 	public static short propagateTaint(short val, long execIdx) {
+		if (execIdx == -1) {
+			return val;
+		}
+		
 		Taint t = MultiTainter.getTaint(val);
 		if (t == null) {
 			ArrayList<HitoLabel> labels = newLabels(val, execIdx);
@@ -58,6 +80,10 @@ public class HitoTaintPropagater {
 	}
 	
 	public static byte propagateTaint(byte val, long execIdx) {
+		if (execIdx == -1) {
+			return val;
+		}
+		
 		Taint t = MultiTainter.getTaint(val);
 		if (t == null) {
 			ArrayList<HitoLabel> labels = newLabels(val, execIdx);
@@ -70,6 +96,10 @@ public class HitoTaintPropagater {
 	}
 	
 	public static boolean propagateTaint(boolean val, long execIdx) {
+		if (execIdx == -1) {
+			return val;
+		}
+		
 		Taint t = MultiTainter.getTaint(val);
 		if (t == null) {
 			ArrayList<HitoLabel> labels = newLabels(val, execIdx);
@@ -82,6 +112,10 @@ public class HitoTaintPropagater {
 	}
 	
 	public static char propagateTaint(char val, long execIdx) {
+		if (execIdx == -1) {
+			return val;
+		}
+		
 		Taint t = MultiTainter.getTaint(val);
 		if (t == null) {
 			ArrayList<HitoLabel> labels = newLabels(val, execIdx);
@@ -94,6 +128,10 @@ public class HitoTaintPropagater {
 	}
 	
 	public static float propagateTaint(float val, long execIdx) {
+		if (execIdx == -1) {
+			return val;
+		}
+		
 		Taint t = MultiTainter.getTaint(val);
 		if (t == null) {
 			ArrayList<HitoLabel> labels = newLabels(val, execIdx);
@@ -106,6 +144,10 @@ public class HitoTaintPropagater {
 	}
 	
 	public static double propagateTaint(double val, long execIdx) {
+		if (execIdx == -1) {
+			return val;
+		}
+		
 		Taint t = MultiTainter.getTaint(val);
 		if (t == null) {
 			ArrayList<HitoLabel> labels = newLabels(val, execIdx);
@@ -130,6 +172,10 @@ public class HitoTaintPropagater {
 	}
 	
 	public static void propagateTaintPrimitiveObj(Object val, long execIdx) {
+		if (execIdx == -1) {
+			return ;
+		}
+		
 		Taint t = MultiTainter.getTaint(val);
 		if (t == null) {
 			ArrayList<HitoLabel> labels = newLabels(val, execIdx);
@@ -141,6 +187,10 @@ public class HitoTaintPropagater {
 	}
 	
 	public static void propagateTaint(String val, long execIdx) {
+		if (execIdx == -1) {
+			return ;
+		}
+		
 		if (val == null) {
 			return ;
 		}
@@ -173,6 +223,10 @@ public class HitoTaintPropagater {
 	}
 	
 	public static void propagateTaint(Object obj, long execIdx, int depth) {
+		if (execIdx == -1) {
+			return ;
+		}
+		
 		if (obj == null) {
 			return ;
 		}
@@ -191,6 +245,7 @@ public class HitoTaintPropagater {
 			propagateTaint(val, execIdx);
 		} else {
 			//The tag on array itself is not useful at this point
+			//Don't taint obj itself?
 			if (!obj.getClass().isArray()) {
 				Taint t = MultiTainter.getTaint(obj);
 				if (t == null) {
@@ -231,6 +286,10 @@ public class HitoTaintPropagater {
 	}
 	
 	public static void arrayHelper(Object obj, long execIdx, int depth) {
+		if (execIdx == -1) {
+			return ;
+		}
+		
 		if (obj == null) {
 			return ;
 		}
@@ -299,6 +358,10 @@ public class HitoTaintPropagater {
 	}
 	
 	public static void collectionHelper(Collection collection, long execIdx, int depth) {
+		if (execIdx == -1) {
+			return ;
+		}
+		
 		if (collection == null) {
 			return ;
 		}
@@ -310,6 +373,10 @@ public class HitoTaintPropagater {
 	}
 		
 	public static void objHelper(Object obj, long execIdx, int depth) {
+		if (execIdx == -1) {
+			return ;
+		}
+		
 		if (obj == null) {
 			return ;
 		}

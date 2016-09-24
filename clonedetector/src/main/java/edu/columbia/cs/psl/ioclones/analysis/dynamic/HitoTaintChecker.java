@@ -83,6 +83,10 @@ public class HitoTaintChecker {
 	}
 	
 	public static void summarizeWrittenInputs(IORecord record, int depth) {
+		if (record.getId() == -1) {
+			return ;
+		}
+		
 		System.out.println("Summarizing written inputs: " + record.getMethodKey() + " " + record.getId());
 		for (Object o: record.preload.values()) {
 			if (HitoTaintChecker.shouldCheck(o, record.getId())) {
@@ -93,6 +97,10 @@ public class HitoTaintChecker {
 	}
 	
 	public static void recordControl(int val, IORecord record) {
+		if (record.getId() == -1) {
+			return ;
+		}
+		
 		if (!CONTROL) {
 			return ;
 		}
@@ -101,6 +109,10 @@ public class HitoTaintChecker {
 	}
 	
 	public static void recordControl(Object obj, IORecord record) {
+		if (record.getId() == -1) {
+			return ;
+		}
+		
 		if (!CONTROL) {
 			return ;
 		}
@@ -118,6 +130,10 @@ public class HitoTaintChecker {
 	}
 	
 	public static void recordWriter(int val, IORecord record) {
+		if (record.getId() == -1) {
+			return ;
+		}
+		
 		if (!WRITER) {
 			return ;
 		}
@@ -126,6 +142,10 @@ public class HitoTaintChecker {
 	}
 	
 	public static void recordWriter(short val, IORecord record) {
+		if (record.getId() == -1) {
+			return ;
+		}
+		
 		if (!WRITER) {
 			return ;
 		}
@@ -134,6 +154,10 @@ public class HitoTaintChecker {
 	}
 	
 	public static void recordWriter(byte val, IORecord record) {
+		if (record.getId() == -1) {
+			return ;
+		}
+		
 		if (!WRITER) {
 			return ;
 		}
@@ -142,6 +166,10 @@ public class HitoTaintChecker {
 	}
 	
 	public static void recordWriter(boolean val, IORecord record) {
+		if (record.getId() == -1) {
+			return ;
+		}
+		
 		if (!WRITER) {
 			return ;
 		}
@@ -150,6 +178,10 @@ public class HitoTaintChecker {
 	}
 	
 	public static void recordWriter(char val, IORecord record) {
+		if (record.getId() == -1) {
+			return ;
+		}
+		
 		if (!WRITER) {
 			return ;
 		}
@@ -158,6 +190,10 @@ public class HitoTaintChecker {
 	}
 	
 	public static void recordWriter(long val, IORecord record) {
+		if (record.getId() == -1) {
+			return ;
+		}
+		
 		if (!WRITER) {
 			return ;
 		}
@@ -166,6 +202,10 @@ public class HitoTaintChecker {
 	}
 	
 	public static void recordWriter(float val, IORecord record) {
+		if (record.getId() == -1) {
+			return ;
+		}
+		
 		if (!WRITER) {
 			return ;
 		}
@@ -174,6 +214,10 @@ public class HitoTaintChecker {
 	}
 	
 	public static void recordWriter(double val, IORecord record) {
+		if (record.getId() == -1) {
+			return ;
+		}
+		
 		if (!WRITER) {
 			return ;
 		}
@@ -182,6 +226,10 @@ public class HitoTaintChecker {
 	}
 		
 	public static void recordWriter(Object val, IORecord record) {
+		if (record.getId() == -1) {
+			return ;
+		}
+		
 		if (!WRITER) {
 			return ;
 		}
@@ -199,6 +247,10 @@ public class HitoTaintChecker {
 	}
 	
 	public static boolean interpretDeps(Object val, Taint t, IORecord record) {
+		if (record.getId() == -1) {
+			return false;
+		}
+		
 		if (val == null) {
 			return false;
 		}
@@ -209,7 +261,8 @@ public class HitoTaintChecker {
 		}
 		
 		long execIdx = record.getId();
-		System.out.println("Analyzing method " + execIdx + " val: " + val);		
+		System.out.println("Analyzing method " + execIdx + " val: " + val);
+		
 		LinkedList deps = t.getDependencies();
 		//Some taints are copied, so also need to analyze labels...
 		ArrayList<HitoLabel> labels = (ArrayList<HitoLabel>)t.getLabel();
@@ -235,16 +288,16 @@ public class HitoTaintChecker {
 		if (labels != null && labels.size() > 0) {
 			System.out.println("Analyzing labels");
 			for (HitoLabel lbl: labels) {
-				if (lbl.execIdx == execIdx) {
+				if (lbl.execIdx >= execIdx) {
 					//For handling the copy of taint
 					if (!lbl.val.equals(val)) {
 						System.out.println("Dep: " + lbl);
 						inputs.add(lbl.val);
 					}
-				} else if (lbl.execIdx > execIdx) {
+				} /*else if (lbl.execIdx > execIdx) {
 					System.out.println("Dep: " + lbl);
 					inputs.add(lbl.val);
-				}
+				}*/
 			}
 		} else {
 			System.out.println("No labels");
@@ -259,6 +312,10 @@ public class HitoTaintChecker {
 	}
 		
 	public static void analyzeTaint(int val, IORecord record, boolean register) {
+		if (record.getId() == -1) {
+			return ;
+		}
+		
 		Taint t = MultiTainter.getTaint(val);
 		boolean hasDeps = interpretDeps(val, t, record);
 		if (register || hasDeps)
@@ -266,6 +323,10 @@ public class HitoTaintChecker {
 	}
 	
 	public static void analyzeTaint(short val, IORecord record, boolean register) {
+		if (record.getId() == -1) {
+			return ;
+		}
+		
 		Taint t = MultiTainter.getTaint(val);
 		boolean hasDeps = interpretDeps(val, t, record);
 		if (register || hasDeps)
@@ -273,6 +334,10 @@ public class HitoTaintChecker {
 	}
 	
 	public static void analyzeTaint(byte val, IORecord record, boolean register) {
+		if (record.getId() == -1) {
+			return ;
+		}
+		
 		Taint t = MultiTainter.getTaint(val);
 		boolean hasDeps = interpretDeps(val, t, record);
 		if (register || hasDeps)
@@ -280,6 +345,10 @@ public class HitoTaintChecker {
 	}
 	
 	public static void analyzeTaint(boolean val, IORecord record, boolean register) {
+		if (record.getId() == -1) {
+			return ;
+		}
+		
 		Taint t = MultiTainter.getTaint(val);
 		boolean hasDeps = interpretDeps(val, t, record);
 		if (register || hasDeps)
@@ -287,6 +356,10 @@ public class HitoTaintChecker {
 	}
 	
 	public static void analyzeTaint(char val, IORecord record, boolean register) {
+		if (record.getId() == -1) {
+			return ;
+		}
+		
 		Taint t = MultiTainter.getTaint(val);
 		boolean hasDeps = interpretDeps(val, t, record);
 		if (register || hasDeps)
@@ -294,6 +367,10 @@ public class HitoTaintChecker {
 	}
 	
 	public static void analyzeTaint(long val, IORecord record, boolean register) {
+		if (record.getId() == -1) {
+			return ;
+		}
+		
 		Taint t = MultiTainter.getTaint(val);
 		boolean hasDeps = interpretDeps(val, t, record);
 		if (register || hasDeps)
@@ -301,6 +378,10 @@ public class HitoTaintChecker {
 	}
 	
 	public static void analyzeTaint(float val, IORecord record, boolean register) {
+		if (record.getId() == -1) {
+			return ;
+		}
+		
 		Taint t = MultiTainter.getTaint(val);
 		boolean hasDeps = interpretDeps(val, t, record);
 		if (register || hasDeps)
@@ -308,6 +389,10 @@ public class HitoTaintChecker {
 	}
 	
 	public static void analyzeTaint(double val, IORecord record, boolean register) {
+		if (record.getId() == -1) {
+			return ;
+		}
+		
 		Taint t = MultiTainter.getTaint(val);
 		boolean hasDeps = interpretDeps(val, t, record);
 		if (register || hasDeps)
@@ -315,6 +400,10 @@ public class HitoTaintChecker {
 	}
 	
 	public static void analyzeTaint(String val, IORecord record, boolean register) {
+		if (record.getId() == -1) {
+			return ;
+		}
+		
 		if (val == null) {
 			return ;
 		}
@@ -370,6 +459,10 @@ public class HitoTaintChecker {
 	}
 	
 	public static void analyzeTaint(Object obj, IORecord record, int depth, boolean register) {
+		if (record.getId() == -1) {
+			return ;
+		}
+		
 		if (obj == null) {
 			return ;
 		}
@@ -434,6 +527,10 @@ public class HitoTaintChecker {
 	}
 	
 	public static void objChecker(Object obj, int depth, IORecord record, boolean register) {
+		if (record.getId() == -1) {
+			return ;
+		}
+		
 		if (obj == null) {
 			return ;
 		}
@@ -477,6 +574,10 @@ public class HitoTaintChecker {
 	}
 	
 	public static void arrayChecker(Object obj, int depth, IORecord record, boolean register) {
+		if (record.getId() == -1) {
+			return ;
+		}
+		
 		if (obj == null) {
 			return ;
 		}
@@ -545,6 +646,10 @@ public class HitoTaintChecker {
 	}
 	
 	public static void collectionChecker(Collection collection, int depth, IORecord record, boolean register) {
+		if (record.getId() == -1) {
+			return ;
+		}
+		
 		if (collection == null) {
 			return ;
 		}

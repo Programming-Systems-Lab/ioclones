@@ -20,6 +20,8 @@ import java.util.concurrent.TimeUnit;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import edu.columbia.cs.psl.ioclones.config.IOCloneConfig;
+
 public class CrowdDriver {
 	
 	private static final Logger logger = LogManager.getLogger(CrowdDriver.class);
@@ -76,7 +78,12 @@ public class CrowdDriver {
 		ExecutorService executor = Executors.newFixedThreadPool(coreNum);
 		List<Future<Void>> resultList = new ArrayList<Future<Void>>();
 		executables.forEach(c->{
-			ExecuteWorker newWorker = new ExecuteWorker(c, codebaseFile.getAbsolutePath());
+			AbsWorker newWorker = null;
+			if (IOCloneConfig.getInstance().isDynamic()) {
+				newWorker = new DynamicWorker(c, codebaseFile.getAbsolutePath());
+			} else {
+				newWorker = new ExecuteWorker(c, codebaseFile.getAbsolutePath());
+			}
 			Future<Void> result = executor.submit(newWorker);
 			resultList.add(result);
 		});
@@ -106,17 +113,61 @@ public class CrowdDriver {
 		}*/
 	}
 	
-	public static class ExecuteWorker implements Callable<Void> {
+	public static abstract class AbsWorker implements Callable<Void> {
+		
+		String executeClass;
+		
+		String executePath;
+		
+		public AbsWorker(String executeClass, String executePath) {
+			this.executeClass = executeClass;
+			this.executePath = executePath;
+		}
+	}
+	
+	public static class DynamicWorker extends AbsWorker {
+		
+		private static final Logger logger = LogManager.getLogger(DynamicWorker.class);
+		
+		public DynamicWorker(String executeClass, String executePath) {
+			super(executeClass,executePath);
+		}
+		
+		@Override
+		public Void call() throws Exception {
+			// TODO Auto-generated method stub
+			ProcessBuilder pb = new ProcessBuilder();
+			List<String> commands = new ArrayList<String>();
+			commands.add("jre-inst/bin/java");
+			commands.add("-Xbootclasspath/a:Phosphor-0.0.2-SNAPSHOT.jar");
+			commands.add("-javaagent:Phosphor-0.0.2-SNAPSHOT.jar");
+			commands.add("-Xmx6g");
+			commands.add("-noverify");
+			commands.add("-cp");
+			commands.add("hito-lib/CloneDetector-0.0.1-SNAPSHOT.jar:" + this.executePath);
+			commands.add("edu.columbia.cs.psl.ioclones.driver.IODriver");
+			commands.add(this.executeClass);
+			
+			logger.info("Executing: " + executeClass);
+			logger.info("Commands: " + commands);
+			
+			Process process = pb.inheritIO().command(commands).start();
+			
+			int exitVal = process.waitFor();
+			if (exitVal != 0) {
+				logger.error("Abnormal termination of process: " + this.executeClass);
+			}
+			
+			return null;
+		}
+	}
+	
+	public static class ExecuteWorker extends AbsWorker {
 		
 		private static final Logger logger = LogManager.getLogger(ExecuteWorker.class);
 		
-		private String executeClass;
-		
-		private String executePath;
-		
 		public ExecuteWorker(String executeClass, String executePath) {
-			this.executeClass = executeClass;
-			this.executePath = executePath;
+			super(executeClass, executePath);
 		}
 
 		@Override
