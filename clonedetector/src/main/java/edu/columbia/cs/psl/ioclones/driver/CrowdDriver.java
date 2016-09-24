@@ -137,10 +137,6 @@ public class CrowdDriver {
 			logger.info("Commands: " + commands);
 			
 			Process process = pb.inheritIO().command(commands).start();
-			//ProcessInfoHandler info = new ProcessInfoHandler(process.getInputStream());
-			//info.start();
-			
-			//logger.info("Subprocess info: " + info.getOutputMsg());
 			
 			int exitVal = process.waitFor();
 			if (exitVal != 0) {
@@ -149,7 +145,6 @@ public class CrowdDriver {
 			
 			return null;
 		}
-		
 	}
 	
 	public static class ProcessInfoHandler extends Thread {

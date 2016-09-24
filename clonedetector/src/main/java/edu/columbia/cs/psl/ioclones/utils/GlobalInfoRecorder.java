@@ -86,10 +86,10 @@ public class GlobalInfoRecorder {
 			
 			recordCounter++;
 			io.finalizeIOs();
-			System.out.println("Report IO: " + io.getMethodKey());
+			/*System.out.println("Report IO: " + io.getMethodKey());
 			System.out.println("Method ID: " + io.getId());
 			System.out.println("Report Inputs: " + io.sortedInputs);
-			System.out.println("Report Outputs: " + io.sortedOutputs);
+			System.out.println("Report Outputs: " + io.sortedOutputs);*/
 			
 			if (io.sortedInputs.size() == 0 
 					&& io.sortedOutputs.size() == 0) {
@@ -110,7 +110,7 @@ public class GlobalInfoRecorder {
 				reachLimit.add(methodKey);
 				logger.info("Reach limit: " + methodKey);
 			}
-			System.out.println();
+			//System.out.println();
 		}
 	}
 	

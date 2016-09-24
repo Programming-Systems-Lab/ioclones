@@ -308,33 +308,33 @@ public class DynFlowObserver extends MethodVisitor implements Opcodes {
 					}
 					this.mv.visitVarInsn(ALOAD, this.recordId);
 					
-					if (sort == Type.OBJECT || sort == Type.ARRAY) {
+					if (sort == Type.OBJECT || sort == Type.ARRAY) { //pass
 						this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, 
 								"recordWriter", "(Ljava/lang/Object;Ledu/columbia/cs/psl/ioclones/pojo/IORecord;)V", false);
-					} else if (sort == Type.INT) {
+					} else if (sort == Type.INT) { //pass
 						this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, 
 								"recordWriter", "(ILedu/columbia/cs/psl/ioclones/pojo/IORecord;)V", false);
-					} else if (sort == Type.SHORT) {
+					} else if (sort == Type.SHORT) { //pass
 						this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, 
 								"recordWriter", "(JLedu/columbia/cs/psl/ioclones/pojo/IORecord;)V", false);
-					} else if (sort == Type.CHAR) {
+					} else if (sort == Type.CHAR) { //pass
 						this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, 
 								"recordWriter", "(CLedu/columbia/cs/psl/ioclones/pojo/IORecord;)V", false);
-					} else if (sort == Type.BOOLEAN) {
+					} else if (sort == Type.BOOLEAN) { //pass
 						this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, 
 								"recordWriter", "(ZLedu/columbia/cs/psl/ioclones/pojo/IORecord;)V", false);
-					} else if (sort == Type.BYTE) {
+					} else if (sort == Type.BYTE) { //pass
 						this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, 
 								"recordWriter", "(BLedu/columbia/cs/psl/ioclones/pojo/IORecord;)V", false);
-					} else if (sort == Type.FLOAT) {
+					} else if (sort == Type.FLOAT) { //fail
 						this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, 
 								"recordWriter", "(FLedu/columbia/cs/psl/ioclones/pojo/IORecord;)V", false);
-					} else if (sort == Type.LONG) {
+					} else if (sort == Type.LONG) { //fail
 						this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, 
-								"recordWriter", "recordWriter(JLedu/columbia/cs/psl/ioclones/pojo/IORecord;)V", false);
-					} else if (sort == Type.DOUBLE) {
+								"recordWriter", "(JLedu/columbia/cs/psl/ioclones/pojo/IORecord;)V", false);
+					} else if (sort == Type.DOUBLE) { //fail
 						this.mv.visitMethodInsn(INVOKESTATIC, taintChecker, 
-								"recordWriter", "recordWriter(DLedu/columbia/cs/psl/ioclones/pojo/IORecord;)V", false);
+								"recordWriter", "(DLedu/columbia/cs/psl/ioclones/pojo/IORecord;)V", false);
 					} else {
 						System.err.println("Un-recognized data type: " + dataType);
 						System.exit(-1);
