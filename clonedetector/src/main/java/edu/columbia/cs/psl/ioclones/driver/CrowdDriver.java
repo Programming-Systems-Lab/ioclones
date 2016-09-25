@@ -74,6 +74,8 @@ public class CrowdDriver {
 		
 		//int coreNum = Runtime.getRuntime().availableProcessors();
 		//logger.info("Processor number: " + coreNum);
+		System.out.println("Configuration: " + IOCloneConfig.getInstance());
+		System.exit(1);
 		int coreNum = 1;
 		ExecutorService executor = Executors.newFixedThreadPool(coreNum);
 		List<Future<Void>> resultList = new ArrayList<Future<Void>>();
