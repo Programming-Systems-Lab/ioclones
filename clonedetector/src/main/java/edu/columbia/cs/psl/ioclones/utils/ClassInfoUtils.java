@@ -28,7 +28,7 @@ import edu.columbia.cs.psl.ioclones.pojo.ParamInfo;
 
 public class ClassInfoUtils {
 	
-	private static final Logger logger = LogManager.getLogger(ClassInfoUtils.class);
+	//private static final Logger logger = LogManager.getLogger(ClassInfoUtils.class);
 	
 	public static final String RE_SLASH = ".";
 	
@@ -161,7 +161,8 @@ public class ClassInfoUtils {
 				return true;
 			}
 		} catch (Exception ex) {
-			logger.error("Error: ", ex);
+			//logger.error("Error: ", ex);
+			ex.printStackTrace();
 		}
 		
 		return false;
@@ -197,7 +198,8 @@ public class ClassInfoUtils {
 				}
 			}
 		} catch (Exception ex) {
-			logger.error("Error: ", ex);
+			//logger.error("Error: ", ex);
+			ex.printStackTrace();
 		}
 	}
 	
@@ -227,7 +229,8 @@ public class ClassInfoUtils {
 				}
 			}
 		} catch (Exception ex) {
-			logger.error("Error: ", ex);
+			//logger.error("Error: ", ex);
+			ex.printStackTrace();
 		}
 	}
 	
@@ -246,7 +249,8 @@ public class ClassInfoUtils {
 					InputStream is = new FileInputStream(file);
 					container.add(is);
 				} catch (Exception ex) {
-					logger.error("Error: ", ex);
+					//logger.error("Error: ", ex);
+					ex.printStackTrace();
 				}
 			}
 		}
@@ -360,7 +364,8 @@ public class ClassInfoUtils {
 			
 			ClassInfo ci = GlobalInfoRecorder.queryClassInfo(curName);
 			if (ci == null) {
-				logger.error("No class info: " + curName);
+				//logger.error("No class info: " + curName);
+				System.err.println("No class info: " + curName);
 				//System.exit(-1);
 				return false;
 			}
@@ -395,7 +400,8 @@ public class ClassInfoUtils {
 			
 			ClassInfo ci = GlobalInfoRecorder.queryClassInfo(curName);
 			if (ci == null) {
-				logger.error("No class info: " + curName);
+				//logger.error("No class info: " + curName);
+				System.err.println("No class info: " + curName);
 				//System.exit(-1);
 				return false;
 			}

@@ -214,6 +214,10 @@ public class HitoTaintPropagater {
 					newLabel.execIdx = execIdx;
 					
 					ArrayList<HitoLabel> labels = (ArrayList<HitoLabel>)charT.lbl;
+					if (labels == null) {
+						labels = new ArrayList<HitoLabel>();
+						t.lbl = labels;
+					}
 					labels.add(newLabel);
 				}
 				
