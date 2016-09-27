@@ -23,6 +23,8 @@ public class IOCloneConfig {
 	
 	private int callLimit;
 	
+	private int timeLimit = Integer.MAX_VALUE;;
+	
 	//private String xmlAlg;
 	
 	private int floatScale = 2;
@@ -86,6 +88,14 @@ public class IOCloneConfig {
 		return this.callLimit;
 	}
 	
+	public void setTimeLimit(int timeLimit) {
+		this.timeLimit = timeLimit;
+	}
+	
+	public int getTimeLimit() {
+		return this.timeLimit;
+	}
+	
 	/*public void setXmlAlg(String xmlAlg) {
 		this.xmlAlg = xmlAlg;
 	}
@@ -133,6 +143,7 @@ public class IOCloneConfig {
 		sb.append("Dynamic: " + this.dynamic + "\n");
 		//sb.append("Record obj dep: " + this.objDep + "\n");
 		sb.append("Call limit: " + this.callLimit + "\n");
+		sb.append("Timie limit: " + this.timeLimit + " mins\n");
 		//sb.append("XML alg: " + this.xmlAlg + "\n");
 		sb.append("Float scale: " + this.floatScale + "\n");
 		sb.append("Depth: " + this.depth + "\n");

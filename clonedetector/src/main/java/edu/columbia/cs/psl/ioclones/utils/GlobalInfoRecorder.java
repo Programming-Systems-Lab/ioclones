@@ -20,6 +20,7 @@ import org.apache.logging.log4j.Logger;
 import com.google.gson.reflect.TypeToken;
 
 import edu.columbia.cs.psl.ioclones.config.IOCloneConfig;
+import edu.columbia.cs.psl.ioclones.driver.IODriver;
 import edu.columbia.cs.psl.ioclones.pojo.ClassInfo;
 import edu.columbia.cs.psl.ioclones.pojo.IORecord;
 
@@ -80,6 +81,11 @@ public class GlobalInfoRecorder {
 		
 	public static void registerIO(IORecord io) {
 		synchronized(recordLock) {
+			if (IODriver.isTimeOut()) {
+				reachLimit.add(io.getMethodKey());
+				return ;
+			}
+			
 			if (stopRecord(io.getMethodKey())) {
 				return ;
 			}

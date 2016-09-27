@@ -164,6 +164,10 @@ public class HitoTaintPropagater {
 	}
 	
 	public static long propagateTaint(long val, long execIdx) {
+		if (execIdx == -1) {
+			return val;
+		}
+		
 		Taint t = MultiTainter.getTaint(val);
 		if (t == null) {
 			ArrayList<HitoLabel> labels = newLabels(val, execIdx);
