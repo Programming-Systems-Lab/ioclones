@@ -293,13 +293,19 @@ public class HitoTaintChecker {
 				ArrayList<HitoLabel> dep = (ArrayList<HitoLabel>)curNode.entry;
 				for (HitoLabel d: dep) {
 					if (d.execIdx == execIdx) {
-						debugMsg("Dep: " + d, false);
-						
+						//From input param
+						debugMsg("Dep input: " + d, false);
+						inputs.add(d.val);
+					} else if (d.execIdx == Long.MAX_VALUE) {
+						//From class field
+						debugMsg("Dep class: " + d, false);
 						inputs.add(d.val);
 					} else if (d.execIdx > execIdx && writeObj) {
-						debugMsg("Dep: " + d, false);
-						
+						//From write-to-object
+						debugMsg("Dep w-t-o: " + d, false);
 						inputs.add(d.val);
+					} else {
+						debugMsg("Dep outside: " + d, false);
 					}
 				}
 				curNode = curNode.next;
@@ -308,37 +314,29 @@ public class HitoTaintChecker {
 			debugMsg("No deps", false);
 		}
 		
-		debugMsg("Analyzing labels", false);
-		
+		debugMsg("Analyzing labels: " + labels, false);
 		if (labels != null && labels.size() > 0) {
-			for (HitoLabel lbl: labels) {
-				if (lbl.execIdx == execIdx) {
-					if (!lbl.val.equals(val)) {
-						debugMsg("Dep: " + lbl, false);
-						
-						inputs.add(lbl.val);
-					}
-				} else if (lbl.execIdx > execIdx && writeObj) {
-					if (!lbl.val.equals(val)) {
-						debugMsg("Dep: " + lbl, false);
-						
-						inputs.add(lbl.val);
-					}
+			for (HitoLabel hl: labels) {
+				if (hl.val.equals(val)) {
+					continue ;
 				}
 				
-				/*if (lbl.execIdx >= execIdx) {
-					//For handling the copy of taint
-					if (!lbl.val.equals(val)) {
-						System.out.println("Dep: " + lbl);
-						inputs.add(lbl.val);
-					}
-				}*/ /*else if (lbl.execIdx > execIdx) {
-					System.out.println("Dep: " + lbl);
-					inputs.add(lbl.val);
-				}*/
+				//k = i + j, if j is not tatined,, k inherit i's taint directly...
+				if (hl.execIdx == execIdx) {						
+					debugMsg("lbl input: " + hl, false);
+					inputs.add(hl.val);
+				} else if (hl.execIdx == Long.MAX_VALUE) {
+					debugMsg("lbl class: " + hl, false);
+					inputs.add(hl.val);
+				} else if (hl.execIdx > execIdx && writeObj) {
+					debugMsg("lbl w-t-o: " + hl, false);
+					inputs.add(hl.val);
+				} else {
+					debugMsg("lbl outside: " + hl, false);
+				}
 			}
 		} else {
-			debugMsg("No labels", false);
+			debugMsg("No lbls", false);
 		}
 		
 		debugMsg("\n", false);
@@ -356,6 +354,7 @@ public class HitoTaintChecker {
 		}
 		
 		Taint t = MultiTainter.getTaint(val);
+		//System.out.println("Check taint: " + val + " " + t);
 		boolean hasDeps = interpretDeps(val, t, record, writeObj);
 		if (register || hasDeps)
 			record.registerOutput(val, false);
@@ -449,39 +448,76 @@ public class HitoTaintChecker {
 		
 		long execIdx = record.getId();		
 		debugMsg("Analyzing method " + record.getMethodKey() + " " + execIdx + " val: " + val, false);
-		
-		//string's deps are in labels, not in deps
-		debugMsg("Analyzing deps", false);
-		
+				
+		//After concatenation, char's label will be merged into dependencies
 		HashSet<Object> inputs = new HashSet<Object>();
 		for (int i = 0; i < val.length(); i++) {
 			Taint t = MultiTainter.getTaint(val.charAt(i));
+			debugMsg("Cur char: " + val.charAt(i) + " " + t, false);
 			
 			if (t == null) {
 				continue ;
 			}
 			
-			if (t.lbl == null) {
+			if (t.lbl == null && t.dependencies == null) {
 				continue ;
 			}
 			
-			ArrayList<HitoLabel> deps = (ArrayList<HitoLabel>)t.getLabel();
-			for (HitoLabel hl : deps) {
-				if (hl.execIdx > execIdx && writeObj) {
-					debugMsg("Dep: " + hl, false);
-					
-					inputs.add(hl.val);
-				} else if (hl.execIdx == execIdx) {
-					//The label of each char is the string it belongs to
-					if (!hl.val.equals(val)) {
-						debugMsg("Dep: " + hl, false);
+			LinkedList<Object> deps = t.dependencies;
+			if (deps != null && deps.getFirst() != null) {
+				Node<Object> curNode = deps.getFirst();
+				while (curNode != null) {
+					ArrayList<HitoLabel> dep = (ArrayList<HitoLabel>)curNode.entry;
+					for (HitoLabel d: dep) {
+						if (d.val.equals(val)) {
+							continue ;
+						}
 						
-						inputs.add(hl.val);
+						if (d.execIdx == execIdx) {
+							debugMsg("Dep input: " + d, false);
+							inputs.add(d.val);
+						} else if (d.execIdx == Long.MAX_VALUE) {
+							debugMsg("Dep class: " + d, false);
+							inputs.add(d.val);
+						} else if (d.execIdx > execIdx && writeObj) {
+							debugMsg("Dep w-t-o: " + d, false);
+							inputs.add(d.val);
+						} else {
+							debugMsg("Dep outside: " + d, false);
+						}
 					}
+					curNode = curNode.next;
 				}
+			} else {
+				debugMsg("No deps", false);
+			}
+			
+			if (t.lbl != null) {
+				ArrayList<HitoLabel> labels = (ArrayList<HitoLabel>)t.getLabel();
+				for (HitoLabel hl : labels) {
+					if (hl.val.equals(val)) {
+						continue ;
+					}
+					
+					if (hl.execIdx == execIdx) {						
+						//The label of each char is the string it belongs to
+						debugMsg("lbl input: " + hl, false);
+						inputs.add(hl.val);
+					} else if (hl.execIdx == Long.MAX_VALUE) {
+						debugMsg("lbl class: " + hl, false);
+						inputs.add(hl.val);
+					} else if (hl.execIdx > execIdx && writeObj) {
+						debugMsg("lbl w-t-o: " + hl, false);
+						inputs.add(hl.val);
+					} else {
+						debugMsg("lbl outside: " + hl, false);
+					} 
+				}
+			} else {
+				debugMsg("No lbl", false);
 			}
 		}
-		
+				
 		if (inputs.size() > 0) {
 			for (Object i: inputs) {
 				//should be string?
@@ -494,7 +530,7 @@ public class HitoTaintChecker {
 				record.registerInput(i, false);
 			}
 		} else {
-			debugMsg("No deps", false);
+			debugMsg("No inputs", false);
 		}
 		
 		//System.out.println("Value of " + execIdx + " val: " + val);

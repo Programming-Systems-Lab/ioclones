@@ -205,6 +205,7 @@ public class IORecord {
 	
 	public void registerInput(Object o, boolean ser) {
 		if (this.show) {
+			System.out.println("Method key: " + this.methodKey);
 			System.out.println("Register input: " + o);
 		}
 		

@@ -60,6 +60,10 @@ public class HitoTaintPropagater {
 			handleTaint(t, val, execIdx);
 		}
 		
+		/*if (execIdx == Long.MAX_VALUE) {
+			System.out.println("Propagate class taint: " + val + " " + MultiTainter.getTaint(val));
+		}*/
+		
 		return val;
 	}
 	
@@ -195,35 +199,65 @@ public class HitoTaintPropagater {
 			return ;
 		}
 		
-		Taint t = MultiTainter.getTaint(val);
+		/*System.out.println("Before tainting");
+		for (int i = 0; i < val.length(); i++) {
+			char c = val.charAt(i);
+			System.out.println(c + " " + MultiTainter.getTaint(c));
+		}*/
+		
+		ArrayList<HitoLabel> newLabels = newLabels(val, execIdx);
+		Taint t = new Taint(newLabels);
+		MultiTainter.taintedObject(val, t);
+		
+		/*System.out.println("After tainting");
+		for (int i = 0; i < val.length(); i++) {
+			char c = val.charAt(i);
+			System.out.println(c + " " + MultiTainter.getTaint(c));
+		}*/
+		
+		/*Taint t = MultiTainter.getTaint(val);
 		//System.out.println("Check string taint: " + val + " " + t);
+		System.out.println("Propagating taint for: " + val);
 		if (t == null) {
 			ArrayList<HitoLabel> labels = newLabels(val, execIdx);
 			t = new Taint(labels);
 			MultiTainter.taintedObject(val, t);
-		} else {
-			for (int i = 0; i < val.length(); i++) {
-				char c = val.charAt(i);
-				Taint charT = MultiTainter.getTaint(c);
-				if (charT == null) {
-					ArrayList<HitoLabel> labels = newLabels(val, execIdx);
-					c = MultiTainter.taintedChar(c, labels);
-				} else {
-					HitoLabel newLabel = new HitoLabel();
-					newLabel.val = val;
-					newLabel.execIdx = execIdx;
-					
-					ArrayList<HitoLabel> labels = (ArrayList<HitoLabel>)charT.lbl;
-					if (labels == null) {
-						labels = new ArrayList<HitoLabel>();
-						t.lbl = labels;
-					}
-					labels.add(newLabel);
-				}
-				
-				//propagateTaint(val.charAt(i), execIdx);
-			}
 		}
+		
+		for (int i = 0; i < val.length(); i++) {
+			char c = val.charAt(i);
+			System.out.println("Original taint: " + c + " " + MultiTainter.getTaint(c));
+		}
+		
+		for (int i = 0; i < val.length(); i++) {
+			char c = val.charAt(i);
+			Taint charT = MultiTainter.getTaint(c);
+			if (charT == null) {
+				ArrayList<HitoLabel> labels = newLabels(val, execIdx);
+				c = MultiTainter.taintedChar(c, labels);
+			} else {
+				System.out.println("Add old");
+				HitoLabel newLabel = new HitoLabel();
+				newLabel.val = val;
+				newLabel.execIdx = execIdx;
+				
+				ArrayList<HitoLabel> labels = (ArrayList<HitoLabel>)charT.lbl;
+				System.out.println("Cur char: " + c + " " + newLabel + " " + labels);
+				if (labels == null) {
+					labels = new ArrayList<HitoLabel>();
+					charT.lbl = labels;
+				}
+				labels.add(newLabel);
+			}
+			System.out.println("Cur char: " + c + " " + MultiTainter.getTaint(c));
+			
+			//propagateTaint(val.charAt(i), execIdx);
+		}
+		
+		for (int i = 0; i < val.length(); i++) {
+			char c = val.charAt(i);
+			System.out.println("After taint: " + c + " " + MultiTainter.getTaint(c));
+		}*/
 	}
 	
 	public static void propagateTaint(Object obj, long execIdx, int depth) {
