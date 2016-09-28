@@ -14,6 +14,7 @@ import com.google.gson.reflect.TypeToken;
 import edu.columbia.cs.psl.ioclones.analysis.dynamic.HitoTaintChecker;
 import edu.columbia.cs.psl.ioclones.analysis.dynamic.HitoTaintPropagater;
 import edu.columbia.cs.psl.ioclones.config.IOCloneConfig;
+import edu.columbia.cs.psl.ioclones.driver.IOHelper;
 import edu.columbia.cs.psl.ioclones.instrument.FlowMethodObserver.WriterFlow;
 import edu.columbia.cs.psl.ioclones.pojo.IORecord;
 import edu.columbia.cs.psl.ioclones.utils.BytecodeUtils;
@@ -24,6 +25,8 @@ import edu.columbia.cs.psl.ioclones.utils.IOUtils;
 public class DynFlowObserver extends MethodVisitor implements Opcodes {
 	
 	public static final int DEPTH = IOCloneConfig.getInstance().getDepth();
+	
+	public static int MAIN_COUNTER = 0;
 	
 	private static HashSet<String> WRITERS;
 	
@@ -178,6 +181,17 @@ public class DynFlowObserver extends MethodVisitor implements Opcodes {
 	@Override
 	public void visitCode() {
 		this.mv.visitCode();
+		
+		boolean isPublic = ClassInfoUtils.checkAccess(this.access, Opcodes.ACC_PUBLIC);
+		if (isPublic 
+				&& this.isStatic 
+				&& this.name.equals("main") 
+				&& desc.equals("([Ljava/lang/String;)V")) {
+			//System.out.println("Main method: " + this.className);
+			MAIN_COUNTER++;
+			this.mv.visitLdcInsn(this.className);
+			this.mv.visitMethodInsn(INVOKESTATIC, Type.getInternalName(IOHelper.class), "init", "(Ljava/lang/String;)V", false);
+		}
 		
 		Type ioRecordType = Type.getType(IORecord.class);
 		this.recordId = this.lvs.newLocal(ioRecordType);

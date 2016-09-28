@@ -91,6 +91,7 @@ public class HitoAnalyzer {
 			System.exit(-1);
 		}
 		System.out.println("Total processed class files: " + counter);
+		System.out.println("Total entry point: " + DynFlowObserver.MAIN_COUNTER);
 	}
 		
 	public static byte[] instrument(String path, InputStream is) {
@@ -142,7 +143,7 @@ public class HitoAnalyzer {
 						return mv;
 					} else if (name.equals("hashCode") && desc.equals("()I")) {
 						return mv;
-					} else if (isNative || isInterface || isAbstract) {
+					} else if (isNative || isInterface || isAbstract || isSynthetic) {
 						return mv;
 					} else {
 						DynFlowObserver dfo = new DynFlowObserver(this.internalClassName, 

@@ -38,21 +38,6 @@ public class IODriver {
 		logger.info("Time limit: " + timeLimit);
 	}
 	
-	public static boolean isTimeOut() {
-		if (timeOut) {
-			return true;
-		}
-		
-		long diff = System.currentTimeMillis() - startTime;
-		if (diff > timeLimit) {
-			logger.info("Time out " + className + " " + diff);
-			logger.info("Threshold: " + timeLimit);
-			timeOut = true;
-		}
-		
-		return timeOut;
-	}
-	
 	public static void main(String args[]) {
 		/*for (int i = 0; i < args.length; i++) {
 			System.out.println(args[i]);

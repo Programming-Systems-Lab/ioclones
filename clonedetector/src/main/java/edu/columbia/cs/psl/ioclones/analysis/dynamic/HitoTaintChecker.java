@@ -75,10 +75,12 @@ public class HitoTaintChecker {
 			}
 			
 			boolean shouldCheck = false;
-			for (HitoLabel l: labels) {
-				if (l.execIdx >= execIdx) {
-					shouldCheck = true;
-					break ;
+			synchronized(labels) {
+				for (HitoLabel l: labels) {
+					if (l.execIdx >= execIdx) {
+						shouldCheck = true;
+						break ;
+					}
 				}
 			}
 			return shouldCheck;
@@ -288,51 +290,55 @@ public class HitoTaintChecker {
 		debugMsg("Analyzing deps", false);
 		
 		if (deps != null && deps.getFirst() != null) {
-			Node<Object> curNode = deps.getFirst();
-			while (curNode != null) {
-				ArrayList<HitoLabel> dep = (ArrayList<HitoLabel>)curNode.entry;
-				for (HitoLabel d: dep) {
-					if (d.execIdx == execIdx) {
-						//From input param
-						debugMsg("Dep input: " + d, false);
-						inputs.add(d.val);
-					} else if (d.execIdx == Long.MAX_VALUE) {
-						//From class field
-						debugMsg("Dep class: " + d, false);
-						inputs.add(d.val);
-					} else if (d.execIdx > execIdx && writeObj) {
-						//From write-to-object
-						debugMsg("Dep w-t-o: " + d, false);
-						inputs.add(d.val);
-					} else {
-						debugMsg("Dep outside: " + d, false);
+			synchronized(deps) {
+				Node<Object> curNode = deps.getFirst();
+				while (curNode != null) {
+					ArrayList<HitoLabel> dep = (ArrayList<HitoLabel>)curNode.entry;
+					for (HitoLabel d: dep) {
+						if (d.execIdx == execIdx) {
+							//From input param
+							debugMsg("Dep input: " + d, false);
+							inputs.add(d.val);
+						} else if (d.execIdx == Long.MAX_VALUE) {
+							//From class field
+							debugMsg("Dep class: " + d, false);
+							inputs.add(d.val);
+						} else if (d.execIdx > execIdx && writeObj) {
+							//From write-to-object
+							debugMsg("Dep w-t-o: " + d, false);
+							inputs.add(d.val);
+						} else {
+							debugMsg("Dep outside: " + d, false);
+						}
 					}
+					curNode = curNode.next;
 				}
-				curNode = curNode.next;
 			}
 		} else {
 			debugMsg("No deps", false);
 		}
 		
-		debugMsg("Analyzing labels: " + labels, false);
+		debugMsg("Analyzing labels", false);
 		if (labels != null && labels.size() > 0) {
-			for (HitoLabel hl: labels) {
-				if (hl.val.equals(val)) {
-					continue ;
-				}
-				
-				//k = i + j, if j is not tatined,, k inherit i's taint directly...
-				if (hl.execIdx == execIdx) {						
-					debugMsg("lbl input: " + hl, false);
-					inputs.add(hl.val);
-				} else if (hl.execIdx == Long.MAX_VALUE) {
-					debugMsg("lbl class: " + hl, false);
-					inputs.add(hl.val);
-				} else if (hl.execIdx > execIdx && writeObj) {
-					debugMsg("lbl w-t-o: " + hl, false);
-					inputs.add(hl.val);
-				} else {
-					debugMsg("lbl outside: " + hl, false);
+			synchronized(labels) {
+				for (HitoLabel hl: labels) {
+					if (hl.val.equals(val)) {
+						continue ;
+					}
+					
+					//k = i + j, if j is not tatined,, k inherit i's taint directly...
+					if (hl.execIdx == execIdx) {						
+						debugMsg("lbl input: " + hl, false);
+						inputs.add(hl.val);
+					} else if (hl.execIdx == Long.MAX_VALUE) {
+						debugMsg("lbl class: " + hl, false);
+						inputs.add(hl.val);
+					} else if (hl.execIdx > execIdx && writeObj) {
+						debugMsg("lbl w-t-o: " + hl, false);
+						inputs.add(hl.val);
+					} else {
+						debugMsg("lbl outside: " + hl, false);
+					}
 				}
 			}
 		} else {
@@ -465,28 +471,30 @@ public class HitoTaintChecker {
 			
 			LinkedList<Object> deps = t.dependencies;
 			if (deps != null && deps.getFirst() != null) {
-				Node<Object> curNode = deps.getFirst();
-				while (curNode != null) {
-					ArrayList<HitoLabel> dep = (ArrayList<HitoLabel>)curNode.entry;
-					for (HitoLabel d: dep) {
-						if (d.val.equals(val)) {
-							continue ;
+				synchronized(deps) {
+					Node<Object> curNode = deps.getFirst();
+					while (curNode != null) {
+						ArrayList<HitoLabel> dep = (ArrayList<HitoLabel>)curNode.entry;
+						for (HitoLabel d: dep) {
+							if (d.val.equals(val)) {
+								continue ;
+							}
+							
+							if (d.execIdx == execIdx) {
+								debugMsg("Dep input: " + d, false);
+								inputs.add(d.val);
+							} else if (d.execIdx == Long.MAX_VALUE) {
+								debugMsg("Dep class: " + d, false);
+								inputs.add(d.val);
+							} else if (d.execIdx > execIdx && writeObj) {
+								debugMsg("Dep w-t-o: " + d, false);
+								inputs.add(d.val);
+							} else {
+								debugMsg("Dep outside: " + d, false);
+							}
 						}
-						
-						if (d.execIdx == execIdx) {
-							debugMsg("Dep input: " + d, false);
-							inputs.add(d.val);
-						} else if (d.execIdx == Long.MAX_VALUE) {
-							debugMsg("Dep class: " + d, false);
-							inputs.add(d.val);
-						} else if (d.execIdx > execIdx && writeObj) {
-							debugMsg("Dep w-t-o: " + d, false);
-							inputs.add(d.val);
-						} else {
-							debugMsg("Dep outside: " + d, false);
-						}
+						curNode = curNode.next;
 					}
-					curNode = curNode.next;
 				}
 			} else {
 				debugMsg("No deps", false);
@@ -494,24 +502,26 @@ public class HitoTaintChecker {
 			
 			if (t.lbl != null) {
 				ArrayList<HitoLabel> labels = (ArrayList<HitoLabel>)t.getLabel();
-				for (HitoLabel hl : labels) {
-					if (hl.val.equals(val)) {
-						continue ;
+				synchronized(labels) {
+					for (HitoLabel hl : labels) {
+						if (hl.val.equals(val)) {
+							continue ;
+						}
+						
+						if (hl.execIdx == execIdx) {						
+							//The label of each char is the string it belongs to
+							debugMsg("lbl input: " + hl, false);
+							inputs.add(hl.val);
+						} else if (hl.execIdx == Long.MAX_VALUE) {
+							debugMsg("lbl class: " + hl, false);
+							inputs.add(hl.val);
+						} else if (hl.execIdx > execIdx && writeObj) {
+							debugMsg("lbl w-t-o: " + hl, false);
+							inputs.add(hl.val);
+						} else {
+							debugMsg("lbl outside: " + hl, false);
+						} 
 					}
-					
-					if (hl.execIdx == execIdx) {						
-						//The label of each char is the string it belongs to
-						debugMsg("lbl input: " + hl, false);
-						inputs.add(hl.val);
-					} else if (hl.execIdx == Long.MAX_VALUE) {
-						debugMsg("lbl class: " + hl, false);
-						inputs.add(hl.val);
-					} else if (hl.execIdx > execIdx && writeObj) {
-						debugMsg("lbl w-t-o: " + hl, false);
-						inputs.add(hl.val);
-					} else {
-						debugMsg("lbl outside: " + hl, false);
-					} 
 				}
 			} else {
 				debugMsg("No lbl", false);

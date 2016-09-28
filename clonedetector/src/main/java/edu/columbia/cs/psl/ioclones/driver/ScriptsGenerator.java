@@ -108,7 +108,7 @@ public class ScriptsGenerator {
 			String command = PRE_COMMAND 
 					+ " -cp hito-lib/CloneDetector-0.0.1-SNAPSHOT.jar:" 
 					+ transformed + " " 
-					+ IO_DRIVER + " " 
+					+ "-Xmx25g "
 					+ c;
 			sb.append("echo \'Executing " + command + "\'\n");
 			sb.append(command + "\n\n");

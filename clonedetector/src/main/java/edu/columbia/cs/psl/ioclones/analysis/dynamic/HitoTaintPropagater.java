@@ -40,11 +40,13 @@ public class HitoTaintPropagater {
 			t.lbl = labels;
 		}
 		
-		HitoLabel lbl = new HitoLabel();
-		lbl.execIdx = execIdx;
-		lbl.val = val;
-		
-		labels.add(lbl);
+		synchronized(labels) {
+			HitoLabel lbl = new HitoLabel();
+			lbl.execIdx = execIdx;
+			lbl.val = val;
+			
+			labels.add(lbl);
+		}
 	}
 	
 	public static int propagateTaint(int val, long execIdx) {
@@ -211,7 +213,9 @@ public class HitoTaintPropagater {
 		
 		ArrayList<HitoLabel> newLabels = newLabels(val, execIdx);
 		Taint t = new Taint(newLabels);
-		MultiTainter.taintedObject(val, t);
+		synchronized(t.lbl) {
+			MultiTainter.taintedObject(val, t);
+		}
 		
 		/*System.out.println("After tainting");
 		for (int i = 0; i < val.length(); i++) {
@@ -293,17 +297,21 @@ public class HitoTaintPropagater {
 				if (t == null) {
 					ArrayList<HitoLabel> labels = newLabels(obj, execIdx);
 					t = new Taint(labels);
-					MultiTainter.taintedObject(obj, t);
+					synchronized(labels) {
+						MultiTainter.taintedObject(obj, t);
+					}
 				} else {
 					ArrayList<HitoLabel> labels = (ArrayList<HitoLabel>)t.getLabel();
 					if (labels == null) {
 						labels = newLabels(obj, execIdx);
 						t.lbl = labels;
 					} else {
-						HitoLabel label = new HitoLabel();
-						label.val = obj;
-						label.execIdx = execIdx;
-						labels.add(label);
+						synchronized(labels) {
+							HitoLabel label = new HitoLabel();
+							label.val = obj;
+							label.execIdx = execIdx;
+							labels.add(label);
+						}
 					}
 				}
 			}

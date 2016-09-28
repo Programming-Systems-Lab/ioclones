@@ -15,7 +15,9 @@ import java.util.HashMap;
 import java.util.HashSet;
 
 import edu.columbia.cs.psl.ioclones.analysis.dynamic.HitoTaintChecker;
+import edu.columbia.cs.psl.ioclones.config.IOCloneConfig;
 import edu.columbia.cs.psl.ioclones.driver.IODriver;
+import edu.columbia.cs.psl.ioclones.driver.IOHelper;
 import edu.columbia.cs.psl.ioclones.sim.AbstractSim;
 import edu.columbia.cs.psl.ioclones.sim.NoOrderAnalyzer;
 import edu.columbia.cs.psl.ioclones.utils.GlobalInfoRecorder;
@@ -55,7 +57,8 @@ public class IORecord {
 	
 	public IORecord(String methodKey, boolean isStatic) {
 		this.methodKey = methodKey;
-		if (IODriver.isTimeOut()) {
+				
+		if (IOHelper.INIT && IOHelper.isTimeOut()) {
 			this.stopRecord = true;
 			logger.info("Initiate exiting: " + this.methodKey);
 			System.exit(0);
