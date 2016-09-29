@@ -4,12 +4,16 @@ import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
 
+import edu.columbia.cs.psl.ioclones.pojo.IORecord;
+import edu.columbia.cs.psl.phosphor.org.objectweb.asm.Type;
 import edu.columbia.cs.psl.phosphor.runtime.MultiTainter;
 import edu.columbia.cs.psl.phosphor.runtime.Taint;
+import edu.columbia.cs.psl.phosphor.struct.LinkedList;
 
 public class HitoTaintPropagater {
 		
@@ -267,8 +271,8 @@ public class HitoTaintPropagater {
 			System.out.println("After taint: " + c + " " + MultiTainter.getTaint(c));
 		}*/
 	}
-	
-	public static void propagateTaint(Object obj, long execIdx, int depth) {
+		
+	public static void propagateTaint(Object obj, long execIdx) {
 		if (execIdx == -1) {
 			return ;
 		}
@@ -286,56 +290,34 @@ public class HitoTaintPropagater {
 				|| (obj instanceof Double) 
 				|| (obj instanceof Long)) {
 			propagateTaintPrimitiveObj(obj, execIdx);
+			return ;
 		} else if (String.class.isAssignableFrom(obj.getClass())) {
 			String val = (String)obj;
 			propagateTaint(val, execIdx);
+			return ;
 		} else {
 			//The tag on array itself is not useful at this point
 			//Don't taint obj itself?
 			if (!obj.getClass().isArray()) {
-				Taint t = MultiTainter.getTaint(obj);
-				if (t == null) {
-					ArrayList<HitoLabel> labels = newLabels(obj, execIdx);
-					t = new Taint(labels);
-					synchronized(labels) {
-						MultiTainter.taintedObject(obj, t);
-					}
-				} else {
-					ArrayList<HitoLabel> labels = (ArrayList<HitoLabel>)t.getLabel();
-					if (labels == null) {
-						labels = newLabels(obj, execIdx);
-						t.lbl = labels;
-					} else {
-						synchronized(labels) {
-							HitoLabel label = new HitoLabel();
-							label.val = obj;
-							label.execIdx = execIdx;
-							labels.add(label);
-						}
-					}
-				}
-			}
-			
-			if (depth == 0) {
-				return ;
+				objHelper(obj, execIdx);
 			}
 			
 			if (obj.getClass().isArray()) {
-				arrayHelper(obj, execIdx, depth);
+				arrayHelper(obj, execIdx);
 			} else if (Collection.class.isAssignableFrom(obj.getClass())) {
 				Collection collection = (Collection)obj;
-				collectionHelper(collection, execIdx, depth);
+				collectionHelper(collection, execIdx);
 			} else if (Map.class.isAssignableFrom(obj.getClass())) {
 				Map map = (Map)obj;
 				Collection collection = map.values();
-				collectionHelper(collection, execIdx, depth);
-			} else {
+				collectionHelper(collection, execIdx);
+			} /*else {
 				objHelper(obj, execIdx, depth);
-			}
+			}*/
 		}
 	}
 	
-	public static void arrayHelper(Object obj, long execIdx, int depth) {
+	public static void arrayHelper(Object obj, long execIdx) {
 		if (execIdx == -1) {
 			return ;
 		}
@@ -402,12 +384,13 @@ public class HitoTaintPropagater {
 			Object[] arr = (Object[])obj;
 			for (int i = 0; i < arr.length; i++) {
 				Object val = arr[i];
-				propagateTaint(val, execIdx, depth - 1);
+				//propagateTaint(val, execIdx, depth - 1);
+				objHelper(val, execIdx);
 			}
 		}
 	}
 	
-	public static void collectionHelper(Collection collection, long execIdx, int depth) {
+	public static void collectionHelper(Collection collection, long execIdx) {
 		if (execIdx == -1) {
 			return ;
 		}
@@ -417,12 +400,12 @@ public class HitoTaintPropagater {
 		}
 		
 		for (Object o: collection) {
-			//objHelper(o, execIdx, depth - 1);
-			propagateTaint(o, execIdx, depth - 1);
+			//propagateTaint(o, execIdx, depth - 1);
+			objHelper(o, execIdx);
 		}
 	}
 		
-	public static void objHelper(Object obj, long execIdx, int depth) {
+	public static void objHelper(Object obj, long execIdx) {
 		if (execIdx == -1) {
 			return ;
 		}
@@ -431,7 +414,30 @@ public class HitoTaintPropagater {
 			return ;
 		}
 		
-		HashSet<Field> fields = FieldController.collectInstanceFields(obj.getClass());				
+		Taint t = MultiTainter.getTaint(obj);
+		if (t == null) {
+			ArrayList<HitoLabel> labels = newLabels(obj, execIdx);
+			t = new Taint(labels);
+			synchronized(labels) {
+				MultiTainter.taintedObject(obj, t);
+			}
+		} else {
+			ArrayList<HitoLabel> labels = (ArrayList<HitoLabel>)t.getLabel();
+			if (labels == null) {
+				labels = newLabels(obj, execIdx);
+				t.lbl = labels;
+			} else {
+				synchronized(labels) {
+					HitoLabel label = new HitoLabel();
+					label.val = obj;
+					label.execIdx = execIdx;
+					labels.add(label);
+				}
+			}
+		}
+		System.out.println("Tainted obj: " + obj + " " + execIdx + " " + MultiTainter.getTaint(obj));
+		
+		/*HashSet<Field> fields = FieldController.collectInstanceFields(obj.getClass());				
 		try {
 			for (Field f: fields) {
 				if (f.getType().isPrimitive()) {
@@ -476,14 +482,85 @@ public class HitoTaintPropagater {
 					//check if the object has been tainted
 					Object val = f.get(obj);
 					//objHelper(val, execIdx, depth - 1);
-					propagateTaint(val, execIdx, depth - 1);
+					_propagateTaint(val, execIdx, depth - 1);
 				}
 			}
 		} catch (Exception ex) {
 			ex.printStackTrace();
+		}*/
+	}
+	
+	public static int cleanAndPropagate(int val, long execIdx) {
+		ArrayList<HitoLabel> labels = newLabels(val, execIdx);
+		val = MultiTainter.taintedInt(val, labels);
+		
+		return val;
+	}
+	
+	public static short cleanAndPropagate(short val, long execIdx) {
+		ArrayList<HitoLabel> labels = newLabels(val, execIdx);
+		val = MultiTainter.taintedShort(val, labels);
+		
+		return val;
+	}
+	
+	public static byte cleanAndPropagate(byte val, long execIdx) {
+		ArrayList<HitoLabel> labels = newLabels(val, execIdx);
+		val = MultiTainter.taintedByte(val, labels);
+		
+		return val;
+	}
+	
+	public static boolean cleanAndPropagate(boolean val, long execIdx) {
+		ArrayList<HitoLabel> labels = newLabels(val, execIdx);
+		val = MultiTainter.taintedBoolean(val, labels);
+		
+		return val;
+	}
+	
+	public static char cleanAndPropagate(char val, long execIdx) {
+		ArrayList<HitoLabel> labels = newLabels(val, execIdx);
+		val = MultiTainter.taintedChar(val, labels);
+		
+		return val;
+	}
+	
+	public static float cleanAndPropagate(float val, long execIdx) {
+		ArrayList<HitoLabel> labels = newLabels(val, execIdx);
+		val = MultiTainter.taintedFloat(val, labels);
+		
+		return val;
+	}
+	
+	public static double cleanAndPropagate(double val, long execIdx) {
+		ArrayList<HitoLabel> labels = newLabels(val, execIdx);
+		val = MultiTainter.taintedDouble(val, labels);
+		
+		return val;
+	}
+	
+	public static long cleanAndPropagate(long val, long execIdx) {
+		ArrayList<HitoLabel> labels = newLabels(val, execIdx);
+		val = MultiTainter.taintedLong(val, labels);
+		
+		return val;
+	}
+	
+	public static void cleanAndPropagate(Object val, long execIdx) {
+		if ((val instanceof String)) {
+			Taint t = MultiTainter.getTaint(val);
+			ArrayList<HitoLabel> labels = newLabels(val, execIdx);
+			if (t == null) {
+				
+				t = new Taint(labels);
+				MultiTainter.taintedObject(val, t);
+			} else {
+				t.lbl = labels;
+				t.dependencies = new LinkedList<Object>();
+			}
 		}
 	}
-		
+				
 	public static class HitoLabel {
 		
 		public long execIdx;
@@ -492,7 +569,7 @@ public class HitoTaintPropagater {
 		
 		@Override
 		public String toString() {
-			return "Exec id: " + this.execIdx + " Val: " + this.val.toString();
+			return "Exec: " + this.execIdx + " Val: " + this.val.toString();
 		}
 		
 	}

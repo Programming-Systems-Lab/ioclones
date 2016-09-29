@@ -141,9 +141,15 @@ public class DeepHash {
 	}
 	
 	public static void main(String[] args) {
-		boolean test1 = false;
-		long test2 = 1237;
+		int test1 = 10;
+		long test2 = -1;
 		System.out.println(deepHash(test1));
 		System.out.println(deepHash(test2));
+		
+		Integer i = new Integer(10);
+		Long l = new Long(-1);
+		System.out.println(i.hashCode());
+		System.out.println(l.hashCode());
+		Set<Object> set = new HashSet<Object>();
 	}
 }

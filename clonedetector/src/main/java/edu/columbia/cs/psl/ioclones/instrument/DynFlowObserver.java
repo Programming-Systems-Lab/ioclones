@@ -163,6 +163,7 @@ public class DynFlowObserver extends MethodVisitor implements Opcodes {
 			this.propagateTaint(arg, false);
 			argIdx++;
 		} else if (arg.getSort() == Type.OBJECT || arg.getSort() == Type.ARRAY) {
+			//Seems to be too aggressive
 			this.mv.visitVarInsn(ALOAD, argIdx);
 			this.propagateTaint(arg, false);
 			
@@ -209,8 +210,8 @@ public class DynFlowObserver extends MethodVisitor implements Opcodes {
 				"(Ljava/lang/String;Z)V", 
 				false);
 		this.mv.visitVarInsn(Opcodes.ASTORE, this.recordId);
-		
-		if (isStatic) {
+				
+		if (this.isStatic) {
 			this.args = ClassInfoUtils.genMethodArgs(this.desc, null);
 		} else {
 			this.args = ClassInfoUtils.genMethodArgs(this.desc, this.internalName);
@@ -464,28 +465,7 @@ public class DynFlowObserver extends MethodVisitor implements Opcodes {
 	
 	@Override
 	public void visitFieldInsn(int opcode, String owner, String name, String desc) {
-		if (opcode == GETSTATIC) {
-			this.mv.visitFieldInsn(opcode, owner, name, desc);
-			
-			Type type = Type.getType(desc);
-			
-			if (type.getSort() == Type.OBJECT) {
-				String internal = type.getInternalName();
-				String replace = internal.replace("/", ".");
-				if (WRITERS.contains(replace)) {
-					return ;
-				}
-			}
-			
-			int sort = type.getSort();			
-			this.propagateTaint(type, true);
-			if (sort != Type.OBJECT && sort != Type.ARRAY) {
-				//put back tainted primitives
-				this.mv.visitFieldInsn(PUTSTATIC, owner, name, desc);
-			}
-			
-			this.mv.visitFieldInsn(opcode, owner, name, desc);
-		} else if (opcode == PUTSTATIC) {
+		if (opcode == PUTSTATIC || opcode == PUTFIELD) {
 			Type type = Type.getType(desc);	
 			
 			if (type.getSort() == Type.OBJECT) {
@@ -497,7 +477,23 @@ public class DynFlowObserver extends MethodVisitor implements Opcodes {
 				}
 			}
 			
-			this.analyzeTaint(type);
+			if (opcode == PUTSTATIC) {
+				//An output, analyze it
+				this.analyzeTaint(type);
+			}
+			
+			//Make it a taint source, the helper does not return for obj, so dup			
+			if (type.getSort() == Type.OBJECT || type.getSort() == Type.ARRAY) {
+				this.mv.visitInsn(DUP);
+			}
+
+			
+			if (opcode == PUTSTATIC) {
+				this.propagateTaint(type, true);
+			} else {
+				this.propagateTaint(type, false);
+			}
+			
 			this.mv.visitFieldInsn(opcode, owner, name, desc);
 		} else {
 			this.mv.visitFieldInsn(opcode, owner, name, desc);
@@ -594,8 +590,8 @@ public class DynFlowObserver extends MethodVisitor implements Opcodes {
 		} else if (type.equals(Type.getType(String.class))) {
 			this.mv.visitMethodInsn(INVOKESTATIC, propagater, "propagateTaint", "(Ljava/lang/String;J)V", false);
 		} else if (type.getSort() == Type.OBJECT || type.getSort() == Type.ARRAY) {
-			this.convertToInst(DEPTH);
-			this.mv.visitMethodInsn(INVOKESTATIC, propagater, "propagateTaint", "(Ljava/lang/Object;JI)V", false);
+			//this.convertToInst(DEPTH);
+			this.mv.visitMethodInsn(INVOKESTATIC, propagater, "propagateTaint", "(Ljava/lang/Object;J)V", false);
 		} else {
 			System.err.println("Un-recognized type: " + type);
 			System.exit(-1);

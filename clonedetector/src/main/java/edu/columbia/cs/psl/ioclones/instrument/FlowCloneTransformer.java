@@ -17,11 +17,14 @@ import org.objectweb.asm.util.CheckClassAdapter;
 
 import edu.columbia.cs.psl.ioclones.DependencyAnalyzer;
 import edu.columbia.cs.psl.ioclones.config.IOCloneConfig;
+import edu.columbia.cs.psl.ioclones.premain.PreMain;
 import edu.columbia.cs.psl.ioclones.utils.ClassInfoUtils;
 
 public class FlowCloneTransformer implements ClassFileTransformer {
 		
 	private static final Logger logger = LogManager.getLogger(FlowCloneTransformer.class);
+	
+	public static int counter = 0;
 	
 	@Override
 	public byte[] transform(ClassLoader loader, 
@@ -29,7 +32,8 @@ public class FlowCloneTransformer implements ClassFileTransformer {
 			Class<?> classBeingRedefined, 
 			ProtectionDomain protectionDomain, 
 			byte[] classfileBuffer) {
-		try {			
+		//PreMain.observeLoadedClasses();
+		try {
 			if (protectionDomain != null) {
 				String protection = protectionDomain.getCodeSource().getLocation().getPath();
 				//System.out.println("Protection domain: " + protection);
@@ -38,35 +42,22 @@ public class FlowCloneTransformer implements ClassFileTransformer {
 				}
 				
 				if (protection.matches(".*CloneDetector.*.jar")) {
-					//System.out.println("Capture file: " + protection);
 					return classfileBuffer;
 				}
 			}
 			
 			if (className == null) {
 				//When will the class name be null?lambda probably
-				//logger.warn("Capture null class name");
 				return classfileBuffer;
 			}
 			
 			String name = ClassInfoUtils.cleanType(className);
 			if (!ClassInfoUtils.shouldInstrument(name)) {
-				//System.out.println("Black-out class: " + name);
 				return classfileBuffer;
 			}
 			
 			ClassReader cr = new ClassReader(classfileBuffer);
-			ClassWriter cw1 = new ClassWriter(ClassWriter.COMPUTE_FRAMES) {
-				@Override
-				protected String getCommonSuperClass(String type1, String type2) {
-					try {
-						return super.getCommonSuperClass(type1, type2);
-					} catch (Exception ex) {
-						logger.error("Common super exception: ", ex);
-						return "java/lang/Unknown";
-					}
-				}
-			};
+			ClassWriter cw1 = new ClassWriter(ClassWriter.COMPUTE_MAXS);
 			
 			cr.accept(new ClassVisitor(Opcodes.ASM5, cw1) {
 				@Override
@@ -137,8 +128,9 @@ public class FlowCloneTransformer implements ClassFileTransformer {
 			}
 			
 			return analysisWriter.toByteArray();
-		} catch (Exception ex) {
+		} catch (Throwable ex) {
 			logger.error("Fail to transform class: ", ex);
+			ex.printStackTrace();
 		}
 		return classfileBuffer;
 	}

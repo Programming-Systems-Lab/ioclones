@@ -8,6 +8,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import edu.columbia.cs.psl.ioclones.pojo.IORecord;
 import edu.columbia.cs.psl.ioclones.pojo.XMLWrapper;
 import edu.columbia.cs.psl.ioclones.utils.DeepHash;
 
@@ -66,7 +67,7 @@ public class FastAnalyzer extends AbstractSim {
 	}
 	
 	public static void main(String[] args) {
-		List<Object> control = new ArrayList<Object>();
+		/*List<Object> control = new ArrayList<Object>();
 		control.add("2");
 		control.add("abc");
 		control.add(2.915);
@@ -93,7 +94,21 @@ public class FastAnalyzer extends AbstractSim {
 		Set<Object> tSet = new HashSet<Object>();
 		long tmp = 1237L;
 		tSet.add(tmp);
-		System.out.println(fa.similarity(cSet, tSet));
+		System.out.println(fa.similarity(cSet, tSet));*/
+		
+		IORecord record = new IORecord("test123", false);
+		record.registerInput(Integer.valueOf(-1), false);
+		record.registerInput(Long.valueOf(-1), false);
+		record.registerInput(Integer.valueOf(32), false);
+		
+		record.registerOutput(Double.valueOf(0.0), false);
+		record.registerOutput(Long.valueOf(10), false);
+		record.registerOutput(Integer.valueOf(32), false);
+		record.finalizeIOs();
+		System.out.println(record.sortedInputs);
+		System.out.println(record.sortedOutputs);
+		int[] d1 = genDeepHash(record.sortedInputs);
+		System.out.println(Arrays.toString(d1));
 	}
 
 }

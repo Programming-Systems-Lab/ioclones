@@ -28,6 +28,7 @@ import org.apache.commons.cli.Options;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import edu.columbia.cs.psl.ioclones.config.IOCloneConfig;
 import edu.columbia.cs.psl.ioclones.pojo.IORecord;
 import edu.columbia.cs.psl.ioclones.sim.AbstractSim;
 import edu.columbia.cs.psl.ioclones.sim.AbstractSim.DHSComparator;
@@ -78,7 +79,7 @@ public class SimAnalysisDriver {
 		long beginMem = Runtime.getRuntime().freeMemory();
 		CommandLineParser parser = new DefaultParser();
 		CommandLine cmd = parser.parse(options, args);
-		
+				
 		if (!cmd.hasOption("cb") || !cmd.hasOption("io") || !cmd.hasOption("alg")) {
 			logger.error("No codebase or io repo to process...");
 			System.exit(-1);
@@ -139,9 +140,12 @@ public class SimAnalysisDriver {
 		}
 		AbstractSim.lenFilter = lenFilter;
 		
+		final int rLimit = IOCloneConfig.getInstance().getCallLimit();
+		
 		logger.info("IO Repos: " + sb.toString());
 		logger.info("XML alg: " + AbstractSim.XML_ALG);
 		logger.info("Exhaustive mode: " + exhaustive);
+		logger.info("Report limit: " + rLimit);
 		logger.info("Length filter: " + lenFilter);
 		logger.info("Export name: " + exportName);
 		
@@ -235,7 +239,8 @@ public class SimAnalysisDriver {
 					public List<IORecord> call() throws Exception {
 						// TODO Auto-generated method stub
 						List<IORecord> ret = new ArrayList<IORecord>();
-						IOUtils.unzipIORecords(zip, ret);
+						//IOUtils.unzipIORecords(zip, ret);
+						IOUtils.unzipIORecordsWithLimit(zip, ret, rLimit);
 						/*ret.forEach(record->{
 							Set<Object> cleanInputs = NoOrderAnalyzer.cleanCollection(record.getInputs());
 							Set<Object> cleanOutputs = NoOrderAnalyzer.cleanCollection(record.getOutputs());

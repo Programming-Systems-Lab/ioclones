@@ -38,19 +38,12 @@ public class CrowdDriver {
 			logger.error("Invalid codebase: " + codebaseFile.getAbsolutePath());
 			System.exit(-1);
 		}
-		
-		File instJre = new File("./jre-inst/bin/java");
-		if (!instJre.exists()) {
-			logger.error("Cannot find instrumented JRE: " + instJre.getAbsolutePath());
-			System.exit(-1);
-		}
 			
 		URLClassLoader sysloader = (URLClassLoader)ClassLoader.getSystemClassLoader();
 		Class sysClass = URLClassLoader.class;
 		Method method = sysClass.getDeclaredMethod("addURL", parameters);
 		method.setAccessible(true);
 		method.invoke(sysloader, new Object[]{codebaseFile.toURI().toURL()});
-		method.invoke(sysloader, new Object[]{instJre.toURI().toURL()});
 		/*for (URL u: sysloader.getURLs()) {
 			System.out.println(u);
 		}*/

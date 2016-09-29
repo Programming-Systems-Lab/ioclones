@@ -22,7 +22,9 @@ import java.sql.ResultSet;
 import java.sql.Statement;
 import java.sql.Timestamp;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -30,6 +32,7 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.PriorityQueue;
 import java.util.Scanner;
 import java.util.Set;
 import java.util.TreeSet;
@@ -525,6 +528,91 @@ public class IOUtils {
 					
 					ClassInfo classInfo = (ClassInfo) fromXML2Obj(sb.toString());
 					GlobalInfoRecorder.registerClassInfo(classInfo);
+				}
+			}
+		} catch (Exception ex) {
+			logger.error("Error: ", ex);
+		}
+	}
+	
+	public static void unzipIORecordsWithLimit(File zipFile, List<IORecord> records, int limit) {
+		try {
+			ZipInputStream zis = new ZipInputStream(new FileInputStream(zipFile));
+			ZipEntry curEntry = null;
+			
+			HashMap<String, PriorityQueue<IORecord>> recordMap = new HashMap<String, PriorityQueue<IORecord>>();
+			Comparator<IORecord> recordComp = new Comparator<IORecord>() {
+
+				@Override
+				public int compare(IORecord o1, IORecord o2) {
+					// TODO Auto-generated method stub
+					if (o1.getId() > o2.getId()) {
+						return 1;
+					} else if (o1.getId() < o2.getId()) {
+						return -1;
+					} else {
+						logger.error("Suspicious");
+						logger.error("io 1: " + o1.getMethodKey() + " " + o1.getId());
+						logger.error("io 2: " + o2.getMethodKey() + " " + o2.getId());
+					}
+					return 0;
+				}
+				
+			};
+			
+			while ((curEntry = zis.getNextEntry()) != null) {
+				//System.out.println("Cur entry: " + curEntry.getName());
+				
+				if (curEntry.isDirectory()) {
+					continue ;
+				}
+				
+				String entryName = curEntry.getName();
+				if (entryName.contains("<init>") || entryName.contains("<clinit>")) {
+					continue ;
+				}
+				
+				String extension = getExtension(curEntry.getName());
+				if (extension.equals("xml")) {
+					StringBuilder sb = new StringBuilder();
+					byte[] buffer = new byte[1024];
+					int read = 0;
+					
+					while ((read = zis.read(buffer, 0, 1024)) >= 0) {
+						sb.append(new String(buffer, 0, read));
+					}
+					
+					IORecord io = (IORecord) fromXML2Obj(sb.toString());
+					
+					if (io.getMethodKey() == null) {
+						logger.error("Null method key: " + curEntry.getName());
+					} else {
+						String methodKey = io.getMethodKey();
+						if (recordMap.containsKey(methodKey)) {
+							recordMap.get(methodKey).add(io);
+						} else {
+							PriorityQueue<IORecord> queue = new PriorityQueue<IORecord>(50, recordComp);
+							queue.add(io);
+							
+							recordMap.put(methodKey, queue);
+						}
+					}
+				}
+			}
+			
+			for (String methodKey: recordMap.keySet()) {
+				PriorityQueue<IORecord> queue = recordMap.get(methodKey);
+				if (queue.size() <= limit) {
+					records.addAll(queue);
+				} else {
+					logger.info("Too many records: " + methodKey);
+					int counter = 0;
+					while (counter < limit) {
+						IORecord io = queue.poll();
+						//System.out.println("Selected: " + io.getMethodKey() + " " + io.getId());
+						records.add(io);
+						counter++;
+					}
 				}
 			}
 		} catch (Exception ex) {
