@@ -12,6 +12,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import edu.columbia.cs.psl.ioclones.analysis.dynamic.HitoTaintPropagater.HitoLabel;
+import edu.columbia.cs.psl.ioclones.analysis.dynamic.HitoTaintPropagater.WriteSignal;
 import edu.columbia.cs.psl.ioclones.config.IOCloneConfig;
 import edu.columbia.cs.psl.ioclones.pojo.IORecord;
 import edu.columbia.cs.psl.phosphor.runtime.MultiTainter;
@@ -652,12 +653,17 @@ public class HitoTaintChecker {
 		}
 		
 		debugMsg("Analyzing obj taint " + record.getMethodKey() + " " + record.getId() + " val: " + obj, false);
+		//System.out.println("Depth: " + depth);
 		HashSet<Object> inputs = interpretObjectDeps(obj, depth, record, register, writeObj);
 		boolean shouldOutput = register;
 		if (inputs != null && inputs.size() > 0) {
 			shouldOutput = true;
 			for (Object o: inputs) {
 				debugMsg("Final deps:" + o, false);
+				if (o instanceof WriteSignal) {
+					//WriteSignal is for those vals flow to object without any deps
+					continue ;
+				}
 				record.registerInput(o, shouldSerialize(o));
 			}
 		} else {
@@ -751,84 +757,177 @@ public class HitoTaintChecker {
 			
 			HashSet<Field> fields = FieldController.collectInstanceFields(clazz);
 			try {
+				//System.out.println("Check flows: " + fields);
 				for (Field f: fields) {
 					if (f.getType() == int.class) {
 						int val = f.getInt(obj);
 						
 						Taint t = MultiTainter.getTaint(val);
-						HashSet<Object> fInput = interpretSelfDeps(val, t, record, writeObj);
+						//System.out.println("Analyzing flowTo taint: " + val + " " + t);
+						HitoLabel flowTo = interpretFlowTo(t, record);
 						
-						if (fInput != null) {
-							inputs.addAll(fInput);
+						if (flowTo != null) {
+							HashSet<Object> flowInputs = interpretSelfDeps(flowTo.val, t, record,  writeObj);
+							
+							if (flowInputs != null) {
+								inputs.addAll(flowInputs);
+							} else {
+								inputs.add(new WriteSignal());
+							}
+							
+							debugMsg("Flows: " + flowInputs + "->" + flowTo.val, false);
+						} else {
+							debugMsg("No flow: " + val, false);
 						}
 					} else if (f.getType() == short.class) {
 						short val = f.getShort(obj);
 						
 						Taint t = MultiTainter.getTaint(val);
-						HashSet<Object> fInput = interpretSelfDeps(val, t, record, writeObj);
+						HitoLabel flowTo = interpretFlowTo(t, record);
 						
-						if (fInput != null) {
-							inputs.addAll(fInput);
+						if (flowTo != null) {
+							HashSet<Object> flowInputs = interpretSelfDeps(flowTo.val, t, record,  writeObj);
+							
+							if (flowInputs != null) {
+								inputs.addAll(flowInputs);
+							} else {
+								inputs.add(new WriteSignal());
+							}
+							
+							debugMsg("Flows: " + flowInputs + "->" + flowTo.val, false);
+						} else {
+							debugMsg("No flow: " + val, false);
 						}
 					} else if (f.getType() == boolean.class) {
 						boolean val = f.getBoolean(obj);
 						
 						Taint t = MultiTainter.getTaint(val);
-						HashSet<Object> fInput = interpretSelfDeps(val, t, record, writeObj);
+						HitoLabel flowTo = interpretFlowTo(t, record);
 						
-						if (fInput != null) {
-							inputs.addAll(fInput);
+						if (flowTo != null) {
+							HashSet<Object> flowInputs = interpretSelfDeps(flowTo.val, t, record,  writeObj);
+							
+							if (flowInputs != null) {
+								inputs.addAll(flowInputs);
+							} else {
+								inputs.add(new WriteSignal());
+							}
+							
+							debugMsg("Flows: " + flowInputs + "->" + flowTo.val, false);
+						} else {
+							debugMsg("No flow: " + val, false);
 						}
 					} else if (f.getType() == byte.class) {
 						byte val = f.getByte(obj);
 						
 						Taint t = MultiTainter.getTaint(val);
-						HashSet<Object> fInput = interpretSelfDeps(val, t, record, writeObj);
+						HitoLabel flowTo = interpretFlowTo(t, record);
 						
-						if (fInput != null) {
-							inputs.addAll(fInput);
+						if (flowTo != null) {
+							HashSet<Object> flowInputs = interpretSelfDeps(flowTo.val, t, record,  writeObj);
+							
+							if (flowInputs != null) {
+								inputs.addAll(flowInputs);
+							} else {
+								inputs.add(new WriteSignal());
+							}
+							
+							debugMsg("Flows: " + flowInputs + "->" + flowTo.val, false);
+						} else {
+							debugMsg("No flow: " + val, false);
 						}
 					} else if (f.getType() == char.class) {
 						char val = f.getChar(obj);
 						
 						Taint t = MultiTainter.getTaint(val);
-						HashSet<Object> fInput = interpretSelfDeps(val, t, record, writeObj);
+						HitoLabel flowTo = interpretFlowTo(t, record);
 						
-						if (fInput != null) {
-							inputs.addAll(fInput);
+						if (flowTo != null) {
+							HashSet<Object> flowInputs = interpretSelfDeps(flowTo.val, t, record,  writeObj);
+							
+							if (flowInputs != null) {
+								inputs.addAll(flowInputs);
+							} else {
+								inputs.add(new WriteSignal());
+							}
+							
+							debugMsg("Flows: " + flowInputs + "->" + flowTo.val, false);
+						} else {
+							debugMsg("No flow: " + val, false);
 						}
 					} else if (f.getType() == float.class) {
 						float val = f.getFloat(obj);
 						
 						Taint t = MultiTainter.getTaint(val);
-						HashSet<Object> fInput = interpretSelfDeps(val, t, record, writeObj);
+						HitoLabel flowTo = interpretFlowTo(t, record);
 						
-						if (fInput != null) {
-							inputs.addAll(fInput);
+						if (flowTo != null) {
+							HashSet<Object> flowInputs = interpretSelfDeps(flowTo.val, t, record,  writeObj);
+							
+							if (flowInputs != null) {
+								inputs.addAll(flowInputs);
+							} else {
+								inputs.add(new WriteSignal());
+							}
+							
+							debugMsg("Flows: " + flowInputs + "->" + flowTo.val, false);
+						} else {
+							debugMsg("No flow: " + val, false);
 						}
 					} else if (f.getType() == long.class) {
 						long val = f.getLong(obj);
 						
 						Taint t = MultiTainter.getTaint(val);
-						HashSet<Object> fInput = interpretSelfDeps(val, t, record, writeObj);
+						HitoLabel flowTo = interpretFlowTo(t, record);
 						
-						if (fInput != null) {
-							inputs.addAll(fInput);
+						if (flowTo != null) {
+							HashSet<Object> flowInputs = interpretSelfDeps(flowTo.val, t, record,  writeObj);
+							
+							if (flowInputs != null) {
+								inputs.addAll(flowInputs);
+							} else {
+								inputs.add(new WriteSignal());
+							}
+							
+							debugMsg("Flows: " + flowInputs + "->" + flowTo.val, false);
+						} else {
+							debugMsg("No flow: " + val, false);
 						}
 					} else if (f.getType() == double.class) {
 						double val = f.getDouble(obj);
 						
 						Taint t = MultiTainter.getTaint(val);
-						HashSet<Object> fInput = interpretSelfDeps(val, t, record, writeObj);
+						HitoLabel flowTo = interpretFlowTo(t, record);
 						
-						if (fInput != null) {
-							inputs.addAll(fInput);
+						if (flowTo != null) {
+							HashSet<Object> flowInputs = interpretSelfDeps(flowTo.val, t, record,  writeObj);
+							
+							if (flowInputs != null) {
+								inputs.addAll(flowInputs);
+							} else {
+								inputs.add(new WriteSignal());
+							}
+							
+							debugMsg("Flows: " + flowInputs + "->" + flowTo.val, false);
+						} else {
+							debugMsg("No flow: " + val, false);
 						}
 					} else {
 						Object val = f.get(obj);
-						HashSet<Object> fInput = interpretObjectDeps(val, depth - 1, record, register, writeObj);
-						if (fInput != null) {
-							inputs.addAll(fInput);
+						Taint t = MultiTainter.getTaint(val);
+						HitoLabel flowTo = interpretFlowTo(t, record);
+						
+						if (flowTo != null) {
+							HashSet<Object> flowInputs = interpretObjectDeps(val, depth - 1, record, register, writeObj);
+							if (flowInputs != null) {
+								inputs.addAll(flowInputs);
+							} else {
+								inputs.add(new WriteSignal());
+							}
+							
+							debugMsg("Flows: " + flowInputs + "->" + flowTo.val, false);
+						} else {
+							debugMsg("No flow: " + val, false);
 						}
 					}
 				}
@@ -984,5 +1083,42 @@ public class HitoTaintChecker {
 		}
 		
 		return inputs;
+	}
+	
+	public static HitoLabel interpretFlowTo(Taint t, IORecord record) {
+		if (record.getId() == - 1) {
+			return null;
+		}
+		
+		if (t == null) {
+			return null;
+		}
+		
+		if (t.lbl == null) {
+			return null;
+		}
+		
+		long execIdx = record.getId();
+		synchronized(t.lbl) {
+			HitoLabel latestLabel = null;
+			ArrayList<HitoLabel> labels = (ArrayList<HitoLabel>)t.lbl;
+			
+			for (HitoLabel lbl: labels) {
+				if (lbl.flowTo >= execIdx) {
+					if (latestLabel == null) {
+						latestLabel = lbl;
+					} else if (lbl.flowTo > latestLabel.flowTo) {
+						latestLabel = lbl;
+					}
+				}
+			} 
+			return latestLabel;
+		}
+		
+		
+	}
+	
+	public static void checker(int val) {
+		System.out.println("Checker: " + MultiTainter.getTaint(val));
 	}
 }
