@@ -126,14 +126,14 @@ public class CloneFilter {
 			//cloneCounter++;
 		}
 		
-		System.out.println("Total clones: " + cloneCounter);
-		/*System.out.println("Check mInC: " + mInC.size());
+		System.out.println("Total clones larger than: " + lineThreshold + " " + cloneCounter);
+		System.out.println("Check mInC: " + mInC.size());
 		int totalLines = 0;
 		for (String m: mInC.keySet()) {
 			int line = mInC.get(m);
 			totalLines += line;
-			System.out.println("Method: " + m);
-			System.out.println("Lines: " + line);
+			//System.out.println("Method: " + m);
+			//System.out.println("Lines: " + line);
 		}
 		double avgLine = ((double)totalLines)/mInC.size();
 		System.out.println("Total lines: " + totalLines);
@@ -143,7 +143,7 @@ public class CloneFilter {
 		for (TreeSet<String> yearKey: clonesCrossYears.keySet()) {
 			System.out.println("Year key: " + yearKey);
 			System.out.println("# Clones: " + Arrays.toString(clonesCrossYears.get(yearKey)));
-		}*/
+		}
 	}
 
 }

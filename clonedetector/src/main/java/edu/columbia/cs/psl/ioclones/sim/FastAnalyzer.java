@@ -96,7 +96,7 @@ public class FastAnalyzer extends AbstractSim {
 		tSet.add(tmp);
 		System.out.println(fa.similarity(cSet, tSet));*/
 		
-		IORecord record = new IORecord("test123", false);
+		/*IORecord record = new IORecord("test123", false);
 		record.registerInput(Integer.valueOf(-1), false);
 		record.registerInput(Long.valueOf(-1), false);
 		record.registerInput(Integer.valueOf(32), false);
@@ -108,7 +108,7 @@ public class FastAnalyzer extends AbstractSim {
 		System.out.println(record.sortedInputs);
 		System.out.println(record.sortedOutputs);
 		int[] d1 = genDeepHash(record.sortedInputs);
-		System.out.println(Arrays.toString(d1));
+		System.out.println(Arrays.toString(d1));*/
 	}
 
 }

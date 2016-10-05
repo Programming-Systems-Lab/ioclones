@@ -156,8 +156,10 @@ public class DynFlowObserver extends MethodVisitor implements Opcodes {
 			this.propagateTaint(arg, false, false);
 		} else if (arg.getSort() == Type.OBJECT || arg.getSort() == Type.ARRAY) {
 			//Seems to be too aggressive
-			//this.mv.visitVarInsn(ALOAD, argIdx);
-			//this.propagateTaint(arg, false, false);
+			if (arg.getSort() == Type.ARRAY) {
+				this.mv.visitVarInsn(ALOAD, argIdx);
+				this.propagateTaint(arg, false, false);
+			}
 			
 			//keep a reference to input obj
 			this.mv.visitVarInsn(ALOAD, this.recordId);

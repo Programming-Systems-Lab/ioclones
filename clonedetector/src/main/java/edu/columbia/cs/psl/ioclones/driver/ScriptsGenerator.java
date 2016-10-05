@@ -113,7 +113,7 @@ public class ScriptsGenerator {
 			sb.append("echo \'Executing " + command + "\'\n");
 			sb.append(command + "\n\n");
 			
-			String normalCommand = "java -cp CloneDetector-0.0.1-SNAPSHOT.jar:" + codebase + " " + c.getClass().getName();
+			String normalCommand = "java -cp CloneDetector-0.0.1-SNAPSHOT.jar:" + codebase + " " + c;
 			normalBuilder.append("echo \'Executing " + command + "\'\n");
 			normalBuilder.append(normalCommand + "\n\n");
 		});
