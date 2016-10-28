@@ -692,7 +692,8 @@ public class IOUtils {
 				
 				totalStmt.execute();
 				ResultSet rs = totalStmt.getGeneratedKeys();
-				rs.next();
+				if(!rs.next())
+					throw new IllegalStateException("Unable to insert comparison data");
 				compKey = rs.getInt(1);
 				logger.info("Comp key: " + compKey);
 			} catch (Exception ex) {
