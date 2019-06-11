@@ -122,6 +122,9 @@ public class ClassInfoUtils {
 	
 	public static String parsePkgName(String className) {
 		int lastDot = className.lastIndexOf(".");
+		if(lastDot == -1){
+			return ""; 
+		}
 		String pkgName = className.substring(0, lastDot);
 		return pkgName;
 	}

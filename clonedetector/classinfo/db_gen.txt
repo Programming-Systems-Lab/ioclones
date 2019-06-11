@@ -11,9 +11,11 @@ CREATE TABLE `hitoshio_summary` (
 CREATE TABLE `hitoshio_row` (
   `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
   `comp_id` int(11) unsigned NOT NULL,
-  `method1` varchar(300) NOT NULL DEFAULT '',
+  `method1` varchar(100) NOT NULL DEFAULT '',
+  `m_class1` varchar(300) NOT NULL DEFAULT '',
   `m_id1` int(11) unsigned NOT NULL,
-  `method2` varchar(300) NOT NULL DEFAULT '',
+  `method2` varchar(100) NOT NULL DEFAULT '',
+  `m_class2` varchar(300) NOT NULL DEFAULT '',
   `m_id2` int(11) unsigned NOT NULL,
   `inSim` double unsigned NOT NULL,
   `outSim` double unsigned NOT NULL,

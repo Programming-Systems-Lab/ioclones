@@ -652,38 +652,38 @@ public class IOUtils {
 				}
 			}
 		}
-		
+
 		StringBuilder sb = new StringBuilder();
 		sb.append(csvHeader);
-		
+
 		String totalQuery = "INSERT INTO hitoshio_summary (codebase, total_ios, comparisons, exec_time, timestamp) VALUES(?, ?, ?, ?, ?)";
 		PreparedStatement totalStmt = null;
-		
-		String query = "INSERT INTO hitoshio_row (comp_id, method1, m_id1, method2, m_id2, inSim, outSim, sim) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+
+		String query = "INSERT INTO hitoshio_row (comp_id, method1, m_class1, m_id1, method2, m_class2, m_id2, inSim, outSim, sim) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 		PreparedStatement stmt = null;
-		
+
 		if (db != null && userName != null && pw != null) {
 			try {
 				Connection conn = getConnection(db, userName, pw);
-				
+
 				if (conn != null) {
 					totalStmt = conn.prepareStatement(totalQuery, Statement.RETURN_GENERATED_KEYS);
 					stmt = conn.prepareStatement(query);
 				} else {
 					logger.error("Fail to get connection...");
 				}
-				
+
 			} catch (Exception ex) {
 				logger.error("Error: ", ex);
 			}
 		}
-		
+
 		int compKey = -1;
 		if (totalStmt != null) {
 			try {
 				Date now = new Date();
 				Timestamp ts = new Timestamp(now.getTime());
-				
+
 				totalStmt.setString(1, codebase);
 				totalStmt.setInt(2, total_ios);
 				totalStmt.setInt(3, comparisons);
@@ -700,9 +700,11 @@ public class IOUtils {
 				logger.error("Error: ", ex);
 			}
 		}
-		
-		int counter = 0;		
+
+		int counter = 0;
 		for (IOSim simObj: simObjs) {
+// 			System.out.println(counter); 
+
 			Entry<String, Integer> firstEntry = simObj.methods.firstEntry();
 			Entry<String, Integer> secondEntry = simObj.methods.lastEntry();
 			sb.append(firstEntry.getKey() + ",");
@@ -716,25 +718,43 @@ public class IOUtils {
 			if (stmt != null) {
 				try {
 					stmt.setInt(1, compKey);
-					String firstKey = firstEntry.getKey();
-					if (firstKey.length() >= 250) {
-						logger.warn("Long first key: " + firstKey);
-						firstKey = firstKey.substring(0, 250);
-						logger.warn("Truncate to: " + firstKey);
+					String[] firstKeys = firstEntry.getKey().split(ClassInfoUtils.DELIM);
+                    String class1Name = firstKeys[0];
+                    String method1Name = firstKeys[1] + firstKeys[2];
+                    logger.debug(class1Name + "." + method1Name);
+					if (class1Name.length() > 300) {
+						logger.warn("Long first qualified class name: " + class1Name);
+						class1Name = class1Name.substring(0, 300);
+						logger.warn("Truncate to: " + class1Name);
 					}
-					stmt.setString(2, firstKey);
-					stmt.setInt(3, firstEntry.getValue());
-					String secondKey = secondEntry.getKey();
-					if (secondKey.length() >= 250) {
-						logger.warn("Long second key: " + secondKey);
-						secondKey = secondKey.substring(0, 250);
-						logger.warn("Truncate to: " + secondKey);
+                    if (method1Name.length() > 100) {
+						logger.warn("Long first qualified class name: " + method1Name);
+						method1Name = method1Name.substring(0, 100);
+						logger.warn("Truncate to: " + method1Name);
 					}
-					stmt.setString(4, secondKey);
-					stmt.setInt(5, secondEntry.getValue());
-					stmt.setDouble(6, simObj.inSim);
-					stmt.setDouble(7, simObj.outSim);
-					stmt.setDouble(8, simObj.sim);
+					stmt.setString(2, method1Name);
+                    stmt.setString(3, class1Name);
+					stmt.setInt(4, firstEntry.getValue());
+					String[] secondKeys = secondEntry.getKey().split(ClassInfoUtils.DELIM);
+					String class2Name = secondKeys[0];
+                    String method2Name = secondKeys[1] + secondKeys[2];
+                    logger.debug(class2Name + "." + method2Name);
+					if (class2Name.length() > 300) {
+						logger.warn("Long second qualified class name: " + class2Name);
+						class2Name = class2Name.substring(0, 300);
+						logger.warn("Truncate to: " + class2Name);
+					}
+                    if (method2Name.length() > 100) {
+						logger.warn("Long second qualified class name: " + method2Name);
+						method2Name = method2Name.substring(0, 100);
+						logger.warn("Truncate to: " + method2Name);
+					}
+					stmt.setString(5, method2Name);
+                    stmt.setString(6, class2Name);
+					stmt.setInt(7, secondEntry.getValue());
+					stmt.setDouble(8, simObj.inSim);
+					stmt.setDouble(9, simObj.outSim);
+					stmt.setDouble(10, simObj.sim);
 					
 					stmt.addBatch();
 				} catch (Exception ex) {
@@ -763,7 +783,8 @@ public class IOUtils {
 			try {
 				Files.write(resultFile.toPath(), sb.toString().getBytes(), StandardOpenOption.APPEND);
 				if (stmt != null) {
-					stmt.executeBatch();
+					int[] rowsAffected = stmt.executeBatch();
+					System.out.println("Rows affected: " + rowsAffected.toString());
 				}
 			} catch (Exception ex) {
 				logger.error("Error: ", ex);
