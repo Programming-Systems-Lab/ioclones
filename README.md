@@ -89,7 +89,7 @@ A new release has been pushed on 6/11/2019, fixing a few issues with the selecti
 
 Questions, concerns, comments
 ----
-Please email [Fang-Hsiang (Mike) Su](mailto:mikefhsu@cs.columbia.edu) with any feedback. This project is still under heavy development, and we have several future plans. Thus we would very much welcome any feedback.
+We would very much welcome any feedback, please add to "issues". 
 
 License
 -------
@@ -105,4 +105,4 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 Acknowledgements
 --------
-The authors of this software are [Fang-Hsiang (Mike) Su](mailto:mikefhsu@cs.columbia.edu), [Jonathan Bell](mailto:jbell@cs.columbia.edu), [Gail Kaiser](mailto:kaiser@cs.columbia.edu) and [Simha Sethumadhavan](mailto:simha@cs.columbia.edu). This work is funded in part by NSF CCF-1302269, CCF-1161079 and NSF CNS-0905246..
+The primary researchers on this project have been [Fang-Hsiang (Mike) Su](mailto:mikefhsu@cs.columbia.edu), [Jonathan Bell](mailto:jbell@cs.columbia.edu), [Gail Kaiser](mailto:kaiser@cs.columbia.edu) and [Simha Sethumadhavan](mailto:simha@cs.columbia.edu). Contact [Gail Kaiser](mailto:kaiser@cs.columbia.edu) with any questions or concerns. The [Programming Systems Lab](http://psl.cs.columbia.edu/) has been funded in part by NSF CNS-1842456, CCF-1815494, CNS-1563555, CCF-1302269, CCF-1161079 and CNS-0905246.
