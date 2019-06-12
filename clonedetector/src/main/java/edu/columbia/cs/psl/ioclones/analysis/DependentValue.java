@@ -9,6 +9,10 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.analysis.BasicValue;
 
+/**
+ * DependentValue extends BasicValue with the ability to store dependencies and InSrc/OutSink instructions. See below
+ * for more details.
+ */
 public class DependentValue extends BasicValue {
 	
 	public static final BasicValue NULL_VALUE = new BasicValue(Type.getType("Lnull;"));
@@ -18,13 +22,13 @@ public class DependentValue extends BasicValue {
 	private boolean flowsToOutput;
 	
 	//public transient DependentValue owner;
-	private transient HashSet<DependentValue> owners;
+	private transient HashSet<DependentValue> owners = new HashSet<DependentValue>();
 	
 	public transient boolean written = false;
 	
 	public transient boolean flown = false;
 	
-	private HashSet<DependentValue> deps;
+	private HashSet<DependentValue> deps = new HashSet<DependentValue>();
 	
 	//public AbstractInsnNode src;
 	
@@ -39,24 +43,31 @@ public class DependentValue extends BasicValue {
 		this.id = ++idCounter;
 	}
 	
-	public void addOwner(DependentValue dv) {
-		if (this.owners == null) {
-			this.owners = new HashSet<DependentValue>();
-		}
-		this.owners.add(dv);
-	}
-	
 	public Set<DependentValue> getOwners() {
 		return this.owners;
 	}
-	
+
+	//used more or less on in the DVI
 	public void addDep(DependentValue d) {
 		if (d != null && this.deps == null)
 			this.deps = new HashSet<DependentValue>();
-		
+
 		this.deps.add(d);
+        
+        // 2-way relationship; make sure for each owner there is a dependent
+        if (d.owners == null) {
+			d.owners = new HashSet<DependentValue>();
+		}
+		d.owners.add(this);
 	}
-	
+
+	/**
+	 * Dependencies are values that have modified/interacted with this DV in some way. E.g., if you IADD x and y to get
+	 * z, z is considered to be dependent on x and y. Dependencies are added to DVs in the DVI. Used for tracing where
+	 * an input/output came from.
+	 *
+	 * @return a set of dependencies
+	 */
 	public HashSet<DependentValue> getDeps() {
 		return this.deps;
 	}
@@ -64,10 +75,16 @@ public class DependentValue extends BasicValue {
 	public void addInSrc(AbstractInsnNode src) {
 		if (this.inSrcs == null)
 			this.inSrcs = new HashSet<AbstractInsnNode>();
-		
+
 		this.inSrcs.add(src);
 	}
-		
+
+	/**
+	 * In sources are instructions that return a variable that is classified as an input. Tend to be loading
+	 * instructions (ILOAD, LLOAD, etc.).
+	 *
+	 * @return collection of in sources
+	 */
 	public Collection<AbstractInsnNode> getInSrcs() {
 		return this.inSrcs;
 	}
@@ -78,7 +95,15 @@ public class DependentValue extends BasicValue {
 		
 		this.outSinks.add(sink);
 	}
-	
+
+	/**
+	 * Out sinks are instructions that return a variable that is classified as an output. E.g. the return statement
+	 * takes a dependent value as an input. This input DV is the return value of another instruction. This other
+	 * instruction is then considered to be an out sink. The classification of what variable counts as an output occurs
+	 * in DependencyAnalyzer.
+	 *
+	 * @return a collection of out sinks
+	 */
 	public Collection<AbstractInsnNode> getOutSinks() {
 		return this.outSinks;
 	}
@@ -111,11 +136,19 @@ public class DependentValue extends BasicValue {
 		}
 	}
 
+	/**
+	 * Performs a breath first traversal of the DV's dependency tree. The dependency tree contains all of the values
+	 * that this DV depends on. These dependencies are all added in the DVI.
+	 *
+	 * @return a linked list of all dependencies of this DV.
+	 */
 	public LinkedList<DependentValue> tag() {
 		LinkedList<DependentValue> ret = new LinkedList<DependentValue>();
+
 		//System.out.println("Current vale: " + this);
 		//System.out.println("Src instruction: " + this.srcs);
 		//System.out.println("Deps: " + this.deps);
+
 		LinkedList<DependentValue> queue = new LinkedList<DependentValue>();
 		HashSet<DependentValue> visited = new HashSet<DependentValue>();
 		queue.add(this);
@@ -132,18 +165,18 @@ public class DependentValue extends BasicValue {
 				}
 			}
 		}
-		
-		/*if (!this.flowsToOutput) {
-			this.flowsToOutput = true;
-			ret.add(this);
-			if (this.deps != null) {
-				for (DependentValue v : this.deps) {
-					if (!v.flowsToOutput) {
-						ret.addAll(v.tag());
-					}
-				}
-			}
-		}*/
+
+// 		if (!this.flowsToOutput) {
+// 			this.flowsToOutput = true;
+// 			ret.add(this);
+// 			if (this.deps != null) {
+// 				for (DependentValue v : this.deps) {
+// 					if (!v.flowsToOutput) {
+// 						ret.addAll(v.tag());
+// 					}
+// 				}
+// 			}
+// 		}
 		return ret;
 	}
 

@@ -65,6 +65,31 @@ public abstract class AbstractSim implements SimAnalyzer {
 			return numerator/normalizer;
 		}
 	};
+
+	/**
+	 * The method returns an expotential model with variable base
+	 * 
+	 * <p>User guide: you can change the base by base value
+	 * 
+	 * @author Zhijian Jiang
+	 */
+	public static final Correlation expo2 = new Correlation() {
+		public double base = Math.E;
+
+		public double cons = 3.0;
+		
+		public double normalizer = Math.pow((1.0 - cons * Math.pow(base, 1)), 2); 
+		
+		public double correlation(double sim1, double sim2) {
+			if (Math.abs(sim1 - 0) < TOLERANCE && Math.abs(sim2 - 0) < TOLERANCE) {
+				return 0;
+			}
+			
+			double numerator = (1 - cons * Math.pow(base, sim1)) * (1 - cons * Math.pow(base, sim2));
+			
+			return numerator/normalizer;
+		}
+	};
 	
 	public static boolean filter(int size1, int size2) {
 		int max = Math.max(size1, size2);
