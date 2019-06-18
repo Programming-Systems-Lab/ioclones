@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.com/Programming-Systems-Lab/ioclones.svg?branch=master)](https://travis-ci.com/Programming-Systems-Lab/ioclones)
+
 # HitoshiIO: Detecting functionally similar code
 
 HitoshiIO is a system for identifying functional similar methods based on their I/Os. Information on how HitoshiIO works can be found in our [ICPC 2016 paper](http://jonbell.net/icpc_16_hitoshiio.pdf).
