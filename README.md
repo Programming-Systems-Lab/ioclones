@@ -48,7 +48,7 @@ HitoshiIO needs a database to store the captured functional clones. We use MySQL
 
 In order to run the command successfully, you must first create two tables in your database:
 
-**[db_gen.txt](https://github.com/Programming-Systems-Lab/hitoshiIO2/blob/master/clonedetector/classinfo/db_gen.txt) exists to help with the creation of these tables, and contains the table schemas for `hitoshio_summary` and `hitoshio_row`.**
+**[db_gen.txt](https://github.com/Programming-Systems-Lab/ioclones/blob/master/clonedetector/classinfo/db_gen.txt) exists to help with the creation of these tables, and contains the table schemas for `hitoshio_summary` and `hitoshio_row`.**
 
 For computing the functional similarity between methods, you can select from the following options:
 
